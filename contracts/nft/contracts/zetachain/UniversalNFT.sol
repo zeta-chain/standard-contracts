@@ -71,9 +71,9 @@ abstract contract UniversalNFT is
         string memory uri = tokenURI(tokenId);
         _burn(tokenId);
 
-        (, uint256 gasFee) = IZRC20(destination).withdrawGasFeeWithGasLimit(
-            gasLimitAmount
-        );
+        (address gasZRC20, uint256 gasFee) = IZRC20(destination)
+            .withdrawGasFeeWithGasLimit(gasLimitAmount);
+        if (destination != gasZRC20) revert InvalidAddress();
         if (
             !IZRC20(destination).transferFrom(msg.sender, address(this), gasFee)
         ) revert TransferFailed();
@@ -143,9 +143,9 @@ abstract contract UniversalNFT is
             _setTokenURI(tokenId, uri);
             emit TokenTransferReceived(receiver, tokenId, uri);
         } else {
-            (, uint256 gasFee) = IZRC20(destination).withdrawGasFeeWithGasLimit(
-                gasLimitAmount
-            );
+            (address gasZRC20, uint256 gasFee) = IZRC20(destination)
+                .withdrawGasFeeWithGasLimit(gasLimitAmount);
+            if (destination != gasZRC20) revert InvalidAddress();
 
             uint256 out = SwapHelperLib.swapExactTokensForTokens(
                 uniswapRouter,

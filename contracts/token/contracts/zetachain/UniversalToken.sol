@@ -65,9 +65,10 @@ abstract contract UniversalToken is
         if (receiver == address(0)) revert InvalidAddress();
         _burn(msg.sender, amount);
 
-        (, uint256 gasFee) = IZRC20(destination).withdrawGasFeeWithGasLimit(
-            gasLimitAmount
-        );
+        (address gasZRC20, uint256 gasFee) = IZRC20(destination)
+            .withdrawGasFeeWithGasLimit(gasLimitAmount);
+        if (destination != gasZRC20) revert InvalidAddress();
+
         if (
             !IZRC20(destination).transferFrom(msg.sender, address(this), gasFee)
         ) revert TransferFailed();
@@ -116,9 +117,9 @@ abstract contract UniversalToken is
         if (destination == address(0)) {
             _mint(receiver, tokenAmount);
         } else {
-            (, uint256 gasFee) = IZRC20(destination).withdrawGasFeeWithGasLimit(
-                gasLimitAmount
-            );
+            (address gasZRC20, uint256 gasFee) = IZRC20(destination)
+                .withdrawGasFeeWithGasLimit(gasLimitAmount);
+            if (destination != gasZRC20) revert InvalidAddress();
             uint256 out = SwapHelperLib.swapExactTokensForTokens(
                 uniswapRouter,
                 zrc20,
