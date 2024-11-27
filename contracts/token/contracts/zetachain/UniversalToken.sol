@@ -21,7 +21,7 @@ abstract contract UniversalToken is
     address public immutable uniswapRouter;
     uint256 private _nextTokenId;
     bool public isUniversal = true;
-    uint256 public immutable gasLimit;
+    uint256 public immutable gasLimitAmount;
 
     error TransferFailed();
     error Unauthorized();
@@ -45,7 +45,7 @@ abstract contract UniversalToken is
         if (gas == 0) revert InvalidGasLimit();
         gateway = GatewayZEVM(gatewayAddress);
         uniswapRouter = uniswapRouterAddress;
-        gasLimit = gas;
+        gasLimitAmount = gas;
     }
 
     function setConnected(
@@ -65,7 +65,7 @@ abstract contract UniversalToken is
         _burn(msg.sender, amount);
 
         (, uint256 gasFee) = IZRC20(destination).withdrawGasFeeWithGasLimit(
-            gasLimit
+            gasLimitAmount
         );
         if (
             !IZRC20(destination).transferFrom(msg.sender, address(this), gasFee)
@@ -73,14 +73,14 @@ abstract contract UniversalToken is
         IZRC20(destination).approve(address(gateway), gasFee);
         bytes memory message = abi.encode(receiver, amount, 0, msg.sender);
 
-        CallOptions memory callOptions = CallOptions(gasLimit, false);
+        CallOptions memory callOptions = CallOptions(gasLimitAmount, false);
 
         RevertOptions memory revertOptions = RevertOptions(
             address(this),
             true,
             address(0),
             abi.encode(amount, msg.sender),
-            gasLimit
+            gasLimitAmount
         );
 
         gateway.call(
@@ -114,7 +114,7 @@ abstract contract UniversalToken is
             _mint(receiver, tokenAmount);
         } else {
             (, uint256 gasFee) = IZRC20(destination).withdrawGasFeeWithGasLimit(
-                gasLimit
+                gasLimitAmount
             );
             uint256 out = SwapHelperLib.swapExactTokensForTokens(
                 uniswapRouter,
@@ -129,7 +129,7 @@ abstract contract UniversalToken is
                 out - gasFee,
                 destination,
                 abi.encode(receiver, tokenAmount, out - gasFee, sender),
-                CallOptions(gasLimit, false),
+                CallOptions(gasLimitAmount, false),
                 RevertOptions(
                     address(this),
                     true,

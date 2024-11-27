@@ -10,7 +10,7 @@ import "../shared/Events.sol";
 abstract contract UniversalToken is ERC20, Ownable2Step, Events {
     GatewayEVM public immutable gateway;
     address public universal;
-    uint256 public immutable gasLimit;
+    uint256 public immutable gasLimitAmount;
 
     error InvalidAddress();
     error Unauthorized();
@@ -30,7 +30,7 @@ abstract contract UniversalToken is ERC20, Ownable2Step, Events {
 
     constructor(address payable gatewayAddress, uint256 gas) {
         if (gatewayAddress == address(0)) revert InvalidAddress();
-        gasLimit = gas;
+        gasLimitAmount = gas;
         gateway = GatewayEVM(gatewayAddress);
     }
 
@@ -67,7 +67,7 @@ abstract contract UniversalToken is ERC20, Ownable2Step, Events {
                     true,
                     address(0),
                     abi.encode(amount, msg.sender),
-                    gasLimit
+                    gasLimitAmount
                 )
             );
         }

@@ -20,7 +20,7 @@ abstract contract UniversalNFT is
     GatewayEVM public immutable gateway;
     uint256 private _nextTokenId;
     address public universal;
-    uint256 public immutable gasLimit;
+    uint256 public immutable gasLimitAmount;
 
     error InvalidAddress();
     error Unauthorized();
@@ -41,7 +41,7 @@ abstract contract UniversalNFT is
     constructor(address payable gatewayAddress, uint256 gas) {
         if (gatewayAddress == address(0)) revert InvalidAddress();
         if (gas == 0) revert InvalidGasLimit();
-        gasLimit = gas;
+        gasLimitAmount = gas;
         gateway = GatewayEVM(gatewayAddress);
     }
 
@@ -90,7 +90,7 @@ abstract contract UniversalNFT is
                     true,
                     address(0),
                     abi.encode(receiver, tokenId, uri, msg.sender),
-                    gasLimit
+                    gasLimitAmount
                 )
             );
         }

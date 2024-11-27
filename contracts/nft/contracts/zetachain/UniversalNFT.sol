@@ -26,7 +26,7 @@ abstract contract UniversalNFT is
     address public immutable uniswapRouter;
     uint256 private _nextTokenId;
     bool public isUniversal = true;
-    uint256 public immutable gasLimit;
+    uint256 public immutable gasLimitAmount;
 
     error TransferFailed();
     error Unauthorized();
@@ -50,7 +50,7 @@ abstract contract UniversalNFT is
         if (gas == 0) revert InvalidGasLimit();
         gateway = GatewayZEVM(gatewayAddress);
         uniswapRouter = uniswapRouterAddress;
-        gasLimit = gas;
+        gasLimitAmount = gas;
     }
 
     function setConnected(
@@ -71,7 +71,7 @@ abstract contract UniversalNFT is
         _burn(tokenId);
 
         (, uint256 gasFee) = IZRC20(destination).withdrawGasFeeWithGasLimit(
-            gasLimit
+            gasLimitAmount
         );
         if (
             !IZRC20(destination).transferFrom(msg.sender, address(this), gasFee)
@@ -85,14 +85,14 @@ abstract contract UniversalNFT is
             msg.sender
         );
 
-        CallOptions memory callOptions = CallOptions(gasLimit, false);
+        CallOptions memory callOptions = CallOptions(gasLimitAmount, false);
 
         RevertOptions memory revertOptions = RevertOptions(
             address(this),
             true,
             address(0),
             abi.encode(tokenId, uri, msg.sender),
-            gasLimit
+            gasLimitAmount
         );
 
         gateway.call(
@@ -141,7 +141,7 @@ abstract contract UniversalNFT is
             emit TokenTransferReceived(receiver, tokenId, uri);
         } else {
             (, uint256 gasFee) = IZRC20(destination).withdrawGasFeeWithGasLimit(
-                gasLimit
+                gasLimitAmount
             );
 
             uint256 out = SwapHelperLib.swapExactTokensForTokens(
@@ -158,7 +158,7 @@ abstract contract UniversalNFT is
                 out - gasFee,
                 destination,
                 abi.encode(receiver, tokenId, uri, out - gasFee, sender),
-                CallOptions(gasLimit, false),
+                CallOptions(gasLimitAmount, false),
                 RevertOptions(
                     address(this),
                     true,
