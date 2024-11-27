@@ -32,6 +32,7 @@ abstract contract UniversalNFT is
     error Unauthorized();
     error InvalidAddress();
     error InvalidGasLimit();
+    error ApproveFailed();
 
     mapping(address => address) public connected;
 
@@ -76,7 +77,9 @@ abstract contract UniversalNFT is
         if (
             !IZRC20(destination).transferFrom(msg.sender, address(this), gasFee)
         ) revert TransferFailed();
-        IZRC20(destination).approve(address(gateway), gasFee);
+        if (!IZRC20(destination).approve(address(gateway), gasFee)) {
+            revert ApproveFailed();
+        }
         bytes memory message = abi.encode(
             receiver,
             tokenId,
@@ -152,7 +155,9 @@ abstract contract UniversalNFT is
                 0
             );
 
-            IZRC20(destination).approve(address(gateway), out);
+            if (!IZRC20(destination).approve(address(gateway), out)) {
+                revert ApproveFailed();
+            }
             gateway.withdrawAndCall(
                 abi.encodePacked(connected[destination]),
                 out - gasFee,
