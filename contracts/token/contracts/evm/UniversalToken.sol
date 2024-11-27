@@ -88,7 +88,7 @@ abstract contract UniversalToken is ERC20, Ownable2Step, Events {
         ) = abi.decode(message, (address, uint256, uint256, address));
         _mint(receiver, amount);
         if (gasAmount > 0) {
-            (bool success, ) = sender.call{value: amount}("");
+            (bool success, ) = payable(sender).call{value: amount}("");
             if (!success) revert GasTokenTransferFailed();
         }
         emit TokenTransferReceived(receiver, amount);
