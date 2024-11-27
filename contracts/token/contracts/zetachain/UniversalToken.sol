@@ -20,7 +20,7 @@ abstract contract UniversalToken is
     GatewayZEVM public immutable gateway;
     address public immutable uniswapRouter;
     uint256 private _nextTokenId;
-    bool public isUniversal = true;
+    bool public constant isUniversal = true;
     uint256 public immutable gasLimitAmount;
 
     error TransferFailed();
