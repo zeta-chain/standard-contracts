@@ -115,6 +115,7 @@ abstract contract UniversalNFT is
         _safeMint(receiver, tokenId);
         _setTokenURI(tokenId, uri);
         if (gasAmount > 0) {
+            if (sender == address(0)) revert InvalidAddress();
             (bool success, ) = payable(sender).call{value: gasAmount}("");
             if (!success) revert GasTokenTransferFailed();
         }
