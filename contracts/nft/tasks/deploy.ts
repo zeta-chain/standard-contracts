@@ -13,17 +13,18 @@ const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
 
   const factory: any = await hre.ethers.getContractFactory(args.name);
 
-  const contract = await factory.deploy(
-    args.gateway,
-    signer.address,
-    args.tokenName,
-    args.tokenSymbol,
-    args.gasLimit,
-    ...(args.uniswapRouter ? [args.uniswapRouter] : []),
-    {
-      gasPrice: args.deployGasPrice,
-    }
-  );
+  const contract = await factory
+    .deploy
+    // args.gateway,
+    // signer.address,
+    // args.tokenName,
+    // args.tokenSymbol,
+    // args.gasLimit,
+    // ...(args.uniswapRouter ? [args.uniswapRouter] : []),
+    // {
+    //   gasPrice: args.deployGasPrice,
+    // }
+    ();
 
   await contract.deployed();
 
@@ -51,7 +52,7 @@ task("deploy", "Deploy the NFT contract", main)
   .addOptionalParam(
     "gasLimit",
     "Gas limit for the transaction",
-    1000000,
+    10000000,
     types.int
   )
   .addOptionalParam(

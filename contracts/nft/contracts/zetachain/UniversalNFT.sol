@@ -1,32 +1,36 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
-import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
-import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
-import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Burnable.sol";
-import "@openzeppelin/contracts/access/Ownable2Step.sol";
 import {RevertContext, RevertOptions} from "@zetachain/protocol-contracts/contracts/Revert.sol";
 import "@zetachain/protocol-contracts/contracts/zevm/interfaces/UniversalContract.sol";
 import "@zetachain/protocol-contracts/contracts/zevm/interfaces/IGatewayZEVM.sol";
 import "@zetachain/protocol-contracts/contracts/zevm/GatewayZEVM.sol";
 import {SwapHelperLib} from "@zetachain/toolkit/contracts/SwapHelperLib.sol";
 import {SystemContract} from "@zetachain/toolkit/contracts/SystemContract.sol";
+import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import {ERC721Upgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC721/ERC721Upgradeable.sol";
+import {ERC721EnumerableUpgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC721/extensions/ERC721EnumerableUpgradeable.sol";
+import {ERC721URIStorageUpgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC721/extensions/ERC721URIStorageUpgradeable.sol";
+import {ERC721BurnableUpgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC721/extensions/ERC721BurnableUpgradeable.sol";
+import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+
 import "../shared/Events.sol";
 
-abstract contract UniversalNFT is
-    ERC721,
-    ERC721Enumerable,
-    ERC721URIStorage,
-    Ownable2Step,
+contract UniversalNFT is
+    Initializable,
+    ERC721Upgradeable,
+    ERC721EnumerableUpgradeable,
+    ERC721URIStorageUpgradeable,
+    ERC721BurnableUpgradeable,
+    OwnableUpgradeable,
     UniversalContract,
     Events
 {
-    GatewayZEVM public immutable gateway;
-    address public immutable uniswapRouter;
+    GatewayZEVM public gateway;
+    address public uniswapRouter;
     uint256 private _nextTokenId;
     bool public constant isUniversal = true;
-    uint256 public immutable gasLimitAmount;
+    uint256 public gasLimitAmount;
 
     error TransferFailed();
     error Unauthorized();
@@ -41,11 +45,24 @@ abstract contract UniversalNFT is
         _;
     }
 
-    constructor(
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
+    function initialize(
+        address initialOwner,
+        string memory name,
+        string memory symbol,
         address payable gatewayAddress,
         uint256 gas,
         address uniswapRouterAddress
-    ) {
+    ) public initializer {
+        __ERC721_init(name, symbol);
+        __ERC721Enumerable_init();
+        __ERC721URIStorage_init();
+        __ERC721Burnable_init();
+        __Ownable_init(initialOwner);
         if (gatewayAddress == address(0) || uniswapRouterAddress == address(0))
             revert InvalidAddress();
         if (gas == 0) revert InvalidGasLimit();
@@ -193,20 +210,29 @@ abstract contract UniversalNFT is
         address to,
         uint256 tokenId,
         address auth
-    ) internal override(ERC721, ERC721Enumerable) returns (address) {
+    )
+        internal
+        override(ERC721Upgradeable, ERC721EnumerableUpgradeable)
+        returns (address)
+    {
         return super._update(to, tokenId, auth);
     }
 
     function _increaseBalance(
         address account,
         uint128 value
-    ) internal override(ERC721, ERC721Enumerable) {
+    ) internal override(ERC721Upgradeable, ERC721EnumerableUpgradeable) {
         super._increaseBalance(account, value);
     }
 
     function tokenURI(
         uint256 tokenId
-    ) public view override(ERC721, ERC721URIStorage) returns (string memory) {
+    )
+        public
+        view
+        override(ERC721Upgradeable, ERC721URIStorageUpgradeable)
+        returns (string memory)
+    {
         return super.tokenURI(tokenId);
     }
 
@@ -215,7 +241,11 @@ abstract contract UniversalNFT is
     )
         public
         view
-        override(ERC721, ERC721Enumerable, ERC721URIStorage)
+        override(
+            ERC721Upgradeable,
+            ERC721EnumerableUpgradeable,
+            ERC721URIStorageUpgradeable
+        )
         returns (bool)
     {
         return super.supportsInterface(interfaceId);

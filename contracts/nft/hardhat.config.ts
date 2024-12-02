@@ -1,7 +1,7 @@
 import "./tasks/deploy";
-import "./tasks/deploy";
 import "./tasks/mint";
 import "./tasks/transfer";
+import "./tasks/initialize";
 import "./tasks/universalSetConnected";
 import "./tasks/connectedSetUniversal";
 import "@zetachain/localnet/tasks";
@@ -15,7 +15,15 @@ const config: HardhatUserConfig = {
   networks: {
     ...getHardhatConfigNetworks(),
   },
-  solidity: "0.8.26",
+  solidity: {
+    version: "0.8.26",
+    settings: {
+      optimizer: {
+        enabled: true,
+        runs: 200,
+      },
+    },
+  },
 };
 
 export default config;
