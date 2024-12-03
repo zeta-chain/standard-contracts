@@ -11,6 +11,9 @@ import "@zetachain/toolkit/tasks";
 import { getHardhatConfigNetworks } from "@zetachain/networks";
 import { HardhatUserConfig } from "hardhat/config";
 
+import "@nomiclabs/hardhat-ethers";
+import "@openzeppelin/hardhat-upgrades";
+
 const config: HardhatUserConfig = {
   networks: {
     ...getHardhatConfigNetworks(),
