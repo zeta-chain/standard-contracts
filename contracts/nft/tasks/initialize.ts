@@ -11,41 +11,36 @@ const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
     );
   }
 
-  const factory: any = await hre.ethers.getContractFactory(args.name);
+  const contract: any = await hre.ethers.getContractAt(
+    args.name,
+    args.contract
+  );
 
-  const contract = await hre.upgrades.deployProxy(factory, [
+  const tx = await contract.initialize(
     signer.address,
-    args.tokenName,
-    args.tokenSymbol,
-    args.gateway,
-    args.gasLimit,
-    ...(args.uniswapRouter ? [args.uniswapRouter] : []),
-  ]);
+    // args.tokenName,
+    // args.tokenSymbol,
+    // args.gateway,
+    // args.gasLimit,
+    // ...(args.uniswapRouter ? [args.uniswapRouter] : []),
+    {
+      gasLimit: args.initializeGasLimit,
+    }
+  );
 
-  if (args.json) {
-    console.log(
-      JSON.stringify({
-        contractAddress: contract.target,
-        deployer: signer.address,
-        network: network,
-      })
-    );
-  } else {
-    console.log(`🚀 Successfully deployed "${args.name}" contract on ${network}.
-📜 Contract address: ${contract.target}
-`);
-  }
+  await tx.wait();
 };
 
-task("deploy", "Deploy the NFT contract", main)
+task("initialize", "Initialize the NFT contract", main)
+  .addOptionalParam("name", "The contract name to deploy", "Universal")
   .addFlag("json", "Output the result in JSON format")
+  .addParam("contract", "The address of the deployed contract")
   .addOptionalParam("tokenName", "NFT name", "Universal NFT")
   .addOptionalParam("tokenSymbol", "NFT symbol", "UNFT")
-  .addOptionalParam("name", "The contract name to deploy", "Universal")
   .addOptionalParam(
     "gasLimit",
     "Gas limit for the transaction",
-    10000000,
+    1000000,
     types.int
   )
   .addOptionalParam(
@@ -54,8 +49,9 @@ task("deploy", "Deploy the NFT contract", main)
     "0x6c533f7fe93fae114d0954697069df33c9b74fd7"
   )
   .addOptionalParam(
-    "deployGasPrice",
-    "Gas price for deploy transaction",
-    "10000000000"
+    "initializeGasLimit",
+    "Gas limit for initialize transaction",
+    10000000,
+    types.int
   )
   .addOptionalParam("uniswapRouter", "Uniswap v2 Router address");
