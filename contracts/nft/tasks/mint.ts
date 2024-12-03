@@ -19,12 +19,19 @@ const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
   const tx = await contract.safeMint(recipient, args.tokenUri);
   const receipt = await tx.wait();
 
-  console.log(receipt);
+  // Decode logs using contract interface
+  const transferEvent = receipt.logs
+    .map((log: any) => {
+      try {
+        return contract.interface.parseLog(log);
+      } catch {
+        return null;
+      }
+    })
+    .find((parsedLog: any) => parsedLog?.name === "Transfer");
 
-  const transferEvent = receipt.events?.find(
-    (event: any) => event.event === "Mint"
-  );
-  const tokenId = transferEvent?.args?.tokenId;
+  const tokenId = transferEvent?.args?.tokenId?.toString();
+
   if (args.json) {
     console.log(
       JSON.stringify({
@@ -32,14 +39,15 @@ const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
         mintTransactionHash: tx.hash,
         recipient: recipient,
         tokenURI: args.tokenUri,
-        tokenId: tokenId?.toString(),
+        tokenId: tokenId,
       })
     );
   } else {
     console.log(`🚀 Successfully minted NFT.
 📜 Contract address: ${args.contract}
 👤 Recipient: ${recipient}
-🆔 Token ID: ${tokenId?.toString()}
+🆔 Token ID: ${tokenId}
+🔗 Metadata URI: ${metadataUri}
 🔗 Transaction hash: ${tx.hash}`);
   }
 };

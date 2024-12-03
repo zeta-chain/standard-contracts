@@ -126,8 +126,6 @@ contract UniversalNFT is
         emit TokenTransfer(receiver, destination, tokenId, uri);
     }
 
-    event Mint(address to, uint256 tokenId, string uri);
-
     function safeMint(address to, string memory uri) public onlyOwner {
         uint256 hash = uint256(
             keccak256(
@@ -139,7 +137,6 @@ contract UniversalNFT is
 
         _safeMint(to, tokenId);
         _setTokenURI(tokenId, uri);
-        emit Mint(to, tokenId, uri);
     }
 
     function onCall(

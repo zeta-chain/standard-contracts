@@ -53,17 +53,17 @@ npx hardhat universal-set-connected --network localhost --contract "$CONTRACT_ZE
 npx hardhat localnet-check
 balance
 
-NFT_ID=$(npx hardhat mint --network localhost --json --contract "$CONTRACT_ZETACHAIN" --token-uri https://example.com/nft/metadata/1)
+NFT_ID=$(npx hardhat mint --network localhost --json --contract "$CONTRACT_ZETACHAIN" --token-uri https://example.com/nft/metadata/1 | jq -r '.tokenId')
 echo -e "\nMinted NFT with ID: $NFT_ID on ZetaChain."
 
 npx hardhat localnet-check
 balance
 
-# echo -e "\nTransferring NFT: ZetaChain → Ethereum..."
-# npx hardhat transfer --network localhost --json --token-id "$NFT_ID" --from "$CONTRACT_ZETACHAIN" --to "$ZRC20_ETHEREUM"
+echo -e "\nTransferring NFT: ZetaChain → Ethereum..."
+npx hardhat transfer --network localhost --json --token-id "$NFT_ID" --from "$CONTRACT_ZETACHAIN" --to "$ZRC20_ETHEREUM" --gas-amount 0.1
 
-# npx hardhat localnet-check
-# balance
+npx hardhat localnet-check
+balance
 
 # echo -e "\nTransferring NFT: Ethereum → BNB..."
 # npx hardhat transfer --network localhost --json --token-id "$NFT_ID" --from "$CONTRACT_ETHEREUM" --to "$ZRC20_BNB" --gas-amount 0.1

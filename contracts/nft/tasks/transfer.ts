@@ -30,13 +30,11 @@ const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
     contract = await ethers.getContractAt("Connected", args.from);
   }
 
-  const gasAmount = ethers.utils.parseUnits(args.gasAmount, 18);
+  // const gasAmount = ethers.utils.parseUnits(args.gasAmount, 18);
 
   const receiver = args.receiver || signer.address;
 
-  tx = await contract.transferCrossChain(args.tokenId, receiver, args.to, {
-    value: gasAmount,
-  });
+  tx = await contract.transferCrossChain(args.tokenId, receiver, args.to);
 
   await tx.wait();
   if (args.json) {
