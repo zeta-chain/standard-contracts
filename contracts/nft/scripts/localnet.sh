@@ -27,7 +27,7 @@ GATEWAY_BNB=$(jq -r '.addresses[] | select(.type=="gatewayEVM" and .chain=="bnb"
 UNISWAP_ROUTER=$(jq -r '.addresses[] | select(.type=="uniswapRouterInstance" and .chain=="zetachain") | .address' localnet.json)
 SENDER=0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
 
-CONTRACT_ZETACHAIN=$(npx hardhat deploy --network localhost --name contracts/zetachain/UniversalNFT.sol:UniversalNFT --json | jq -r '.contractAddress')
+CONTRACT_ZETACHAIN=$(npx hardhat deploy --network localhost --name Universal --json | jq -r '.contractAddress')
 echo -e "\n🚀 Deployed NFT contract on ZetaChain: $CONTRACT_ZETACHAIN"
 
 CONTRACT_ETHEREUM=$(npx hardhat deploy --name Connected --json --network localhost --gateway "$GATEWAY_ETHEREUM" | jq -r '.contractAddress')
@@ -38,7 +38,7 @@ echo -e "🚀 Deployed NFT contract on BNB chain: $CONTRACT_BNB"
 
 echo -e "\n📮 User Address: $SENDER"
 
-npx hardhat initialize --network localhost --name contracts/zetachain/UniversalNFT.sol:UniversalNFT --contract "$CONTRACT_ZETACHAIN" --gateway "$GATEWAY_ZETACHAIN" --uniswap-router "$UNISWAP_ROUTER" --json
+npx hardhat initialize --network localhost --name Universal --contract "$CONTRACT_ZETACHAIN" --gateway "$GATEWAY_ZETACHAIN" --uniswap-router "$UNISWAP_ROUTER" --json
 # npx hardhat initialize --network localhost --name Connected --contract "$CONTRACT_ETHEREUM" --gateway "$GATEWAY_ZETACHAIN" --json
 # npx hardhat initialize --network localhost --name Connected --contract "$CONTRACT_BNB" --gateway "$GATEWAY_ZETACHAIN" --json
 

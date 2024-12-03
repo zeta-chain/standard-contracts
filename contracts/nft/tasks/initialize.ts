@@ -18,11 +18,11 @@ const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
 
   const tx = await contract.initialize(
     signer.address,
-    args.tokenName,
-    args.tokenSymbol,
-    args.gateway,
-    args.gasLimit,
-    ...(args.uniswapRouter ? [args.uniswapRouter] : []),
+    // args.tokenName,
+    // args.tokenSymbol,
+    // args.gateway,
+    // args.gasLimit,
+    // ...(args.uniswapRouter ? [args.uniswapRouter] : []),
     {
       gasLimit: args.initializeGasLimit,
     }
