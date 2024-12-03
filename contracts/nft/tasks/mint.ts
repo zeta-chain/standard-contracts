@@ -19,11 +19,12 @@ const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
   const tx = await contract.safeMint(recipient, args.tokenUri);
   const receipt = await tx.wait();
 
+  console.log(receipt);
+
   const transferEvent = receipt.events?.find(
-    (event: any) => event.event === "Transfer"
+    (event: any) => event.event === "Mint"
   );
   const tokenId = transferEvent?.args?.tokenId;
-
   if (args.json) {
     console.log(
       JSON.stringify({

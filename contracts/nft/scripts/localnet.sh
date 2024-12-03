@@ -32,32 +32,32 @@ SENDER=0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
 CONTRACT_ZETACHAIN=$(npx hardhat deploy --network localhost --name Universal --gateway "$GATEWAY_ZETACHAIN" --uniswap-router "$UNISWAP_ROUTER" --json | jq -r '.contractAddress')
 echo -e "\n🚀 Deployed NFT contract on ZetaChain: $CONTRACT_ZETACHAIN"
 
-# CONTRACT_ETHEREUM=$(npx hardhat deploy --name Connected --json --network localhost --gateway "$GATEWAY_ETHEREUM" | jq -r '.contractAddress')
-# echo -e "🚀 Deployed NFT contract on Ethereum: $CONTRACT_ETHEREUM"
+CONTRACT_ETHEREUM=$(npx hardhat deploy --name Connected --json --network localhost --gateway "$GATEWAY_ETHEREUM" | jq -r '.contractAddress')
+echo -e "🚀 Deployed NFT contract on Ethereum: $CONTRACT_ETHEREUM"
 
-# CONTRACT_BNB=$(npx hardhat deploy --name Connected --json --network localhost --gas-limit 1000000 --gateway "$GATEWAY_BNB" | jq -r '.contractAddress')
-# echo -e "🚀 Deployed NFT contract on BNB chain: $CONTRACT_BNB"
+CONTRACT_BNB=$(npx hardhat deploy --name Connected --json --network localhost --gas-limit 1000000 --gateway "$GATEWAY_BNB" | jq -r '.contractAddress')
+echo -e "🚀 Deployed NFT contract on BNB chain: $CONTRACT_BNB"
 
-# echo -e "\n📮 User Address: $SENDER"
+echo -e "\n📮 User Address: $SENDER"
 
 # npx hardhat initialize --network localhost --name Universal --contract "$CONTRACT_ZETACHAIN" --gateway "$GATEWAY_ZETACHAIN" --uniswap-router "$UNISWAP_ROUTER" --json
 # npx hardhat initialize --network localhost --name Connected --contract "$CONTRACT_ETHEREUM" --gateway "$GATEWAY_ZETACHAIN" --json
 # npx hardhat initialize --network localhost --name Connected --contract "$CONTRACT_BNB" --gateway "$GATEWAY_ZETACHAIN" --json
 
-# echo -e "\n🔗 Setting universal and connected contracts..."
-# npx hardhat connected-set-universal --network localhost --contract "$CONTRACT_ETHEREUM" --universal "$CONTRACT_ZETACHAIN" --json &>/dev/null
-# npx hardhat connected-set-universal --network localhost --contract "$CONTRACT_BNB" --universal "$CONTRACT_ZETACHAIN" --json &>/dev/null
-# npx hardhat universal-set-connected --network localhost --contract "$CONTRACT_ZETACHAIN" --connected "$CONTRACT_ETHEREUM" --zrc20 "$ZRC20_ETHEREUM" --json &>/dev/null
-# npx hardhat universal-set-connected --network localhost --contract "$CONTRACT_ZETACHAIN" --connected "$CONTRACT_BNB" --zrc20 "$ZRC20_BNB" --json &>/dev/null
+echo -e "\n🔗 Setting universal and connected contracts..."
+npx hardhat connected-set-universal --network localhost --contract "$CONTRACT_ETHEREUM" --universal "$CONTRACT_ZETACHAIN" --json
+npx hardhat connected-set-universal --network localhost --contract "$CONTRACT_BNB" --universal "$CONTRACT_ZETACHAIN" --json &>/dev/null
+npx hardhat universal-set-connected --network localhost --contract "$CONTRACT_ZETACHAIN" --connected "$CONTRACT_ETHEREUM" --zrc20 "$ZRC20_ETHEREUM" --json &>/dev/null
+npx hardhat universal-set-connected --network localhost --contract "$CONTRACT_ZETACHAIN" --connected "$CONTRACT_BNB" --zrc20 "$ZRC20_BNB" --json &>/dev/null
 
-# npx hardhat localnet-check
-# balance
+npx hardhat localnet-check
+balance
 
-# NFT_ID=$(npx hardhat mint --network localhost --json --contract "$CONTRACT_ZETACHAIN" --token-uri https://example.com/nft/metadata/1 | jq -r '.tokenId')
-# echo -e "\nMinted NFT with ID: $NFT_ID on ZetaChain."
+NFT_ID=$(npx hardhat mint --network localhost --json --contract "$CONTRACT_ZETACHAIN" --token-uri https://example.com/nft/metadata/1)
+echo -e "\nMinted NFT with ID: $NFT_ID on ZetaChain."
 
-# npx hardhat localnet-check
-# balance
+npx hardhat localnet-check
+balance
 
 # echo -e "\nTransferring NFT: ZetaChain → Ethereum..."
 # npx hardhat transfer --network localhost --json --token-id "$NFT_ID" --from "$CONTRACT_ZETACHAIN" --to "$ZRC20_ETHEREUM"
