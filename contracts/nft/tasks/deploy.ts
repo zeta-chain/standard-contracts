@@ -25,7 +25,7 @@ const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
   if (args.json) {
     console.log(
       JSON.stringify({
-        contractAddress: contract.target,
+        contractAddress: contract.address,
         deployer: signer.address,
         network: network,
       })

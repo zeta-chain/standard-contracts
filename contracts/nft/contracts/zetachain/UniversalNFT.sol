@@ -13,6 +13,7 @@ import {ERC721EnumerableUpgradeable} from "@openzeppelin/contracts-upgradeable/t
 import {ERC721URIStorageUpgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC721/extensions/ERC721URIStorageUpgradeable.sol";
 import {ERC721BurnableUpgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC721/extensions/ERC721BurnableUpgradeable.sol";
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
 import "../shared/Events.sol";
 
@@ -24,6 +25,7 @@ contract UniversalNFT is
     ERC721BurnableUpgradeable,
     OwnableUpgradeable,
     UniversalContract,
+    UUPSUpgradeable,
     Events
 {
     GatewayZEVM public gateway;
@@ -63,6 +65,7 @@ contract UniversalNFT is
         __ERC721URIStorage_init();
         __ERC721Burnable_init();
         __Ownable_init(initialOwner);
+        __UUPSUpgradeable_init();
         if (gatewayAddress == address(0) || uniswapRouterAddress == address(0))
             revert InvalidAddress();
         if (gas == 0) revert InvalidGasLimit();
@@ -93,7 +96,7 @@ contract UniversalNFT is
         if (destination != gasZRC20) revert InvalidAddress();
         if (
             !IZRC20(destination).transferFrom(msg.sender, address(this), gasFee)
-        ) revert TransferFailed();
+        ) revert TransferFailed(); // failing here
         if (!IZRC20(destination).approve(address(gateway), gasFee)) {
             revert ApproveFailed();
         }
@@ -250,4 +253,8 @@ contract UniversalNFT is
     {
         return super.supportsInterface(interfaceId);
     }
+
+    function _authorizeUpgrade(
+        address newImplementation
+    ) internal override onlyOwner {}
 }

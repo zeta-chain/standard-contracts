@@ -21,7 +21,8 @@ const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
   try {
     contract = await ethers.getContractAt("Universal", args.from);
     await (contract as any).isUniversal();
-    const gasLimit = hre.ethers.BigNumber.from(args.txOptionsGasLimit);
+    const gasLimitAmount = await (contract as any).gasLimitAmount();
+    const gasLimit = hre.ethers.BigNumber.from(gasLimitAmount);
     const zrc20 = new ethers.Contract(args.to, ZRC20ABI.abi, signer);
     const [, gasFee] = await zrc20.withdrawGasFeeWithGasLimit(gasLimit);
     const zrc20TransferTx = await zrc20.approve(args.from, gasFee, txOptions);
@@ -30,11 +31,13 @@ const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
     contract = await ethers.getContractAt("Connected", args.from);
   }
 
-  // const gasAmount = ethers.utils.parseUnits(args.gasAmount, 18);
+  const gasAmount = ethers.utils.parseUnits(args.gasAmount, 18);
 
   const receiver = args.receiver || signer.address;
 
-  tx = await contract.transferCrossChain(args.tokenId, receiver, args.to);
+  tx = await contract.transferCrossChain(args.tokenId, receiver, args.to, {
+    value: gasAmount,
+  });
 
   await tx.wait();
   if (args.json) {
@@ -68,7 +71,7 @@ task("transfer", "Transfer and lock an NFT", main)
   .addOptionalParam(
     "txOptionsGasLimit",
     "The gas limit for the transaction",
-    7000000,
+    10000000,
     types.int
   )
   .addFlag("callOnRevert", "Whether to call on revert")

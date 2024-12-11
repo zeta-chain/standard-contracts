@@ -29,20 +29,16 @@ GATEWAY_BNB=$(jq -r '.addresses[] | select(.type=="gatewayEVM" and .chain=="bnb"
 UNISWAP_ROUTER=$(jq -r '.addresses[] | select(.type=="uniswapRouterInstance" and .chain=="zetachain") | .address' localnet.json)
 SENDER=0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
 
-CONTRACT_ZETACHAIN=$(npx hardhat deploy --network localhost --name Universal --gateway "$GATEWAY_ZETACHAIN" --uniswap-router "$UNISWAP_ROUTER" --json | jq -r '.contractAddress')
+CONTRACT_ZETACHAIN=$(npx hardhat deploy --network localhost --name ./contracts/zetachain/UniversalNFT.sol:UniversalNFT --gateway "$GATEWAY_ZETACHAIN" --uniswap-router "$UNISWAP_ROUTER" --json | jq -r '.contractAddress')
 echo -e "\n🚀 Deployed NFT contract on ZetaChain: $CONTRACT_ZETACHAIN"
 
-CONTRACT_ETHEREUM=$(npx hardhat deploy --name Connected --json --network localhost --gateway "$GATEWAY_ETHEREUM" | jq -r '.contractAddress')
+CONTRACT_ETHEREUM=$(npx hardhat deploy --name ./contracts/evm/UniversalNFT.sol:UniversalNFT --json --network localhost --gateway "$GATEWAY_ETHEREUM" | jq -r '.contractAddress')
 echo -e "🚀 Deployed NFT contract on Ethereum: $CONTRACT_ETHEREUM"
 
-CONTRACT_BNB=$(npx hardhat deploy --name Connected --json --network localhost --gas-limit 1000000 --gateway "$GATEWAY_BNB" | jq -r '.contractAddress')
+CONTRACT_BNB=$(npx hardhat deploy --name ./contracts/evm/UniversalNFT.sol:UniversalNFT --json --network localhost --gas-limit 1000000 --gateway "$GATEWAY_BNB" | jq -r '.contractAddress')
 echo -e "🚀 Deployed NFT contract on BNB chain: $CONTRACT_BNB"
 
 echo -e "\n📮 User Address: $SENDER"
-
-# npx hardhat initialize --network localhost --name Universal --contract "$CONTRACT_ZETACHAIN" --gateway "$GATEWAY_ZETACHAIN" --uniswap-router "$UNISWAP_ROUTER" --json
-# npx hardhat initialize --network localhost --name Connected --contract "$CONTRACT_ETHEREUM" --gateway "$GATEWAY_ZETACHAIN" --json
-# npx hardhat initialize --network localhost --name Connected --contract "$CONTRACT_BNB" --gateway "$GATEWAY_ZETACHAIN" --json
 
 echo -e "\n🔗 Setting universal and connected contracts..."
 npx hardhat connected-set-universal --network localhost --contract "$CONTRACT_ETHEREUM" --universal "$CONTRACT_ZETACHAIN" --json
@@ -60,21 +56,21 @@ npx hardhat localnet-check
 balance
 
 echo -e "\nTransferring NFT: ZetaChain → Ethereum..."
-npx hardhat transfer --network localhost --json --token-id "$NFT_ID" --from "$CONTRACT_ZETACHAIN" --to "$ZRC20_ETHEREUM" --gas-amount 0.1
+npx hardhat transfer --network localhost --json --token-id "$NFT_ID" --from "$CONTRACT_ZETACHAIN" --to "$ZRC20_ETHEREUM"
 
 npx hardhat localnet-check
 balance
 
-# echo -e "\nTransferring NFT: Ethereum → BNB..."
-# npx hardhat transfer --network localhost --json --token-id "$NFT_ID" --from "$CONTRACT_ETHEREUM" --to "$ZRC20_BNB" --gas-amount 0.1
+echo -e "\nTransferring NFT: Ethereum → BNB..."
+npx hardhat transfer --network localhost --json --token-id "$NFT_ID" --from "$CONTRACT_ETHEREUM" --to "$ZRC20_BNB" --gas-amount 0.1
 
-# npx hardhat localnet-check
-# balance
+npx hardhat localnet-check
+balance
 
-# echo -e "\nTransferring NFT: BNB → ZetaChain..."
-# npx hardhat transfer --network localhost --json --token-id "$NFT_ID" --from "$CONTRACT_BNB"
+echo -e "\nTransferring NFT: BNB → ZetaChain..."
+npx hardhat transfer --network localhost --json --token-id "$NFT_ID" --from "$CONTRACT_BNB"
 
-# npx hardhat localnet-check
-# balance
+npx hardhat localnet-check
+balance
 
 if [ "$1" = "start" ]; then npx hardhat localnet-stop; fi
