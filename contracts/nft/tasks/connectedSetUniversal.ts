@@ -15,7 +15,9 @@ const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
     args.contract
   );
 
-  const tx = await contract.setUniversal(args.universal);
+  const tx = await contract.setUniversal(args.universal, {
+    gasLimit: 1000000,
+  });
   const receipt = await tx.wait();
 
   if (args.json) {
