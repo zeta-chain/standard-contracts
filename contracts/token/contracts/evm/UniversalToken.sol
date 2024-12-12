@@ -1,16 +1,25 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import "@openzeppelin/contracts/access/Ownable2Step.sol";
 import "@zetachain/protocol-contracts/contracts/evm/GatewayEVM.sol";
 import {RevertContext} from "@zetachain/protocol-contracts/contracts/Revert.sol";
+import {ERC20Upgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
+import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+
 import "../shared/Events.sol";
 
-abstract contract UniversalToken is ERC20, Ownable2Step, Events {
-    GatewayEVM public immutable gateway;
+contract UniversalToken is
+    Initializable,
+    ERC20Upgradeable,
+    OwnableUpgradeable,
+    UUPSUpgradeable,
+    Events
+{
+    GatewayEVM public gateway;
     address public universal;
-    uint256 public immutable gasLimitAmount;
+    uint256 public gasLimitAmount;
 
     error InvalidAddress();
     error Unauthorized();
@@ -22,16 +31,30 @@ abstract contract UniversalToken is ERC20, Ownable2Step, Events {
         _;
     }
 
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
+    function initialize(
+        address initialOwner,
+        string memory name,
+        string memory symbol,
+        address payable gatewayAddress,
+        uint256 gas
+    ) public initializer {
+        __ERC20_init(name, symbol);
+        __Ownable_init(initialOwner);
+        __UUPSUpgradeable_init();
+        if (gatewayAddress == address(0)) revert InvalidAddress();
+        gasLimitAmount = gas;
+        gateway = GatewayEVM(gatewayAddress);
+    }
+
     function setUniversal(address contractAddress) external onlyOwner {
         if (contractAddress == address(0)) revert InvalidAddress();
         universal = contractAddress;
         emit SetUniversal(contractAddress);
-    }
-
-    constructor(address payable gatewayAddress, uint256 gas) {
-        if (gatewayAddress == address(0)) revert InvalidAddress();
-        gasLimitAmount = gas;
-        gateway = GatewayEVM(gatewayAddress);
     }
 
     function mint(address to, uint256 amount) public onlyOwner {
@@ -108,4 +131,8 @@ abstract contract UniversalToken is ERC20, Ownable2Step, Events {
     receive() external payable {}
 
     fallback() external payable {}
+
+    function _authorizeUpgrade(
+        address newImplementation
+    ) internal override onlyOwner {}
 }
