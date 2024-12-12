@@ -1,7 +1,6 @@
 import "./tasks/deploy";
 import "./tasks/mint";
 import "./tasks/transfer";
-import "./tasks/initialize";
 import "./tasks/universalSetConnected";
 import "./tasks/connectedSetUniversal";
 import "@zetachain/localnet/tasks";
