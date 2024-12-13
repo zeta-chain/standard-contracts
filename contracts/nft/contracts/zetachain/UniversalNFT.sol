@@ -96,7 +96,7 @@ contract UniversalNFT is
         if (destination != gasZRC20) revert InvalidAddress();
         if (
             !IZRC20(destination).transferFrom(msg.sender, address(this), gasFee)
-        ) revert TransferFailed(); // failing here
+        ) revert TransferFailed();
         if (!IZRC20(destination).approve(address(gateway), gasFee)) {
             revert ApproveFailed();
         }
