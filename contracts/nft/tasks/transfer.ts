@@ -19,7 +19,7 @@ const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
 
   let contract;
   try {
-    contract = await ethers.getContractAt("Universal", args.from);
+    contract = await ethers.getContractAt("ZetaChainUniversalNFT", args.from);
     await (contract as any).isUniversal();
     const gasLimitAmount = await (contract as any).gasLimitAmount();
     const gasLimit = hre.ethers.BigNumber.from(gasLimitAmount);
@@ -28,7 +28,7 @@ const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
     const zrc20TransferTx = await zrc20.approve(args.from, gasFee, txOptions);
     await zrc20TransferTx.wait();
   } catch (e) {
-    contract = await ethers.getContractAt("Connected", args.from);
+    contract = await ethers.getContractAt("EVMUniversalNFT", args.from);
   }
 
   const gasAmount = ethers.utils.parseUnits(args.gasAmount, 18);
