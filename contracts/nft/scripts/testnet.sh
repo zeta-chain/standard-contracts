@@ -5,9 +5,9 @@ set -x
 
 npx hardhat compile --force --quiet
 
-UNIVERSAL=$(npx hardhat deploy --name Universal --network zeta_testnet --gateway 0x6c533f7fe93fae114d0954697069df33c9b74fd7 --uniswap-router 0x2ca7d64A7EFE2D62A725E2B35Cf7230D6677FfEe --gas-limit 500000 --json | jq -r '.contractAddress')
-CONNECTED_BASE=$(npx hardhat deploy --name Connected --network base_sepolia --gateway 0x0c487a766110c85d301d96e33579c5b317fa4995 --gas-limit 500000 --json | jq -r '.contractAddress')
-CONNECTED_BNB=$(npx hardhat deploy --name Connected --network bsc_testnet --gateway 0x0c487a766110c85d301d96e33579c5b317fa4995 --gas-limit 500000 --json | jq -r '.contractAddress')
+UNIVERSAL=$(npx hardhat deploy --name ZetaChainUniversalNFT --network zeta_testnet --gateway 0x6c533f7fe93fae114d0954697069df33c9b74fd7 --uniswap-router 0x2ca7d64A7EFE2D62A725E2B35Cf7230D6677FfEe --gas-limit 500000 --json | jq -r '.contractAddress')
+CONNECTED_BASE=$(npx hardhat deploy --name EVMUniversalNFT --network base_sepolia --gateway 0x0c487a766110c85d301d96e33579c5b317fa4995 --gas-limit 500000 --json | jq -r '.contractAddress')
+CONNECTED_BNB=$(npx hardhat deploy --name EVMUniversalNFT --network bsc_testnet --gateway 0x0c487a766110c85d301d96e33579c5b317fa4995 --gas-limit 500000 --json | jq -r '.contractAddress')
 
 ZRC20_BASE=0x236b0DE675cC8F46AE186897fCCeFe3370C9eDeD
 ZRC20_BNB=0xd97B1de3619ed2c6BEb3860147E30cA8A7dC9891
