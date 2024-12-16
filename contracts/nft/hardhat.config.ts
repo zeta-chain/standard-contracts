@@ -17,19 +17,7 @@ const config: HardhatUserConfig = {
   networks: {
     ...getHardhatConfigNetworks(),
   },
-  solidity: {
-    compilers: [
-      {
-        settings: {
-          optimizer: {
-            enabled: true,
-            runs: 1000,
-          },
-        },
-        version: "0.8.26",
-      },
-    ],
-  },
+  solidity: "0.8.26",
 };
 
 export default config;
