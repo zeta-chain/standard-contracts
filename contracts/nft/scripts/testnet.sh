@@ -2,6 +2,7 @@
 
 set -e
 set -x
+set -o pipefail
 
 npx hardhat compile --force --quiet
 
@@ -12,10 +13,10 @@ CONNECTED_BNB=$(npx hardhat deploy --name EVMUniversalNFT --network bsc_testnet 
 ZRC20_BASE=0x236b0DE675cC8F46AE186897fCCeFe3370C9eDeD
 ZRC20_BNB=0xd97B1de3619ed2c6BEb3860147E30cA8A7dC9891
 
-npx hardhat connected-set-counterparty --network base_sepolia --contract "$CONNECTED_BASE" --counterparty "$UNIVERSAL" --json
+npx hardhat connected-set-universal --network base_sepolia --contract "$CONNECTED_BASE" --universal "$UNIVERSAL" --json
 
-npx hardhat connected-set-counterparty --network bsc_testnet --contract "$CONNECTED_BNB" --counterparty "$UNIVERSAL" --json
+npx hardhat connected-set-universal --network bsc_testnet --contract "$CONNECTED_BNB" --universal "$UNIVERSAL" --json
 
-npx hardhat universal-set-counterparty --network zeta_testnet --contract "$UNIVERSAL" --counterparty "$CONNECTED_BASE" --zrc20 "$ZRC20_BASE" --json
+npx hardhat universal-set-connected --network zeta_testnet --contract "$UNIVERSAL" --connected "$CONNECTED_BASE" --zrc20 "$ZRC20_BASE" --json
 
-npx hardhat universal-set-counterparty --network zeta_testnet --contract "$UNIVERSAL" --counterparty "$CONNECTED_BNB" --zrc20 "$ZRC20_BNB" --json
+npx hardhat universal-set-connected --network zeta_testnet --contract "$UNIVERSAL" --connected "$CONNECTED_BNB" --zrc20 "$ZRC20_BNB" --json
