@@ -108,6 +108,15 @@ contract UniversalNFT is
             gasZRC20,
             msg.value
         );
+
+        uint256 remaining = msg.value - out;
+
+        if (remaining > 0) {
+            IWETH9(WZETA).withdraw(remaining);
+            (bool success, ) = msg.sender.call{value: remaining}("");
+            if (!success) revert TransferFailed();
+        }
+
         bytes memory message = abi.encode(
             receiver,
             tokenId,
@@ -133,8 +142,6 @@ contract UniversalNFT is
             callOptions,
             revertOptions
         );
-
-        emit TokenTransfer(receiver, destination, tokenId, uri);
     }
 
     function safeMint(address to, string memory uri) public onlyOwner {
@@ -265,4 +272,6 @@ contract UniversalNFT is
     function _authorizeUpgrade(
         address newImplementation
     ) internal override onlyOwner {}
+
+    receive() external payable {}
 }
