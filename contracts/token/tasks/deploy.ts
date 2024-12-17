@@ -42,7 +42,11 @@ task("deploy", "Deploy the NFT contract", main)
   .addFlag("json", "Output the result in JSON format")
   .addOptionalParam("tokenName", "Token name", "Universal Token")
   .addOptionalParam("tokenSymbol", "Token symbol", "UFT")
-  .addOptionalParam("name", "The contract name to deploy", "Universal")
+  .addOptionalParam(
+    "name",
+    "The contract name to deploy",
+    "ZetaChainUniversalToken"
+  )
   .addOptionalParam(
     "gasLimit",
     "Gas limit for the transaction",

@@ -1,6 +1,6 @@
 import { task } from "hardhat/config";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
-import { Universal } from "../typechain-types";
+import { ZetaChainUniversalToken } from "../typechain-types";
 
 const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
   const [signer] = await hre.ethers.getSigners();
@@ -10,8 +10,8 @@ const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
     );
   }
 
-  const contract: Universal = await hre.ethers.getContractAt(
-    "Universal",
+  const contract: ZetaChainUniversalToken = await hre.ethers.getContractAt(
+    "ZetaChainUniversalToken",
     args.contract
   );
 

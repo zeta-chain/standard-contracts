@@ -50,5 +50,9 @@ task("mint", "Mint an NFT", main)
     "The recipient address, defaults to the signer address"
   )
   .addParam("amount", "The amount of tokens to mint")
-  .addOptionalParam("name", "The contract name to interact with", "Universal")
+  .addOptionalParam(
+    "name",
+    "The contract name to interact with",
+    "ZetaChainUniversalToken"
+  )
   .addFlag("json", "Output the result in JSON format");
