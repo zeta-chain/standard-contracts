@@ -78,7 +78,7 @@ contract UniversalToken is
         address destination,
         address receiver,
         uint256 amount
-    ) public {
+    ) public payable {
         if (receiver == address(0)) revert InvalidAddress();
         _burn(msg.sender, amount);
 
@@ -86,12 +86,27 @@ contract UniversalToken is
             .withdrawGasFeeWithGasLimit(gasLimitAmount);
         if (destination != gasZRC20) revert InvalidAddress();
 
-        if (
-            !IZRC20(destination).transferFrom(msg.sender, address(this), gasFee)
-        ) revert TransferFailed();
-        if (!IZRC20(destination).approve(address(gateway), gasFee)) {
-            revert ApproveFailed();
+        address WZETA = gateway.zetaToken();
+
+        IWETH9(WZETA).deposit{value: msg.value}();
+        IWETH9(WZETA).approve(uniswapRouter, msg.value);
+
+        uint256 out = SwapHelperLib.swapTokensForExactTokens(
+            uniswapRouter,
+            WZETA,
+            gasFee,
+            gasZRC20,
+            msg.value
+        );
+
+        uint256 remaining = msg.value - out;
+
+        if (remaining > 0) {
+            IWETH9(WZETA).withdraw(remaining);
+            (bool success, ) = msg.sender.call{value: remaining}("");
+            if (!success) revert TransferFailed();
         }
+
         bytes memory message = abi.encode(receiver, amount, 0, msg.sender);
 
         CallOptions memory callOptions = CallOptions(gasLimitAmount, false);
@@ -104,6 +119,7 @@ contract UniversalToken is
             gasLimitAmount
         );
 
+        IZRC20(gasZRC20).approve(address(gateway), gasFee);
         gateway.call(
             abi.encodePacked(connected[destination]),
             destination,
@@ -177,4 +193,6 @@ contract UniversalToken is
     function _authorizeUpgrade(
         address newImplementation
     ) internal override onlyOwner {}
+
+    receive() external payable {}
 }

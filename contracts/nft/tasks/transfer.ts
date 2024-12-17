@@ -1,6 +1,5 @@
 import { task, types } from "hardhat/config";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
-import ZRC20ABI from "@zetachain/protocol-contracts/abi/ZRC20.sol/ZRC20.json";
 
 const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
   const { ethers } = hre;
@@ -15,17 +14,22 @@ const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
     gasPrice: args.txOptionsGasPrice,
     gasLimit: args.txOptionsGasLimit,
   };
-  let tx;
 
-  let contract = await ethers.getContractAt("ZetaChainUniversalNFT", args.from);
+  const contract = await ethers.getContractAt(
+    "ZetaChainUniversalNFT",
+    args.from
+  );
 
   const gasAmount = ethers.utils.parseUnits(args.gasAmount, 18);
 
   const receiver = args.receiver || signer.address;
 
-  tx = await contract.transferCrossChain(args.tokenId, receiver, args.to, {
-    value: gasAmount,
-  });
+  const tx = await contract.transferCrossChain(
+    args.tokenId,
+    receiver,
+    args.to,
+    { ...txOptions, value: gasAmount }
+  );
 
   await tx.wait();
   if (args.json) {

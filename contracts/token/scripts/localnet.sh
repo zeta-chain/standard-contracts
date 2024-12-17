@@ -56,7 +56,7 @@ npx hardhat localnet-check
 balance
 
 echo -e "\nTransferring token: ZetaChain → Ethereum..."
-npx hardhat transfer --network localhost --json --amount 10 --from "$CONTRACT_ZETACHAIN" --to "$ZRC20_ETHEREUM" 
+npx hardhat transfer --network localhost --json --amount 10 --from "$CONTRACT_ZETACHAIN" --to "$ZRC20_ETHEREUM" --gas-amount 1
 
 npx hardhat localnet-check
 balance
