@@ -1,6 +1,6 @@
 import { task } from "hardhat/config";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
-import { Connected } from "@/typechain-types";
+import { EVMUniversalNFT } from "@/typechain-types";
 
 const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
   const [signer] = await hre.ethers.getSigners();
@@ -10,8 +10,8 @@ const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
     );
   }
 
-  const contract: Connected = await hre.ethers.getContractAt(
-    "Connected",
+  const contract: EVMUniversalNFT = await hre.ethers.getContractAt(
+    "EVMUniversalNFT",
     args.contract
   );
 

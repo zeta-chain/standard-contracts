@@ -10,7 +10,7 @@ const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
   }
 
   const contract = await hre.ethers.getContractAt(
-    args.name as "Universal" | "Connected",
+    args.name as "ZetaChainUniversalNFT" | "EVMUniversalNFT",
     args.contract
   );
 
@@ -47,7 +47,6 @@ const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
 📜 Contract address: ${args.contract}
 👤 Recipient: ${recipient}
 🆔 Token ID: ${tokenId}
-🔗 Metadata URI: ${metadataUri}
 🔗 Transaction hash: ${tx.hash}`);
   }
 };
@@ -59,5 +58,9 @@ task("mint", "Mint an NFT", main)
     "The recipient address, defaults to the signer address"
   )
   .addParam("tokenUri", "The metadata URI of the token")
-  .addOptionalParam("name", "The contract name to interact with", "Universal")
+  .addOptionalParam(
+    "name",
+    "The contract name to interact with",
+    "ZetaChainUniversalNFT"
+  )
   .addFlag("json", "Output the result in JSON format");
