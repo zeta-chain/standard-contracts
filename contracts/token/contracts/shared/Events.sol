@@ -17,4 +17,6 @@ contract Events {
         address indexed sender,
         uint256 amount
     );
+
+    event RefundFailed(address, uint256);
 }

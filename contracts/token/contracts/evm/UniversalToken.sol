@@ -113,7 +113,7 @@ contract UniversalToken is
         if (gasAmount > 0) {
             if (sender == address(0)) revert InvalidAddress();
             (bool success, ) = payable(sender).call{value: amount}("");
-            if (!success) revert GasTokenTransferFailed();
+            if (!success) emit RefundFailed(sender, gasAmount);
         }
         emit TokenTransferReceived(receiver, amount);
         return "";

@@ -32,7 +32,6 @@ contract UniversalNFT is
     error InvalidAddress();
     error Unauthorized();
     error InvalidGasLimit();
-    error GasTokenTransferFailed();
 
     modifier onlyGateway() {
         if (msg.sender != address(gateway)) revert Unauthorized();
@@ -140,7 +139,7 @@ contract UniversalNFT is
         if (gasAmount > 0) {
             if (sender == address(0)) revert InvalidAddress();
             (bool success, ) = payable(sender).call{value: gasAmount}("");
-            if (!success) revert GasTokenTransferFailed();
+            if (!success) emit RefundFailed(sender, gasAmount);
         }
         emit TokenTransferReceived(receiver, tokenId, uri);
         return "";

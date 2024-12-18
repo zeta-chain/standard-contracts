@@ -27,4 +27,6 @@ contract Events {
         uint256 indexed tokenId,
         string uri
     );
+
+    event RefundFailed(address, uint256);
 }
