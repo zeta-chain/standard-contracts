@@ -4,6 +4,17 @@ import { HardhatRuntimeEnvironment } from "hardhat/types";
 const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
   const { ethers } = hre;
   const [signer] = await ethers.getSigners();
+
+  const { isAddress } = hre.ethers.utils;
+
+  if (
+    !isAddress(args.contract) ||
+    !isAddress(args.to) ||
+    !isAddress(args.revertAddress)
+  ) {
+    throw new Error("Invalid Ethereum address provided.");
+  }
+
   const nftContract = await ethers.getContractAt("IERC721", args.from);
   const approveTx = await nftContract
     .connect(signer)
