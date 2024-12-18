@@ -24,7 +24,6 @@ contract UniversalToken is
     error InvalidAddress();
     error Unauthorized();
     error InvalidGasLimit();
-    error GasTokenTransferFailed();
 
     modifier onlyGateway() {
         if (msg.sender != address(gateway)) revert Unauthorized();
