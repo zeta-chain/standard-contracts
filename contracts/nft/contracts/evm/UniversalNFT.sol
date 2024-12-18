@@ -62,6 +62,11 @@ contract UniversalNFT is
         gateway = GatewayEVM(gatewayAddress);
     }
 
+    function setGasLimit(uint256 gas) external onlyOwner {
+        if (gas <= 0) revert InvalidGasLimit();
+        gasLimitAmount = gas;
+    }
+
     function setUniversal(address contractAddress) external onlyOwner {
         if (contractAddress == address(0)) revert InvalidAddress();
         universal = contractAddress;
