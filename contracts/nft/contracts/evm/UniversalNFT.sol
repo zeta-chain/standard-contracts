@@ -29,10 +29,15 @@ contract UniversalNFT is
     address public universal;
     uint256 public gasLimitAmount;
 
+    bool public allowOutgoing = true;
+    bool public allowIncoming = true;
+
     error InvalidAddress();
     error Unauthorized();
     error InvalidGasLimit();
     error GasTokenTransferFailed();
+    error OutgoingTransfersNotAllowed();
+    error IncomingTransfersNotAllowed();
 
     modifier onlyGateway() {
         if (msg.sender != address(gateway)) revert Unauthorized();
@@ -62,6 +67,14 @@ contract UniversalNFT is
         gateway = GatewayEVM(gatewayAddress);
     }
 
+    function setAllowOutgoing(bool _allowOutgoing) external onlyOwner {
+        allowOutgoing = _allowOutgoing;
+    }
+
+    function setAllowIncoming(bool _allowIncoming) external onlyOwner {
+        allowIncoming = _allowIncoming;
+    }
+
     function setUniversal(address contractAddress) external onlyOwner {
         if (contractAddress == address(0)) revert InvalidAddress();
         universal = contractAddress;
@@ -87,6 +100,7 @@ contract UniversalNFT is
         address receiver,
         address destination
     ) external payable {
+        if (!allowOutgoing) revert OutgoingTransfersNotAllowed();
         if (receiver == address(0)) revert InvalidAddress();
 
         string memory uri = tokenURI(tokenId);
@@ -125,6 +139,7 @@ contract UniversalNFT is
         MessageContext calldata context,
         bytes calldata message
     ) external payable onlyGateway returns (bytes4) {
+        if (!allowIncoming) revert IncomingTransfersNotAllowed();
         if (context.sender != universal) revert Unauthorized();
 
         (
