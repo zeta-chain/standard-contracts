@@ -128,11 +128,9 @@ contract UniversalToken is
         emit TokenTransferReverted(receiver, amount);
     }
 
-    receive() external payable {}
-
-    fallback() external payable {}
-
     function _authorizeUpgrade(
         address newImplementation
     ) internal override onlyOwner {}
+
+    receive() external payable {}
 }

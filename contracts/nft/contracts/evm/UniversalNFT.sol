@@ -157,10 +157,6 @@ contract UniversalNFT is
         emit TokenTransferReverted(sender, tokenId, uri);
     }
 
-    receive() external payable {}
-
-    fallback() external payable {}
-
     // The following functions are overrides required by Solidity.
 
     function _update(
@@ -211,4 +207,6 @@ contract UniversalNFT is
     function _authorizeUpgrade(
         address newImplementation
     ) internal override onlyOwner {}
+
+    receive() external payable {}
 }
