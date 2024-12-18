@@ -1,11 +1,29 @@
 import { task } from "hardhat/config";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
+import isURL from "validator/lib/isURL";
 
 const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
   const [signer] = await hre.ethers.getSigners();
   if (signer === undefined) {
     throw new Error(
       `Wallet not found. Please, run "npx hardhat account --save" or set PRIVATE_KEY env variable (for example, in a .env file)`
+    );
+  }
+
+  const supportedProtocols = ["https", "ipfs"];
+
+  const isValidTokenUri = isURL(args.tokenUri, {
+    require_protocol: true,
+    allow_fragments: true,
+    allow_query_components: true,
+    protocols: supportedProtocols,
+  });
+
+  if (!isValidTokenUri) {
+    throw new Error(
+      `Invalid token URI: ${
+        args.tokenUri
+      }. Supported protocols are: ${supportedProtocols.join(", ")}.`
     );
   }
 
