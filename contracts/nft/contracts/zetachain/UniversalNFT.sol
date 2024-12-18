@@ -1,7 +1,22 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-// Existing imports...
+import {RevertContext, RevertOptions} from "@zetachain/protocol-contracts/contracts/Revert.sol";
+import "@zetachain/protocol-contracts/contracts/zevm/interfaces/UniversalContract.sol";
+import "@zetachain/protocol-contracts/contracts/zevm/interfaces/IGatewayZEVM.sol";
+import "@zetachain/protocol-contracts/contracts/zevm/interfaces/IWZETA.sol";
+import "@zetachain/protocol-contracts/contracts/zevm/GatewayZEVM.sol";
+import {SwapHelperLib} from "@zetachain/toolkit/contracts/SwapHelperLib.sol";
+import {SystemContract} from "@zetachain/toolkit/contracts/SystemContract.sol";
+import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import {ERC721Upgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC721/ERC721Upgradeable.sol";
+import {ERC721EnumerableUpgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC721/extensions/ERC721EnumerableUpgradeable.sol";
+import {ERC721URIStorageUpgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC721/extensions/ERC721URIStorageUpgradeable.sol";
+import {ERC721BurnableUpgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC721/extensions/ERC721BurnableUpgradeable.sol";
+import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+
+import "../shared/Events.sol";
 
 contract UniversalNFT is
     Initializable,
