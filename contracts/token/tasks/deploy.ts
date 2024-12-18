@@ -13,7 +13,10 @@ const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
     );
   }
 
-  if (!isAddress(args.gateway) || !isAddress(args.uniswapRouter)) {
+  if (
+    !isAddress(args.gateway) ||
+    (args.uniswapRouter && !isAddress(args.uniswapRouter))
+  ) {
     throw new Error("Invalid Ethereum address provided.");
   }
 

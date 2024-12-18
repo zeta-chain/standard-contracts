@@ -7,11 +7,7 @@ const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
 
   const { isAddress } = hre.ethers.utils;
 
-  if (
-    !isAddress(args.contract) ||
-    !isAddress(args.to) ||
-    !isAddress(args.revertAddress)
-  ) {
+  if (!isAddress(args.to) || !isAddress(args.revertAddress)) {
     throw new Error("Invalid Ethereum address provided.");
   }
 
