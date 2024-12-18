@@ -10,7 +10,7 @@ const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
   }
 
   const contract = await hre.ethers.getContractAt(
-    args.name as "Universal" | "Connected",
+    args.name as "ZetaChainUniversalNFT" | "EVMUniversalNFT",
     args.contract
   );
 
@@ -19,10 +19,18 @@ const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
   const tx = await contract.safeMint(recipient, args.tokenUri);
   const receipt = await tx.wait();
 
-  const transferEvent = receipt.events?.find(
-    (event: any) => event.event === "Transfer"
-  );
-  const tokenId = transferEvent?.args?.tokenId;
+  // Decode logs using contract interface
+  const transferEvent = receipt.logs
+    .map((log: any) => {
+      try {
+        return contract.interface.parseLog(log);
+      } catch {
+        return null;
+      }
+    })
+    .find((parsedLog: any) => parsedLog?.name === "Transfer");
+
+  const tokenId = transferEvent?.args?.tokenId?.toString();
 
   if (args.json) {
     console.log(
@@ -31,14 +39,14 @@ const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
         mintTransactionHash: tx.hash,
         recipient: recipient,
         tokenURI: args.tokenUri,
-        tokenId: tokenId?.toString(),
+        tokenId: tokenId,
       })
     );
   } else {
     console.log(`🚀 Successfully minted NFT.
 📜 Contract address: ${args.contract}
 👤 Recipient: ${recipient}
-🆔 Token ID: ${tokenId?.toString()}
+🆔 Token ID: ${tokenId}
 🔗 Transaction hash: ${tx.hash}`);
   }
 };
@@ -50,5 +58,9 @@ task("mint", "Mint an NFT", main)
     "The recipient address, defaults to the signer address"
   )
   .addParam("tokenUri", "The metadata URI of the token")
-  .addOptionalParam("name", "The contract name to interact with", "Universal")
+  .addOptionalParam(
+    "name",
+    "The contract name to interact with",
+    "ZetaChainUniversalNFT"
+  )
   .addFlag("json", "Output the result in JSON format");

@@ -1,27 +1,33 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import "@openzeppelin/contracts/access/Ownable2Step.sol";
 import {RevertContext, RevertOptions} from "@zetachain/protocol-contracts/contracts/Revert.sol";
 import "@zetachain/protocol-contracts/contracts/zevm/interfaces/UniversalContract.sol";
 import "@zetachain/protocol-contracts/contracts/zevm/interfaces/IGatewayZEVM.sol";
 import "@zetachain/protocol-contracts/contracts/zevm/GatewayZEVM.sol";
 import {SwapHelperLib} from "@zetachain/toolkit/contracts/SwapHelperLib.sol";
 import {SystemContract} from "@zetachain/toolkit/contracts/SystemContract.sol";
+import {ERC20Upgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
+import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+
 import "../shared/Events.sol";
 
-abstract contract UniversalToken is
-    ERC20,
-    Ownable2Step,
+contract UniversalToken is
+    Initializable,
+    ERC20Upgradeable,
+    OwnableUpgradeable,
+    UUPSUpgradeable,
     UniversalContract,
     Events
 {
-    GatewayZEVM public immutable gateway;
-    address public immutable uniswapRouter;
-    uint256 private _nextTokenId;
     bool public constant isUniversal = true;
-    uint256 public immutable gasLimitAmount;
+
+    GatewayZEVM public gateway;
+    address public uniswapRouter;
+    uint256 private _nextTokenId;
+    uint256 public gasLimitAmount;
 
     error TransferFailed();
     error Unauthorized();
@@ -36,11 +42,22 @@ abstract contract UniversalToken is
         _;
     }
 
-    constructor(
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
+    function initialize(
+        address initialOwner,
+        string memory name,
+        string memory symbol,
         address payable gatewayAddress,
         uint256 gas,
         address uniswapRouterAddress
-    ) {
+    ) public initializer {
+        __ERC20_init(name, symbol);
+        __Ownable_init(initialOwner);
+        __UUPSUpgradeable_init();
         if (gatewayAddress == address(0) || uniswapRouterAddress == address(0))
             revert InvalidAddress();
         if (gas == 0) revert InvalidGasLimit();
@@ -61,7 +78,7 @@ abstract contract UniversalToken is
         address destination,
         address receiver,
         uint256 amount
-    ) public {
+    ) public payable {
         if (receiver == address(0)) revert InvalidAddress();
         _burn(msg.sender, amount);
 
@@ -69,12 +86,27 @@ abstract contract UniversalToken is
             .withdrawGasFeeWithGasLimit(gasLimitAmount);
         if (destination != gasZRC20) revert InvalidAddress();
 
-        if (
-            !IZRC20(destination).transferFrom(msg.sender, address(this), gasFee)
-        ) revert TransferFailed();
-        if (!IZRC20(destination).approve(address(gateway), gasFee)) {
-            revert ApproveFailed();
+        address WZETA = gateway.zetaToken();
+
+        IWETH9(WZETA).deposit{value: msg.value}();
+        IWETH9(WZETA).approve(uniswapRouter, msg.value);
+
+        uint256 out = SwapHelperLib.swapTokensForExactTokens(
+            uniswapRouter,
+            WZETA,
+            gasFee,
+            gasZRC20,
+            msg.value
+        );
+
+        uint256 remaining = msg.value - out;
+
+        if (remaining > 0) {
+            IWETH9(WZETA).withdraw(remaining);
+            (bool success, ) = msg.sender.call{value: remaining}("");
+            if (!success) revert TransferFailed();
         }
+
         bytes memory message = abi.encode(receiver, amount, 0, msg.sender);
 
         CallOptions memory callOptions = CallOptions(gasLimitAmount, false);
@@ -87,6 +119,7 @@ abstract contract UniversalToken is
             gasLimitAmount
         );
 
+        IZRC20(gasZRC20).approve(address(gateway), gasFee);
         gateway.call(
             abi.encodePacked(connected[destination]),
             destination,
@@ -156,4 +189,10 @@ abstract contract UniversalToken is
         _mint(sender, amount);
         emit TokenTransferReverted(sender, amount);
     }
+
+    function _authorizeUpgrade(
+        address newImplementation
+    ) internal override onlyOwner {}
+
+    receive() external payable {}
 }
