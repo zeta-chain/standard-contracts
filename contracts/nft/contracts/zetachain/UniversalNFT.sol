@@ -1,22 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import {RevertContext, RevertOptions} from "@zetachain/protocol-contracts/contracts/Revert.sol";
-import "@zetachain/protocol-contracts/contracts/zevm/interfaces/UniversalContract.sol";
-import "@zetachain/protocol-contracts/contracts/zevm/interfaces/IGatewayZEVM.sol";
-import "@zetachain/protocol-contracts/contracts/zevm/interfaces/IWZETA.sol";
-import "@zetachain/protocol-contracts/contracts/zevm/GatewayZEVM.sol";
-import {SwapHelperLib} from "@zetachain/toolkit/contracts/SwapHelperLib.sol";
-import {SystemContract} from "@zetachain/toolkit/contracts/SystemContract.sol";
-import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import {ERC721Upgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC721/ERC721Upgradeable.sol";
-import {ERC721EnumerableUpgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC721/extensions/ERC721EnumerableUpgradeable.sol";
-import {ERC721URIStorageUpgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC721/extensions/ERC721URIStorageUpgradeable.sol";
-import {ERC721BurnableUpgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC721/extensions/ERC721BurnableUpgradeable.sol";
-import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
-import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
-
-import "../shared/Events.sol";
+// Existing imports...
 
 contract UniversalNFT is
     Initializable,
@@ -35,11 +20,16 @@ contract UniversalNFT is
     bool public constant isUniversal = true;
     uint256 public gasLimitAmount;
 
+    bool public allowOutgoing = true;
+    bool public allowIncoming = true;
+
     error TransferFailed();
     error Unauthorized();
     error InvalidAddress();
     error InvalidGasLimit();
     error ApproveFailed();
+    error OutgoingTransfersNotAllowed();
+    error IncomingTransfersNotAllowed();
 
     mapping(address => address) public connected;
 
@@ -75,6 +65,14 @@ contract UniversalNFT is
         gasLimitAmount = gas;
     }
 
+    function setAllowOutgoing(bool _allowOutgoing) external onlyOwner {
+        allowOutgoing = _allowOutgoing;
+    }
+
+    function setAllowIncoming(bool _allowIncoming) external onlyOwner {
+        allowIncoming = _allowIncoming;
+    }
+
     function setConnected(
         address zrc20,
         address contractAddress
@@ -88,7 +86,9 @@ contract UniversalNFT is
         address receiver,
         address destination
     ) public payable {
+        if (!allowOutgoing) revert OutgoingTransfersNotAllowed();
         if (receiver == address(0)) revert InvalidAddress();
+
         string memory uri = tokenURI(tokenId);
         _burn(tokenId);
 
@@ -174,6 +174,7 @@ contract UniversalNFT is
         ) = abi.decode(message, (address, address, uint256, string, address));
 
         if (destination == address(0)) {
+            if (!allowIncoming) revert IncomingTransfersNotAllowed();
             _safeMint(receiver, tokenId);
             _setTokenURI(tokenId, uri);
             emit TokenTransferReceived(receiver, tokenId, uri);
