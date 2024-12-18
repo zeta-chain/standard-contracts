@@ -11,16 +11,18 @@ import {ERC721URIStorageUpgradeable} from "@openzeppelin/contracts-upgradeable/t
 import {ERC721BurnableUpgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC721/extensions/ERC721BurnableUpgradeable.sol";
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import {ERC721PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC721/extensions/ERC721PausableUpgradeable.sol";
 
 import "../shared/Events.sol";
 
 contract UniversalNFT is
     Initializable,
     ERC721Upgradeable,
-    ERC721EnumerableUpgradeable,
     ERC721URIStorageUpgradeable,
-    ERC721BurnableUpgradeable,
+    ERC721EnumerableUpgradeable,
+    ERC721PausableUpgradeable,
     OwnableUpgradeable,
+    ERC721BurnableUpgradeable,
     UUPSUpgradeable,
     Events
 {
@@ -60,6 +62,11 @@ contract UniversalNFT is
         if (gas == 0) revert InvalidGasLimit();
         gasLimitAmount = gas;
         gateway = GatewayEVM(gatewayAddress);
+    }
+
+    function setGasLimit(uint256 gas) external onlyOwner {
+        if (gas <= 0) revert InvalidGasLimit();
+        gasLimitAmount = gas;
     }
 
     function setUniversal(address contractAddress) external onlyOwner {
@@ -169,7 +176,11 @@ contract UniversalNFT is
         address auth
     )
         internal
-        override(ERC721Upgradeable, ERC721EnumerableUpgradeable)
+        override(
+            ERC721Upgradeable,
+            ERC721EnumerableUpgradeable,
+            ERC721PausableUpgradeable
+        )
         returns (address)
     {
         return super._update(to, tokenId, auth);
@@ -211,4 +222,12 @@ contract UniversalNFT is
     function _authorizeUpgrade(
         address newImplementation
     ) internal override onlyOwner {}
+
+    function pause() public onlyOwner {
+        _pause();
+    }
+
+    function unpause() public onlyOwner {
+        _unpause();
+    }
 }
