@@ -75,6 +75,11 @@ contract UniversalNFT is
         gasLimitAmount = gas;
     }
 
+    function setGasLimit(uint256 gas) external onlyOwner {
+        if (gas == 0) revert InvalidGasLimit();
+        gasLimitAmount = gas;
+    }
+
     function setConnected(
         address zrc20,
         address contractAddress
