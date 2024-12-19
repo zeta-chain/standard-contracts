@@ -29,8 +29,8 @@ contract UniversalNFT is
     address public universal;
     uint256 public gasLimitAmount;
 
-    bool public allowOutgoing = true;
-    bool public allowIncoming = true;
+    bool public allowOutgoing;
+    bool public allowIncoming;
 
     error InvalidAddress();
     error Unauthorized();
@@ -65,6 +65,8 @@ contract UniversalNFT is
         if (gas == 0) revert InvalidGasLimit();
         gasLimitAmount = gas;
         gateway = GatewayEVM(gatewayAddress);
+        allowOutgoing = true;
+        allowIncoming = true;
     }
 
     function setAllowOutgoing(bool _allowOutgoing) external onlyOwner {

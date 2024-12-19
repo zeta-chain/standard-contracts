@@ -35,8 +35,8 @@ contract UniversalNFT is
     bool public constant isUniversal = true;
     uint256 public gasLimitAmount;
 
-    bool public allowOutgoing = true;
-    bool public allowIncoming = true;
+    bool public allowOutgoing;
+    bool public allowIncoming;
 
     error TransferFailed();
     error Unauthorized();
@@ -78,6 +78,8 @@ contract UniversalNFT is
         gateway = GatewayZEVM(gatewayAddress);
         uniswapRouter = uniswapRouterAddress;
         gasLimitAmount = gas;
+        allowOutgoing = true;
+        allowIncoming = true;
     }
 
     function setAllowOutgoing(bool _allowOutgoing) external onlyOwner {
