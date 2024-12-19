@@ -40,6 +40,7 @@ contract UniversalNFT is
     error InvalidAddress();
     error InvalidGasLimit();
     error ApproveFailed();
+    error ZeroMsgValue();
 
     mapping(address => address) public connected;
 
@@ -93,6 +94,7 @@ contract UniversalNFT is
         address receiver,
         address destination
     ) public payable {
+        if (msg.value == 0) revert ZeroMsgValue();
         if (receiver == address(0)) revert InvalidAddress();
         string memory uri = tokenURI(tokenId);
         _burn(tokenId);

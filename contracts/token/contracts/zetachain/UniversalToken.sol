@@ -36,6 +36,7 @@ contract UniversalToken is
     error InvalidAddress();
     error InvalidGasLimit();
     error ApproveFailed();
+    error ZeroMsgValue();
 
     mapping(address => address) public connected;
 
@@ -87,6 +88,7 @@ contract UniversalToken is
         address receiver,
         uint256 amount
     ) public payable {
+        if (msg.value == 0) revert ZeroMsgValue();
         if (receiver == address(0)) revert InvalidAddress();
         _burn(msg.sender, amount);
 
