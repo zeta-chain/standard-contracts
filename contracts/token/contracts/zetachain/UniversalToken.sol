@@ -11,16 +11,18 @@ import {ERC20Upgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import {ERC20BurnableUpgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20BurnableUpgradeable.sol";
 
-import "../shared/Events.sol";
+import "../shared/UniversalTokenEvents.sol";
 
 contract UniversalToken is
     Initializable,
     ERC20Upgradeable,
+    ERC20BurnableUpgradeable,
     OwnableUpgradeable,
     UUPSUpgradeable,
     UniversalContract,
-    Events
+    UniversalTokenEvents
 {
     bool public constant isUniversal = true;
 
@@ -34,6 +36,7 @@ contract UniversalToken is
     error InvalidAddress();
     error InvalidGasLimit();
     error ApproveFailed();
+    error ZeroMsgValue();
 
     mapping(address => address) public connected;
 
@@ -56,6 +59,7 @@ contract UniversalToken is
         address uniswapRouterAddress
     ) public initializer {
         __ERC20_init(name, symbol);
+        __ERC20Burnable_init();
         __Ownable_init(initialOwner);
         __UUPSUpgradeable_init();
         if (gatewayAddress == address(0) || uniswapRouterAddress == address(0))
@@ -63,6 +67,11 @@ contract UniversalToken is
         if (gas == 0) revert InvalidGasLimit();
         gateway = GatewayZEVM(gatewayAddress);
         uniswapRouter = uniswapRouterAddress;
+        gasLimitAmount = gas;
+    }
+
+    function setGasLimit(uint256 gas) external onlyOwner {
+        if (gas == 0) revert InvalidGasLimit();
         gasLimitAmount = gas;
     }
 
@@ -79,6 +88,7 @@ contract UniversalToken is
         address receiver,
         uint256 amount
     ) public payable {
+        if (msg.value == 0) revert ZeroMsgValue();
         if (receiver == address(0)) revert InvalidAddress();
         _burn(msg.sender, amount);
 

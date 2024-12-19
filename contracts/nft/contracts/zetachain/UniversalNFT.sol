@@ -16,7 +16,7 @@ import {ERC721BurnableUpgradeable} from "@openzeppelin/contracts-upgradeable/tok
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
-import "../shared/Events.sol";
+import "../shared/UniversalNFTEvents.sol";
 
 contract UniversalNFT is
     Initializable,
@@ -27,7 +27,7 @@ contract UniversalNFT is
     OwnableUpgradeable,
     UniversalContract,
     UUPSUpgradeable,
-    Events
+    UniversalNFTEvents
 {
     GatewayZEVM public gateway;
     address public uniswapRouter;
@@ -40,6 +40,7 @@ contract UniversalNFT is
     error InvalidAddress();
     error InvalidGasLimit();
     error ApproveFailed();
+    error ZeroMsgValue();
 
     mapping(address => address) public connected;
 
@@ -64,14 +65,19 @@ contract UniversalNFT is
         __ERC721_init(name, symbol);
         __ERC721Enumerable_init();
         __ERC721URIStorage_init();
-        __ERC721Burnable_init();
         __Ownable_init(initialOwner);
+        __ERC721Burnable_init();
         __UUPSUpgradeable_init();
         if (gatewayAddress == address(0) || uniswapRouterAddress == address(0))
             revert InvalidAddress();
         if (gas == 0) revert InvalidGasLimit();
         gateway = GatewayZEVM(gatewayAddress);
         uniswapRouter = uniswapRouterAddress;
+        gasLimitAmount = gas;
+    }
+
+    function setGasLimit(uint256 gas) external onlyOwner {
+        if (gas == 0) revert InvalidGasLimit();
         gasLimitAmount = gas;
     }
 
@@ -88,6 +94,7 @@ contract UniversalNFT is
         address receiver,
         address destination
     ) public payable {
+        if (msg.value == 0) revert ZeroMsgValue();
         if (receiver == address(0)) revert InvalidAddress();
         string memory uri = tokenURI(tokenId);
         _burn(tokenId);
@@ -142,6 +149,8 @@ contract UniversalNFT is
             callOptions,
             revertOptions
         );
+
+        emit TokenTransfer(receiver, destination, tokenId, uri);
     }
 
     function safeMint(address to, string memory uri) public onlyOwner {
