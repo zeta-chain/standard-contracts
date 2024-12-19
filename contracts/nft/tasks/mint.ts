@@ -14,8 +14,6 @@ const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
 
   const isValidTokenUri = isURL(args.tokenUri, {
     require_protocol: true,
-    allow_fragments: true,
-    allow_query_components: true,
     protocols: supportedProtocols,
   });
 
