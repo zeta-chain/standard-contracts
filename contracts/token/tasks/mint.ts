@@ -22,7 +22,15 @@ const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
   const transferEvent = receipt.events?.find(
     (event: any) => event.event === "Transfer"
   );
+  if (!transferEvent) {
+    throw new Error("Transfer event not found in transaction logs.");
+  }
+
   const tokenId = transferEvent?.args?.tokenId;
+
+  if (!tokenId) {
+    throw new Error("Transfer event not found in transaction logs.");
+  }
 
   if (args.json) {
     console.log(
@@ -31,14 +39,14 @@ const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
         mintTransactionHash: tx.hash,
         recipient: recipient,
         tokenURI: args.tokenUri,
-        tokenId: tokenId?.toString(),
+        tokenId: tokenId,
       })
     );
   } else {
     console.log(`🚀 Successfully minted NFT.
 📜 Contract address: ${args.contract}
 👤 Recipient: ${recipient}
-🆔 Token ID: ${tokenId?.toString()}
+🆔 Token ID: ${tokenId}
 🔗 Transaction hash: ${tx.hash}`);
   }
 };
