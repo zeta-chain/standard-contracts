@@ -12,7 +12,7 @@ import {ERC721BurnableUpgradeable} from "@openzeppelin/contracts-upgradeable/tok
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
-import "../shared/Events.sol";
+import "../shared/UniversalNFTEvents.sol";
 
 contract UniversalNFT is
     Initializable,
@@ -22,7 +22,7 @@ contract UniversalNFT is
     ERC721BurnableUpgradeable,
     OwnableUpgradeable,
     UUPSUpgradeable,
-    Events
+    UniversalNFTEvents
 {
     GatewayEVM public gateway;
     uint256 private _nextTokenId;

@@ -9,7 +9,7 @@ import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/U
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import {ERC20BurnableUpgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20BurnableUpgradeable.sol";
 
-import "../shared/Events.sol";
+import "../shared/UniversalTokenEvents.sol";
 
 contract UniversalToken is
     Initializable,
@@ -17,7 +17,7 @@ contract UniversalToken is
     ERC20BurnableUpgradeable,
     OwnableUpgradeable,
     UUPSUpgradeable,
-    Events
+    UniversalTokenEvents
 {
     GatewayEVM public gateway;
     address public universal;
