@@ -39,14 +39,14 @@ const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
         mintTransactionHash: tx.hash,
         recipient: recipient,
         tokenURI: args.tokenUri,
-        tokenId: tokenId,
+        tokenId: tokenId.toString(),
       })
     );
   } else {
     console.log(`🚀 Successfully minted NFT.
 📜 Contract address: ${args.contract}
 👤 Recipient: ${recipient}
-🆔 Token ID: ${tokenId}
+🆔 Token ID: ${tokenId.toString()}
 🔗 Transaction hash: ${tx.hash}`);
   }
 };
