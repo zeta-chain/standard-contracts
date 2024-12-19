@@ -3,11 +3,21 @@ import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { ZetaChainUniversalToken } from "../typechain-types";
 
 const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
+  const { isAddress } = hre.ethers.utils;
+
   const [signer] = await hre.ethers.getSigners();
   if (!signer) {
     throw new Error(
       `Wallet not found. Please, run "npx hardhat account --save" or set PRIVATE_KEY env variable (for example, in a .env file)`
     );
+  }
+
+  if (
+    !isAddress(args.contract) ||
+    !isAddress(args.zrc20) ||
+    !isAddress(args.connected)
+  ) {
+    throw new Error("Invalid Ethereum address provided.");
   }
 
   const contract: ZetaChainUniversalToken = await hre.ethers.getContractAt(
