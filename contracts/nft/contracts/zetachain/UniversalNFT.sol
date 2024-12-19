@@ -149,6 +149,8 @@ contract UniversalNFT is
             callOptions,
             revertOptions
         );
+
+        emit TokenTransfer(receiver, destination, tokenId, uri);
     }
 
     function safeMint(address to, string memory uri) public onlyOwner {
