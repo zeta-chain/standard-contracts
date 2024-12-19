@@ -35,11 +35,16 @@ contract UniversalNFT is
     bool public constant isUniversal = true;
     uint256 public gasLimitAmount;
 
+    bool public allowOutgoing;
+    bool public allowIncoming;
+
     error TransferFailed();
     error Unauthorized();
     error InvalidAddress();
     error InvalidGasLimit();
     error ApproveFailed();
+    error OutgoingTransfersNotAllowed();
+    error IncomingTransfersNotAllowed();
 
     mapping(address => address) public connected;
 
@@ -73,6 +78,16 @@ contract UniversalNFT is
         gateway = GatewayZEVM(gatewayAddress);
         uniswapRouter = uniswapRouterAddress;
         gasLimitAmount = gas;
+        allowOutgoing = true;
+        allowIncoming = true;
+    }
+
+    function setAllowOutgoing(bool _allowOutgoing) external onlyOwner {
+        allowOutgoing = _allowOutgoing;
+    }
+
+    function setAllowIncoming(bool _allowIncoming) external onlyOwner {
+        allowIncoming = _allowIncoming;
     }
 
     function setConnected(
@@ -88,7 +103,9 @@ contract UniversalNFT is
         address receiver,
         address destination
     ) public payable {
+        if (!allowOutgoing) revert OutgoingTransfersNotAllowed();
         if (receiver == address(0)) revert InvalidAddress();
+
         string memory uri = tokenURI(tokenId);
         _burn(tokenId);
 
@@ -174,6 +191,7 @@ contract UniversalNFT is
         ) = abi.decode(message, (address, address, uint256, string, address));
 
         if (destination == address(0)) {
+            if (!allowIncoming) revert IncomingTransfersNotAllowed();
             _safeMint(receiver, tokenId);
             _setTokenURI(tokenId, uri);
             emit TokenTransferReceived(receiver, tokenId, uri);
