@@ -1,0 +1,6 @@
+reviews:
+  auto_review:
+    base_branches:
+      - main
+  poem: false
+  collapse_walkthrough: true
