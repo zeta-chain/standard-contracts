@@ -10,8 +10,10 @@ import {ERC20PermitUpgradeable} from "@openzeppelin/contracts-upgradeable/token/
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import {ERC20BurnableUpgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20BurnableUpgradeable.sol";
 
-import "../shared/Events.sol";
+import "../shared/UniversalTokenEvents.sol";
 
 contract UniversalToken is
     Initializable,
@@ -21,7 +23,7 @@ contract UniversalToken is
     OwnableUpgradeable,
     ERC20PermitUpgradeable,
     UUPSUpgradeable,
-    Events
+    UniversalTokenEvents
 {
     GatewayEVM public gateway;
     address public universal;
@@ -50,11 +52,17 @@ contract UniversalToken is
         uint256 gas
     ) public initializer {
         __ERC20_init(name, symbol);
+        __ERC20Burnable_init();
         __Ownable_init(initialOwner);
         __UUPSUpgradeable_init();
         if (gatewayAddress == address(0)) revert InvalidAddress();
         gasLimitAmount = gas;
         gateway = GatewayEVM(gatewayAddress);
+    }
+
+    function setGasLimit(uint256 gas) external onlyOwner {
+        if (gas == 0) revert InvalidGasLimit();
+        gasLimitAmount = gas;
     }
 
     function setUniversal(address contractAddress) external onlyOwner {
@@ -134,10 +142,6 @@ contract UniversalToken is
         emit TokenTransferReverted(receiver, amount);
     }
 
-    receive() external payable {}
-
-    fallback() external payable {}
-
     function _authorizeUpgrade(
         address newImplementation
     ) internal override onlyOwner {}
@@ -157,4 +161,6 @@ contract UniversalToken is
     ) internal override(ERC20Upgradeable, ERC20PausableUpgradeable) {
         super._update(from, to, value);
     }
+
+    receive() external payable {}
 }

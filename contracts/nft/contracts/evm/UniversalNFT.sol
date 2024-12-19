@@ -13,7 +13,7 @@ import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Own
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import {ERC721PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC721/extensions/ERC721PausableUpgradeable.sol";
 
-import "../shared/Events.sol";
+import "../shared/UniversalNFTEvents.sol";
 
 contract UniversalNFT is
     Initializable,
@@ -24,7 +24,7 @@ contract UniversalNFT is
     OwnableUpgradeable,
     ERC721BurnableUpgradeable,
     UUPSUpgradeable,
-    Events
+    UniversalNFTEvents
 {
     GatewayEVM public gateway;
     uint256 private _nextTokenId;
@@ -57,6 +57,7 @@ contract UniversalNFT is
         __ERC721Enumerable_init();
         __ERC721URIStorage_init();
         __Ownable_init(initialOwner);
+        __ERC721Burnable_init();
         __UUPSUpgradeable_init();
         if (gatewayAddress == address(0)) revert InvalidAddress();
         if (gas == 0) revert InvalidGasLimit();
@@ -65,7 +66,7 @@ contract UniversalNFT is
     }
 
     function setGasLimit(uint256 gas) external onlyOwner {
-        if (gas <= 0) revert InvalidGasLimit();
+        if (gas == 0) revert InvalidGasLimit();
         gasLimitAmount = gas;
     }
 
@@ -164,10 +165,6 @@ contract UniversalNFT is
         emit TokenTransferReverted(sender, tokenId, uri);
     }
 
-    receive() external payable {}
-
-    fallback() external payable {}
-
     // The following functions are overrides required by Solidity.
 
     function _update(
@@ -230,4 +227,6 @@ contract UniversalNFT is
     function unpause() public onlyOwner {
         _unpause();
     }
+
+    receive() external payable {}
 }
