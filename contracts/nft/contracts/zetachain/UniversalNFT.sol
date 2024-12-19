@@ -27,6 +27,7 @@ contract UniversalNFT is
     ERC721PausableUpgradeable,
     OwnableUpgradeable,
     ERC721BurnableUpgradeable,
+    UniversalContract,
     UUPSUpgradeable,
     UniversalNFTEvents
 {
