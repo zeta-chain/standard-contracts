@@ -63,7 +63,7 @@ contract UniversalNFT is
     }
 
     function setGasLimit(uint256 gas) external onlyOwner {
-        if (gas <= 0) revert InvalidGasLimit();
+        if (gas == 0) revert InvalidGasLimit();
         gasLimitAmount = gas;
     }
 
