@@ -71,7 +71,7 @@ contract UniversalToken is
         emit SetUniversal(contractAddress);
     }
 
-    function mint(address to, uint256 amount) public onlyOwner {
+    function mint(address to, uint256 amount) public onlyOwner whenNotPaused {
         _mint(to, amount);
     }
 
@@ -79,7 +79,7 @@ contract UniversalToken is
         address destination,
         address receiver,
         uint256 amount
-    ) external payable {
+    ) external payable whenNotPaused {
         if (receiver == address(0)) revert InvalidAddress();
         _burn(msg.sender, amount);
 

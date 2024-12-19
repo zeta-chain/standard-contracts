@@ -92,7 +92,7 @@ contract UniversalToken is
         address destination,
         address receiver,
         uint256 amount
-    ) public payable {
+    ) public payable whenNotPaused {
         if (msg.value == 0) revert ZeroMsgValue();
         if (receiver == address(0)) revert InvalidAddress();
         _burn(msg.sender, amount);
@@ -145,7 +145,7 @@ contract UniversalToken is
         emit TokenTransfer(destination, receiver, amount);
     }
 
-    function mint(address to, uint256 amount) public onlyOwner {
+    function mint(address to, uint256 amount) public onlyOwner whenNotPaused {
         _mint(to, amount);
     }
 

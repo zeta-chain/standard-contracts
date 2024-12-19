@@ -95,7 +95,7 @@ contract UniversalNFT is
         uint256 tokenId,
         address receiver,
         address destination
-    ) public payable {
+    ) public payable whenNotPaused {
         if (msg.value == 0) revert ZeroMsgValue();
         if (receiver == address(0)) revert InvalidAddress();
         string memory uri = tokenURI(tokenId);
@@ -155,7 +155,10 @@ contract UniversalNFT is
         emit TokenTransfer(receiver, destination, tokenId, uri);
     }
 
-    function safeMint(address to, string memory uri) public onlyOwner {
+    function safeMint(
+        address to,
+        string memory uri
+    ) public onlyOwner whenNotPaused {
         uint256 hash = uint256(
             keccak256(
                 abi.encodePacked(address(this), block.number, _nextTokenId++)
