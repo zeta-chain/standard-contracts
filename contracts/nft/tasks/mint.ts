@@ -1,5 +1,6 @@
 import { task } from "hardhat/config";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
+import isURL from "validator/lib/isURL";
 
 const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
   const { isAddress } = hre.ethers.utils;
@@ -13,6 +14,21 @@ const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
 
   if (!isAddress(args.contract)) {
     throw new Error("Invalid Ethereum address provided.");
+  }
+
+  const supportedProtocols = ["https", "ipfs"];
+
+  const isValidTokenUri = isURL(args.tokenUri, {
+    require_protocol: true,
+    protocols: supportedProtocols,
+  });
+
+  if (!isValidTokenUri) {
+    throw new Error(
+      `Invalid token URI: ${
+        args.tokenUri
+      }. Supported protocols are: ${supportedProtocols.join(", ")}.`
+    );
   }
 
   const contract = await hre.ethers.getContractAt(
