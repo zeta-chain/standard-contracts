@@ -64,8 +64,8 @@ contract UniversalNFT is
         __ERC721_init(name, symbol);
         __ERC721Enumerable_init();
         __ERC721URIStorage_init();
-        __ERC721Burnable_init();
         __Ownable_init(initialOwner);
+        __ERC721Burnable_init();
         __UUPSUpgradeable_init();
         if (gatewayAddress == address(0) || uniswapRouterAddress == address(0))
             revert InvalidAddress();
