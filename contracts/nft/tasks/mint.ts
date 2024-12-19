@@ -1,5 +1,6 @@
 import { task } from "hardhat/config";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
+import isURL from "validator/lib/isURL";
 
 const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
   const [signer] = await hre.ethers.getSigners();
@@ -9,8 +10,23 @@ const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
     );
   }
 
+  const supportedProtocols = ["https", "ipfs"];
+
+  const isValidTokenUri = isURL(args.tokenUri, {
+    require_protocol: true,
+    protocols: supportedProtocols,
+  });
+
+  if (!isValidTokenUri) {
+    throw new Error(
+      `Invalid token URI: ${
+        args.tokenUri
+      }. Supported protocols are: ${supportedProtocols.join(", ")}.`
+    );
+  }
+
   const contract = await hre.ethers.getContractAt(
-    args.name as "Universal" | "Connected",
+    args.name as "ZetaChainUniversalNFT" | "EVMUniversalNFT",
     args.contract
   );
 
@@ -19,10 +35,25 @@ const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
   const tx = await contract.safeMint(recipient, args.tokenUri);
   const receipt = await tx.wait();
 
-  const transferEvent = receipt.events?.find(
-    (event: any) => event.event === "Transfer"
-  );
+  const transferEvent = receipt.logs
+    .map((log: any) => {
+      try {
+        return contract.interface.parseLog(log);
+      } catch {
+        return null;
+      }
+    })
+    .find((parsedLog: any) => parsedLog?.name === "Transfer");
+
+  if (!transferEvent) {
+    throw new Error("Transfer event not found in transaction logs.");
+  }
+
   const tokenId = transferEvent?.args?.tokenId;
+
+  if (!tokenId) {
+    throw new Error("Transfer event not found in transaction logs.");
+  }
 
   if (args.json) {
     console.log(
@@ -31,14 +62,14 @@ const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
         mintTransactionHash: tx.hash,
         recipient: recipient,
         tokenURI: args.tokenUri,
-        tokenId: tokenId?.toString(),
+        tokenId: tokenId.toString(),
       })
     );
   } else {
     console.log(`🚀 Successfully minted NFT.
 📜 Contract address: ${args.contract}
 👤 Recipient: ${recipient}
-🆔 Token ID: ${tokenId?.toString()}
+🆔 Token ID: ${tokenId.toString()}
 🔗 Transaction hash: ${tx.hash}`);
   }
 };
@@ -50,5 +81,9 @@ task("mint", "Mint an NFT", main)
     "The recipient address, defaults to the signer address"
   )
   .addParam("tokenUri", "The metadata URI of the token")
-  .addOptionalParam("name", "The contract name to interact with", "Universal")
+  .addOptionalParam(
+    "name",
+    "The contract name to interact with",
+    "ZetaChainUniversalNFT"
+  )
   .addFlag("json", "Output the result in JSON format");

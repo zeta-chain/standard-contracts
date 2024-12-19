@@ -1,6 +1,8 @@
 #!/bin/bash
 
 set -e
+set -x
+set -o pipefail
 
 if [ "$1" = "start" ]; then npx hardhat localnet --exit-on-error & sleep 10; fi
 
@@ -27,13 +29,13 @@ GATEWAY_BNB=$(jq -r '.addresses[] | select(.type=="gatewayEVM" and .chain=="bnb"
 UNISWAP_ROUTER=$(jq -r '.addresses[] | select(.type=="uniswapRouterInstance" and .chain=="zetachain") | .address' localnet.json)
 SENDER=0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
 
-CONTRACT_ZETACHAIN=$(npx hardhat deploy --network localhost --gateway "$GATEWAY_ZETACHAIN" --uniswap-router "$UNISWAP_ROUTER" --json | jq -r '.contractAddress')
+CONTRACT_ZETACHAIN=$(npx hardhat deploy --name ZetaChainUniversalToken --network localhost --gateway "$GATEWAY_ZETACHAIN" --uniswap-router "$UNISWAP_ROUTER" --json | jq -r '.contractAddress')
 echo -e "\n🚀 Deployed contract on ZetaChain: $CONTRACT_ZETACHAIN"
 
-CONTRACT_ETHEREUM=$(npx hardhat deploy --name Connected --json --network localhost --gateway "$GATEWAY_ETHEREUM" | jq -r '.contractAddress')
+CONTRACT_ETHEREUM=$(npx hardhat deploy --name EVMUniversalToken --json --network localhost --gateway "$GATEWAY_ETHEREUM" | jq -r '.contractAddress')
 echo -e "🚀 Deployed contract on EVM chain: $CONTRACT_ETHEREUM"
 
-CONTRACT_BNB=$(npx hardhat deploy --name Connected --json --network localhost --gateway "$GATEWAY_BNB" | jq -r '.contractAddress')
+CONTRACT_BNB=$(npx hardhat deploy --name EVMUniversalToken --json --network localhost --gateway "$GATEWAY_BNB" | jq -r '.contractAddress')
 echo -e "🚀 Deployed contract on BNB chain: $CONTRACT_BNB"
 
 echo -e "\n📮 User Address: $SENDER"
@@ -54,7 +56,7 @@ npx hardhat localnet-check
 balance
 
 echo -e "\nTransferring token: ZetaChain → Ethereum..."
-npx hardhat transfer --network localhost --json --amount 10 --from "$CONTRACT_ZETACHAIN" --to "$ZRC20_ETHEREUM" 
+npx hardhat transfer --network localhost --json --amount 10 --from "$CONTRACT_ZETACHAIN" --to "$ZRC20_ETHEREUM" --gas-amount 1
 
 npx hardhat localnet-check
 balance

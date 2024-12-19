@@ -12,15 +12,15 @@ const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
   }
 
   const factory: any = await hre.ethers.getContractFactory(args.name);
-  const contract = await factory.deploy(
-    args.gateway,
+
+  const contract = await hre.upgrades.deployProxy(factory, [
     signer.address,
     args.tokenName,
     args.tokenSymbol,
+    args.gateway,
     args.gasLimit,
-    ...(args.uniswapRouter ? [args.uniswapRouter] : [])
-  );
-  await contract.deployed();
+    ...(args.uniswapRouter ? [args.uniswapRouter] : []),
+  ]);
 
   if (args.json) {
     console.log(
@@ -42,7 +42,11 @@ task("deploy", "Deploy the NFT contract", main)
   .addFlag("json", "Output the result in JSON format")
   .addOptionalParam("tokenName", "Token name", "Universal Token")
   .addOptionalParam("tokenSymbol", "Token symbol", "UFT")
-  .addOptionalParam("name", "The contract name to deploy", "Universal")
+  .addOptionalParam(
+    "name",
+    "The contract name to deploy",
+    "ZetaChainUniversalToken"
+  )
   .addOptionalParam(
     "gasLimit",
     "Gas limit for the transaction",
