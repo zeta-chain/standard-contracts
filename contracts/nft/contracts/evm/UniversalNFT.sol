@@ -11,16 +11,18 @@ import {ERC721URIStorageUpgradeable} from "@openzeppelin/contracts-upgradeable/t
 import {ERC721BurnableUpgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC721/extensions/ERC721BurnableUpgradeable.sol";
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import {ERC721PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC721/extensions/ERC721PausableUpgradeable.sol";
 
 import "../shared/UniversalNFTEvents.sol";
 
 contract UniversalNFT is
     Initializable,
     ERC721Upgradeable,
-    ERC721EnumerableUpgradeable,
     ERC721URIStorageUpgradeable,
-    ERC721BurnableUpgradeable,
+    ERC721EnumerableUpgradeable,
+    ERC721PausableUpgradeable,
     OwnableUpgradeable,
+    ERC721BurnableUpgradeable,
     UUPSUpgradeable,
     UniversalNFTEvents
 {
@@ -74,7 +76,10 @@ contract UniversalNFT is
         emit SetUniversal(contractAddress);
     }
 
-    function safeMint(address to, string memory uri) public onlyOwner {
+    function safeMint(
+        address to,
+        string memory uri
+    ) public whenNotPaused onlyOwner {
         uint256 hash = uint256(
             keccak256(
                 abi.encodePacked(address(this), block.number, _nextTokenId++)
@@ -92,7 +97,7 @@ contract UniversalNFT is
         uint256 tokenId,
         address receiver,
         address destination
-    ) external payable {
+    ) external payable whenNotPaused {
         if (receiver == address(0)) revert InvalidAddress();
 
         string memory uri = tokenURI(tokenId);
@@ -171,7 +176,11 @@ contract UniversalNFT is
         address auth
     )
         internal
-        override(ERC721Upgradeable, ERC721EnumerableUpgradeable)
+        override(
+            ERC721Upgradeable,
+            ERC721EnumerableUpgradeable,
+            ERC721PausableUpgradeable
+        )
         returns (address)
     {
         return super._update(to, tokenId, auth);
@@ -213,6 +222,14 @@ contract UniversalNFT is
     function _authorizeUpgrade(
         address newImplementation
     ) internal override onlyOwner {}
+
+    function pause() public onlyOwner {
+        _pause();
+    }
+
+    function unpause() public onlyOwner {
+        _unpause();
+    }
 
     receive() external payable {}
 }

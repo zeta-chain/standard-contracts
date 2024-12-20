@@ -8,11 +8,12 @@ import "@zetachain/protocol-contracts/contracts/zevm/interfaces/IWZETA.sol";
 import "@zetachain/protocol-contracts/contracts/zevm/GatewayZEVM.sol";
 import {SwapHelperLib} from "@zetachain/toolkit/contracts/SwapHelperLib.sol";
 import {SystemContract} from "@zetachain/toolkit/contracts/SystemContract.sol";
-import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import {ERC721Upgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC721/ERC721Upgradeable.sol";
-import {ERC721EnumerableUpgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC721/extensions/ERC721EnumerableUpgradeable.sol";
-import {ERC721URIStorageUpgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC721/extensions/ERC721URIStorageUpgradeable.sol";
 import {ERC721BurnableUpgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC721/extensions/ERC721BurnableUpgradeable.sol";
+import {ERC721EnumerableUpgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC721/extensions/ERC721EnumerableUpgradeable.sol";
+import {ERC721PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC721/extensions/ERC721PausableUpgradeable.sol";
+import {ERC721URIStorageUpgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC721/extensions/ERC721URIStorageUpgradeable.sol";
+import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
@@ -21,10 +22,11 @@ import "../shared/UniversalNFTEvents.sol";
 contract UniversalNFT is
     Initializable,
     ERC721Upgradeable,
-    ERC721EnumerableUpgradeable,
     ERC721URIStorageUpgradeable,
-    ERC721BurnableUpgradeable,
+    ERC721EnumerableUpgradeable,
+    ERC721PausableUpgradeable,
     OwnableUpgradeable,
+    ERC721BurnableUpgradeable,
     UniversalContract,
     UUPSUpgradeable,
     UniversalNFTEvents
@@ -93,7 +95,7 @@ contract UniversalNFT is
         uint256 tokenId,
         address receiver,
         address destination
-    ) public payable {
+    ) public payable whenNotPaused {
         if (msg.value == 0) revert ZeroMsgValue();
         if (receiver == address(0)) revert InvalidAddress();
         string memory uri = tokenURI(tokenId);
@@ -153,7 +155,10 @@ contract UniversalNFT is
         emit TokenTransfer(receiver, destination, tokenId, uri);
     }
 
-    function safeMint(address to, string memory uri) public onlyOwner {
+    function safeMint(
+        address to,
+        string memory uri
+    ) public onlyOwner whenNotPaused {
         uint256 hash = uint256(
             keccak256(
                 abi.encodePacked(address(this), block.number, _nextTokenId++)
@@ -239,7 +244,11 @@ contract UniversalNFT is
         address auth
     )
         internal
-        override(ERC721Upgradeable, ERC721EnumerableUpgradeable)
+        override(
+            ERC721Upgradeable,
+            ERC721EnumerableUpgradeable,
+            ERC721PausableUpgradeable
+        )
         returns (address)
     {
         return super._update(to, tokenId, auth);
@@ -281,6 +290,14 @@ contract UniversalNFT is
     function _authorizeUpgrade(
         address newImplementation
     ) internal override onlyOwner {}
+
+    function pause() public onlyOwner {
+        _pause();
+    }
+
+    function unpause() public onlyOwner {
+        _unpause();
+    }
 
     receive() external payable {}
 }
