@@ -1,10 +1,16 @@
 import { task, types } from "hardhat/config";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
-import ZRC20ABI from "@zetachain/protocol-contracts/abi/ZRC20.sol/ZRC20.json";
 
 const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
   const { ethers } = hre;
   const [signer] = await ethers.getSigners();
+
+  const { isAddress } = hre.ethers.utils;
+
+  if (!isAddress(args.to) || !isAddress(args.revertAddress)) {
+    throw new Error("Invalid Ethereum address provided.");
+  }
+
   const nftContract = await ethers.getContractAt("IERC721", args.from);
   const approveTx = await nftContract
     .connect(signer)
@@ -15,28 +21,22 @@ const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
     gasPrice: args.txOptionsGasPrice,
     gasLimit: args.txOptionsGasLimit,
   };
-  let tx;
 
-  let contract;
-  try {
-    contract = await ethers.getContractAt("Universal", args.from);
-    await (contract as any).isUniversal();
-    const gasLimit = hre.ethers.BigNumber.from(args.txOptionsGasLimit);
-    const zrc20 = new ethers.Contract(args.to, ZRC20ABI.abi, signer);
-    const [, gasFee] = await zrc20.withdrawGasFeeWithGasLimit(gasLimit);
-    const zrc20TransferTx = await zrc20.approve(args.from, gasFee, txOptions);
-    await zrc20TransferTx.wait();
-  } catch (e) {
-    contract = await ethers.getContractAt("Connected", args.from);
-  }
+  const contract = await ethers.getContractAt(
+    "ZetaChainUniversalNFT",
+    args.from
+  );
 
   const gasAmount = ethers.utils.parseUnits(args.gasAmount, 18);
 
   const receiver = args.receiver || signer.address;
 
-  tx = await contract.transferCrossChain(args.tokenId, receiver, args.to, {
-    value: gasAmount,
-  });
+  const tx = await contract.transferCrossChain(
+    args.tokenId,
+    receiver,
+    args.to,
+    { ...txOptions, value: gasAmount }
+  );
 
   await tx.wait();
   if (args.json) {
@@ -57,7 +57,11 @@ const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
   }
 };
 
-task("transfer", "Transfer and lock an NFT", main)
+export const nftTransfer = task(
+  "nft:transfer",
+  "Transfer and lock an NFT",
+  main
+)
   .addOptionalParam("receiver", "The address to receive the NFT")
   .addParam("from", "The contract being transferred from")
   .addParam("tokenId", "The ID of the NFT to transfer")
@@ -70,7 +74,7 @@ task("transfer", "Transfer and lock an NFT", main)
   .addOptionalParam(
     "txOptionsGasLimit",
     "The gas limit for the transaction",
-    7000000,
+    10000000,
     types.int
   )
   .addFlag("callOnRevert", "Whether to call on revert")

@@ -2,6 +2,7 @@ import { task, types } from "hardhat/config";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 
 const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
+  const { isAddress } = hre.ethers.utils;
   const network = hre.network.name;
 
   const [signer] = await hre.ethers.getSigners();
@@ -11,21 +12,23 @@ const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
     );
   }
 
+  if (
+    !isAddress(args.gateway) ||
+    (args.uniswapRouter && !isAddress(args.uniswapRouter))
+  ) {
+    throw new Error("Invalid Ethereum address provided.");
+  }
+
   const factory: any = await hre.ethers.getContractFactory(args.name);
 
-  const contract = await factory.deploy(
-    args.gateway,
+  const contract = await hre.upgrades.deployProxy(factory, [
     signer.address,
     args.tokenName,
     args.tokenSymbol,
+    args.gateway,
     args.gasLimit,
     ...(args.uniswapRouter ? [args.uniswapRouter] : []),
-    {
-      gasPrice: args.deployGasPrice,
-    }
-  );
-
-  await contract.deployed();
+  ]);
 
   if (args.json) {
     console.log(
@@ -33,17 +36,16 @@ const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
         contractAddress: contract.address,
         deployer: signer.address,
         network: network,
-        transactionHash: contract.deployTransaction.hash,
       })
     );
   } else {
     console.log(`🚀 Successfully deployed "${args.name}" contract on ${network}.
-📜 Contract address: ${contract.address}
-🔗 Transaction hash: ${contract.deployTransaction.hash}`);
+📜 Contract address: ${contract.target}
+`);
   }
 };
 
-task("deploy", "Deploy the NFT contract", main)
+export const nftDeploy = task("nft:deploy", "Deploy the NFT contract", main)
   .addFlag("json", "Output the result in JSON format")
   .addOptionalParam("tokenName", "NFT name", "Universal NFT")
   .addOptionalParam("tokenSymbol", "NFT symbol", "UNFT")
@@ -51,7 +53,7 @@ task("deploy", "Deploy the NFT contract", main)
   .addOptionalParam(
     "gasLimit",
     "Gas limit for the transaction",
-    1000000,
+    10000000,
     types.int
   )
   .addOptionalParam(
