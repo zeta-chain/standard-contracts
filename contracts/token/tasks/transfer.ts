@@ -5,6 +5,12 @@ const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
   const { ethers } = hre;
   const [signer] = await ethers.getSigners();
 
+  const { isAddress } = hre.ethers.utils;
+
+  if (!isAddress(args.to) || !isAddress(args.revertAddress)) {
+    throw new Error("Invalid Ethereum address provided.");
+  }
+
   const txOptions = {
     gasPrice: args.txOptionsGasPrice,
     gasLimit: args.txOptionsGasLimit,
