@@ -38,7 +38,11 @@ const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
   }
 };
 
-task("connected-set-universal", "Sets the universal contract address", main)
+export const tokenSetUniversal = task(
+  "token:set-universal",
+  "Sets the universal contract address",
+  main
+)
   .addParam("contract", "The address of the deployed contract")
   .addParam("universal", "The address of the universal contract to set")
   .addFlag("json", "Output the result in JSON format");

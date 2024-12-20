@@ -45,7 +45,11 @@ const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
   }
 };
 
-task("universal-set-connected", "Sets the connected contract address", main)
+export const tokenSetConnected = task(
+  "token:set-connected",
+  "Sets the connected contract address",
+  main
+)
   .addParam("contract", "The address of the deployed contract")
   .addParam("zrc20", "The ZRC20 address to link to the connected contract")
   .addParam("connected", "The address of the connected contract to set")

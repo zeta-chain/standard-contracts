@@ -55,7 +55,11 @@ const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
   }
 };
 
-task("transfer", "Transfer and lock an NFT", main)
+export const tokenTransfer = task(
+  "token:transfer",
+  "Transfer and lock an NFT",
+  main
+)
   .addParam("from", "The contract being transferred from")
   .addOptionalParam(
     "txOptionsGasPrice",

@@ -41,7 +41,7 @@ const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
   }
 };
 
-task("mint", "Mint an NFT", main)
+export const tokenMint = task("token:mint", "Mint a universal token", main)
   .addParam("contract", "The address of the deployed NFT contract")
   .addOptionalParam(
     "to",
