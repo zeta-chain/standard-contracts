@@ -1,8 +1,8 @@
 import "./tasks/deploy";
 import "./tasks/mint";
 import "./tasks/transfer";
-import "./tasks/universalSetConnected";
-import "./tasks/connectedSetUniversal";
+import "./tasks/setConnected";
+import "./tasks/setUniversal";
 import "@zetachain/localnet/tasks";
 import "@nomicfoundation/hardhat-toolbox";
 import "@zetachain/toolkit/tasks";

@@ -1,6 +1,6 @@
 import { task } from "hardhat/config";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
-import { EVMUniversalNFT } from "@/typechain-types";
+import { ZetaChainUniversalNFT } from "@/typechain-types";
 
 const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
   const { isAddress } = hre.ethers.utils;
@@ -11,37 +11,45 @@ const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
     );
   }
 
-  if (!isAddress(args.contract) || !isAddress(args.universal)) {
+  if (
+    !isAddress(args.contract) ||
+    !isAddress(args.zrc20) ||
+    !isAddress(args.connected)
+  ) {
     throw new Error("Invalid Ethereum address provided.");
   }
 
-  const contract: EVMUniversalNFT = await hre.ethers.getContractAt(
-    "EVMUniversalNFT",
+  const contract: ZetaChainUniversalNFT = await hre.ethers.getContractAt(
+    "ZetaChainUniversalNFT",
     args.contract
   );
 
-  const tx = await contract.setUniversal(args.universal, {
-    gasLimit: 1000000,
-  });
-  const receipt = await tx.wait();
+  const tx = await contract.setConnected(args.zrc20, args.connected);
 
   if (args.json) {
     console.log(
       JSON.stringify({
         contractAddress: args.contract,
-        universalContract: args.universal,
+        zrc20: args.zrc20,
+        connectedContractAddress: args.connected,
         transactionHash: tx.hash,
       })
     );
   } else {
-    console.log(`🚀 Successfully set the universal contract.
+    console.log(`🚀 Successfully set the connected contract.
 📜 Contract address: ${args.contract}
-🔗 Universal contract address: ${args.universalContract}
+🔗 ZRC20 address: ${args.zrc20}
+🔗 Connected contract address: ${args.contractAddress}
 🔗 Transaction hash: ${tx.hash}`);
   }
 };
 
-task("connected-set-universal", "Sets the universal contract address", main)
+export const nftSetConnected = task(
+  "nft:set-connected",
+  "Sets the connected contract address",
+  main
+)
   .addParam("contract", "The address of the deployed contract")
-  .addParam("universal", "The address of the universal contract to set")
+  .addParam("zrc20", "The ZRC20 address to link to the connected contract")
+  .addParam("connected", "The address of the connected contract to set")
   .addFlag("json", "Output the result in JSON format");
