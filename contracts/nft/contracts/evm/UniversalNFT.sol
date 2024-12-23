@@ -24,6 +24,8 @@ contract UniversalNFT is
     UUPSUpgradeable,
     UniversalNFTCore
 {
+    uint256 private _nextTokenId;
+
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
         _disableInitializers();
@@ -44,6 +46,22 @@ contract UniversalNFT is
         __ERC721Burnable_init();
         __UUPSUpgradeable_init();
         __UniversalNFTCore_init(gatewayAddress, address(this), gas);
+    }
+
+    function safeMint(
+        address to,
+        string memory uri
+    ) public onlyOwner whenNotPaused {
+        uint256 hash = uint256(
+            keccak256(
+                abi.encodePacked(address(this), block.number, _nextTokenId++)
+            )
+        );
+
+        uint256 tokenId = hash & 0x00FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF;
+
+        _safeMint(to, tokenId);
+        _setTokenURI(tokenId, uri);
     }
 
     function pause() public onlyOwner {
