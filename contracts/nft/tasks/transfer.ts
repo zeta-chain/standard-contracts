@@ -4,6 +4,13 @@ import { HardhatRuntimeEnvironment } from "hardhat/types";
 const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
   const { ethers } = hre;
   const [signer] = await ethers.getSigners();
+
+  const { isAddress } = hre.ethers.utils;
+
+  if (!isAddress(args.to) || !isAddress(args.revertAddress)) {
+    throw new Error("Invalid Ethereum address provided.");
+  }
+
   const nftContract = await ethers.getContractAt("IERC721", args.from);
   const approveTx = await nftContract
     .connect(signer)
@@ -50,7 +57,11 @@ const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
   }
 };
 
-task("transfer", "Transfer and lock an NFT", main)
+export const nftTransfer = task(
+  "nft:transfer",
+  "Transfer and lock an NFT",
+  main
+)
   .addOptionalParam("receiver", "The address to receive the NFT")
   .addParam("from", "The contract being transferred from")
   .addParam("tokenId", "The ID of the NFT to transfer")

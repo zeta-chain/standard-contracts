@@ -1,11 +1,33 @@
 import { task } from "hardhat/config";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
+import isURL from "validator/lib/isURL";
 
 const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
+  const { isAddress } = hre.ethers.utils;
+
   const [signer] = await hre.ethers.getSigners();
   if (signer === undefined) {
     throw new Error(
       `Wallet not found. Please, run "npx hardhat account --save" or set PRIVATE_KEY env variable (for example, in a .env file)`
+    );
+  }
+
+  if (!isAddress(args.contract)) {
+    throw new Error("Invalid Ethereum address provided.");
+  }
+
+  const supportedProtocols = ["https", "ipfs"];
+
+  const isValidTokenUri = isURL(args.tokenUri, {
+    require_protocol: true,
+    protocols: supportedProtocols,
+  });
+
+  if (!isValidTokenUri) {
+    throw new Error(
+      `Invalid token URI: ${
+        args.tokenUri
+      }. Supported protocols are: ${supportedProtocols.join(", ")}.`
     );
   }
 
@@ -19,7 +41,6 @@ const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
   const tx = await contract.safeMint(recipient, args.tokenUri);
   const receipt = await tx.wait();
 
-  // Decode logs using contract interface
   const transferEvent = receipt.logs
     .map((log: any) => {
       try {
@@ -30,7 +51,15 @@ const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
     })
     .find((parsedLog: any) => parsedLog?.name === "Transfer");
 
-  const tokenId = transferEvent?.args?.tokenId?.toString();
+  if (!transferEvent) {
+    throw new Error("Transfer event not found in transaction logs.");
+  }
+
+  const tokenId = transferEvent?.args?.tokenId;
+
+  if (!tokenId) {
+    throw new Error("Transfer event not found in transaction logs.");
+  }
 
   if (args.json) {
     console.log(
@@ -39,19 +68,19 @@ const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
         mintTransactionHash: tx.hash,
         recipient: recipient,
         tokenURI: args.tokenUri,
-        tokenId: tokenId,
+        tokenId: tokenId.toString(),
       })
     );
   } else {
     console.log(`🚀 Successfully minted NFT.
 📜 Contract address: ${args.contract}
 👤 Recipient: ${recipient}
-🆔 Token ID: ${tokenId}
+🆔 Token ID: ${tokenId.toString()}
 🔗 Transaction hash: ${tx.hash}`);
   }
 };
 
-task("mint", "Mint an NFT", main)
+export const nftMint = task("nft:mint", "Mint an NFT", main)
   .addParam("contract", "The address of the deployed NFT contract")
   .addOptionalParam(
     "to",

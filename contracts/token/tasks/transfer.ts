@@ -5,6 +5,12 @@ const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
   const { ethers } = hre;
   const [signer] = await ethers.getSigners();
 
+  const { isAddress } = hre.ethers.utils;
+
+  if (!isAddress(args.to) || !isAddress(args.revertAddress)) {
+    throw new Error("Invalid Ethereum address provided.");
+  }
+
   const txOptions = {
     gasPrice: args.txOptionsGasPrice,
     gasLimit: args.txOptionsGasLimit,
@@ -49,7 +55,11 @@ const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
   }
 };
 
-task("transfer", "Transfer and lock an NFT", main)
+export const tokenTransfer = task(
+  "token:transfer",
+  "Transfer and lock an NFT",
+  main
+)
   .addParam("from", "The contract being transferred from")
   .addOptionalParam(
     "txOptionsGasPrice",

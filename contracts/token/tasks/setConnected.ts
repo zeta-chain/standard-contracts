@@ -1,8 +1,10 @@
 import { task } from "hardhat/config";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
-import { ZetaChainUniversalNFT } from "@/typechain-types";
+import { ZetaChainUniversalToken } from "../typechain-types";
 
 const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
+  const { isAddress } = hre.ethers.utils;
+
   const [signer] = await hre.ethers.getSigners();
   if (!signer) {
     throw new Error(
@@ -10,8 +12,16 @@ const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
     );
   }
 
-  const contract: ZetaChainUniversalNFT = await hre.ethers.getContractAt(
-    "ZetaChainUniversalNFT",
+  if (
+    !isAddress(args.contract) ||
+    !isAddress(args.zrc20) ||
+    !isAddress(args.connected)
+  ) {
+    throw new Error("Invalid Ethereum address provided.");
+  }
+
+  const contract: ZetaChainUniversalToken = await hre.ethers.getContractAt(
+    "ZetaChainUniversalToken",
     args.contract
   );
 
@@ -30,12 +40,16 @@ const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
     console.log(`🚀 Successfully set the connected contract.
 📜 Contract address: ${args.contract}
 🔗 ZRC20 address: ${args.zrc20}
-🔗 Connected contract address: ${args.contractAddress}
+🔗 Connected contract address: ${args.connected}
 🔗 Transaction hash: ${tx.hash}`);
   }
 };
 
-task("universal-set-connected", "Sets the connected contract address", main)
+export const tokenSetConnected = task(
+  "token:set-connected",
+  "Sets the connected contract address",
+  main
+)
   .addParam("contract", "The address of the deployed contract")
   .addParam("zrc20", "The ZRC20 address to link to the connected contract")
   .addParam("connected", "The address of the connected contract to set")

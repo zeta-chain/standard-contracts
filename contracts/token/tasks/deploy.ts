@@ -2,6 +2,8 @@ import { task, types } from "hardhat/config";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 
 const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
+  const { isAddress } = hre.ethers.utils;
+
   const network = hre.network.name;
 
   const [signer] = await hre.ethers.getSigners();
@@ -9,6 +11,13 @@ const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
     throw new Error(
       `Wallet not found. Please, run "npx hardhat account --save" or set PRIVATE_KEY env variable (for example, in a .env file)`
     );
+  }
+
+  if (
+    !isAddress(args.gateway) ||
+    (args.uniswapRouter && !isAddress(args.uniswapRouter))
+  ) {
+    throw new Error("Invalid Ethereum address provided.");
   }
 
   const factory: any = await hre.ethers.getContractFactory(args.name);
@@ -38,7 +47,11 @@ const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
   }
 };
 
-task("deploy", "Deploy the NFT contract", main)
+export const tokenDeploy = task(
+  "token:deploy",
+  "Deploy a universal token contract",
+  main
+)
   .addFlag("json", "Output the result in JSON format")
   .addOptionalParam("tokenName", "Token name", "Universal Token")
   .addOptionalParam("tokenSymbol", "Token symbol", "UFT")
