@@ -39,7 +39,7 @@ abstract contract UniversalNFTCore is
         emit SetUniversal(contractAddress);
     }
 
-    function __UniversalNFTTransferrable_init(
+    function __UniversalNFTCore_init(
         address gatewayAddress,
         address universalAddress,
         uint256 gas

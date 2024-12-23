@@ -1,31 +1,29 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.26;
+// Compatible with OpenZeppelin Contracts ^5.0.0
+pragma solidity ^0.8.22;
 
-import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
-import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import {ERC721Upgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC721/ERC721Upgradeable.sol";
-import {ERC721EnumerableUpgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC721/extensions/ERC721EnumerableUpgradeable.sol";
-import {ERC721URIStorageUpgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC721/extensions/ERC721URIStorageUpgradeable.sol";
 import {ERC721BurnableUpgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC721/extensions/ERC721BurnableUpgradeable.sol";
+import {ERC721EnumerableUpgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC721/extensions/ERC721EnumerableUpgradeable.sol";
+import {ERC721PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC721/extensions/ERC721PausableUpgradeable.sol";
+import {ERC721URIStorageUpgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC721/extensions/ERC721URIStorageUpgradeable.sol";
+import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
-import {ERC721PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC721/extensions/ERC721PausableUpgradeable.sol";
 
 import "./UniversalNFTCore.sol";
 
 contract UniversalNFT is
     Initializable,
     ERC721Upgradeable,
-    ERC721URIStorageUpgradeable,
     ERC721EnumerableUpgradeable,
+    ERC721URIStorageUpgradeable,
     ERC721PausableUpgradeable,
     OwnableUpgradeable,
     ERC721BurnableUpgradeable,
     UUPSUpgradeable,
     UniversalNFTCore
 {
-    uint256 private _nextTokenId;
-
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
         _disableInitializers();
@@ -41,28 +39,24 @@ contract UniversalNFT is
         __ERC721_init(name, symbol);
         __ERC721Enumerable_init();
         __ERC721URIStorage_init();
+        __ERC721Pausable_init();
         __Ownable_init(initialOwner);
         __ERC721Burnable_init();
         __UUPSUpgradeable_init();
-        __UniversalNFTTransferrable_init(gatewayAddress, address(this), gas);
+        __UniversalNFTCore_init(gatewayAddress, address(this), gas);
     }
 
-    function safeMint(
-        address to,
-        string memory uri
-    ) public whenNotPaused onlyOwner {
-        uint256 hash = uint256(
-            keccak256(
-                abi.encodePacked(address(this), block.number, _nextTokenId++)
-            )
-        );
-
-        uint256 tokenId = hash & 0x00FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF;
-
-        _safeMint(to, tokenId);
-        _setTokenURI(tokenId, uri);
-        emit TokenMinted(to, tokenId, uri);
+    function pause() public onlyOwner {
+        _pause();
     }
+
+    function unpause() public onlyOwner {
+        _unpause();
+    }
+
+    function _authorizeUpgrade(
+        address newImplementation
+    ) internal override onlyOwner {}
 
     // The following functions are overrides required by Solidity.
 
@@ -94,7 +88,6 @@ contract UniversalNFT is
     )
         public
         view
-        virtual
         override(
             ERC721Upgradeable,
             ERC721URIStorageUpgradeable,
@@ -110,7 +103,6 @@ contract UniversalNFT is
     )
         public
         view
-        virtual
         override(
             ERC721Upgradeable,
             ERC721EnumerableUpgradeable,
@@ -121,18 +113,4 @@ contract UniversalNFT is
     {
         return super.supportsInterface(interfaceId);
     }
-
-    function _authorizeUpgrade(
-        address newImplementation
-    ) internal override onlyOwner {}
-
-    function pause() public onlyOwner {
-        _pause();
-    }
-
-    function unpause() public onlyOwner {
-        _unpause();
-    }
-
-    receive() external payable {}
 }
