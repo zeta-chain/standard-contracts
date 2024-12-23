@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.26;
+pragma solidity ^0.8.26;
 
 import "@zetachain/protocol-contracts/contracts/evm/GatewayEVM.sol";
 import {RevertOptions} from "@zetachain/protocol-contracts/contracts/evm/GatewayEVM.sol";

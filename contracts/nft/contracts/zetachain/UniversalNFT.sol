@@ -41,6 +41,7 @@ contract UniversalNFT is
         __ERC721_init(name, symbol);
         __ERC721Enumerable_init();
         __ERC721URIStorage_init();
+        __ERC721Pausable_init();
         __Ownable_init(initialOwner);
         __ERC721Burnable_init();
         __UUPSUpgradeable_init();
@@ -62,6 +63,8 @@ contract UniversalNFT is
         _safeMint(to, tokenId);
         _setTokenURI(tokenId, uri);
     }
+
+    // The following functions are overrides required by Solidity.
 
     function _update(
         address to,
