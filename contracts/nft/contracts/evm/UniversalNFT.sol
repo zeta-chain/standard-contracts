@@ -29,9 +29,6 @@ contract UniversalNFT is
     UniversalNFTTransferrable
 {
     uint256 private _nextTokenId;
-    GatewayEVM public gateway;
-    address public universal;
-    uint256 public gasLimitAmount;
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -55,18 +52,6 @@ contract UniversalNFT is
         if (gas == 0) revert InvalidGasLimit();
         gasLimitAmount = gas;
         gateway = GatewayEVM(gatewayAddress);
-    }
-
-    function getGateway() public view override returns (GatewayEVM) {
-        return gateway;
-    }
-
-    function getUniversal() public view override returns (address) {
-        return universal;
-    }
-
-    function getGasLimitAmount() public view override returns (uint256) {
-        return gasLimitAmount;
     }
 
     function setGasLimit(uint256 gas) external onlyOwner {

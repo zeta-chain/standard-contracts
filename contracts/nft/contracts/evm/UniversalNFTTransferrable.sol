@@ -12,21 +12,19 @@ abstract contract UniversalNFTTransferrable is
     ERC721URIStorageUpgradeable,
     UniversalNFTEvents
 {
+    GatewayEVM public gateway;
+    address public universal;
+    uint256 public gasLimitAmount;
+
     error InvalidAddress();
     error Unauthorized();
     error InvalidGasLimit();
     error GasTokenTransferFailed();
 
     modifier onlyGateway() {
-        if (msg.sender != address(getGateway())) revert Unauthorized();
+        if (msg.sender != address(gateway)) revert Unauthorized();
         _;
     }
-
-    function getGateway() public view virtual returns (GatewayEVM);
-
-    function getUniversal() public view virtual returns (address);
-
-    function getGasLimitAmount() public view virtual returns (uint256);
 
     /**
      * @notice Transfers an NFT to another chain.
@@ -56,21 +54,21 @@ abstract contract UniversalNFTTransferrable is
         );
 
         if (destination == address(0)) {
-            getGateway().call(
-                getUniversal(),
+            gateway.call(
+                universal,
                 message,
                 RevertOptions(address(this), false, address(0), message, 0)
             );
         } else {
-            getGateway().depositAndCall{value: msg.value}(
-                getUniversal(),
+            gateway.depositAndCall{value: msg.value}(
+                universal,
                 message,
                 RevertOptions(
                     address(this),
                     true,
                     address(0),
                     abi.encode(receiver, tokenId, uri, msg.sender),
-                    getGasLimitAmount()
+                    gasLimitAmount
                 )
             );
         }
@@ -82,7 +80,7 @@ abstract contract UniversalNFTTransferrable is
         MessageContext calldata context,
         bytes calldata message
     ) external payable onlyGateway returns (bytes4) {
-        if (context.sender != getUniversal()) revert Unauthorized();
+        if (context.sender != universal) revert Unauthorized();
 
         (
             address receiver,
