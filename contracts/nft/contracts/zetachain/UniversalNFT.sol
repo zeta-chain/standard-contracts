@@ -1,38 +1,48 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
-import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
-import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
-import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Burnable.sol";
-import "@openzeppelin/contracts/access/Ownable2Step.sol";
 import {RevertContext, RevertOptions} from "@zetachain/protocol-contracts/contracts/Revert.sol";
 import "@zetachain/protocol-contracts/contracts/zevm/interfaces/UniversalContract.sol";
 import "@zetachain/protocol-contracts/contracts/zevm/interfaces/IGatewayZEVM.sol";
+import "@zetachain/protocol-contracts/contracts/zevm/interfaces/IWZETA.sol";
 import "@zetachain/protocol-contracts/contracts/zevm/GatewayZEVM.sol";
 import {SwapHelperLib} from "@zetachain/toolkit/contracts/SwapHelperLib.sol";
 import {SystemContract} from "@zetachain/toolkit/contracts/SystemContract.sol";
-import "../shared/Events.sol";
+import {ERC721Upgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC721/ERC721Upgradeable.sol";
+import {ERC721BurnableUpgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC721/extensions/ERC721BurnableUpgradeable.sol";
+import {ERC721EnumerableUpgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC721/extensions/ERC721EnumerableUpgradeable.sol";
+import {ERC721PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC721/extensions/ERC721PausableUpgradeable.sol";
+import {ERC721URIStorageUpgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC721/extensions/ERC721URIStorageUpgradeable.sol";
+import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
-abstract contract UniversalNFT is
-    ERC721,
-    ERC721Enumerable,
-    ERC721URIStorage,
-    Ownable2Step,
+import "../shared/UniversalNFTEvents.sol";
+
+contract UniversalNFT is
+    Initializable,
+    ERC721Upgradeable,
+    ERC721URIStorageUpgradeable,
+    ERC721EnumerableUpgradeable,
+    ERC721PausableUpgradeable,
+    OwnableUpgradeable,
+    ERC721BurnableUpgradeable,
     UniversalContract,
-    Events
+    UUPSUpgradeable,
+    UniversalNFTEvents
 {
-    GatewayZEVM public immutable gateway;
-    address public immutable uniswapRouter;
+    GatewayZEVM public gateway;
+    address public uniswapRouter;
     uint256 private _nextTokenId;
     bool public constant isUniversal = true;
-    uint256 public immutable gasLimitAmount;
+    uint256 public gasLimitAmount;
 
     error TransferFailed();
     error Unauthorized();
     error InvalidAddress();
     error InvalidGasLimit();
     error ApproveFailed();
+    error ZeroMsgValue();
 
     mapping(address => address) public connected;
 
@@ -41,16 +51,35 @@ abstract contract UniversalNFT is
         _;
     }
 
-    constructor(
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
+    function initialize(
+        address initialOwner,
+        string memory name,
+        string memory symbol,
         address payable gatewayAddress,
         uint256 gas,
         address uniswapRouterAddress
-    ) {
+    ) public initializer {
+        __ERC721_init(name, symbol);
+        __ERC721Enumerable_init();
+        __ERC721URIStorage_init();
+        __Ownable_init(initialOwner);
+        __ERC721Burnable_init();
+        __UUPSUpgradeable_init();
         if (gatewayAddress == address(0) || uniswapRouterAddress == address(0))
             revert InvalidAddress();
         if (gas == 0) revert InvalidGasLimit();
         gateway = GatewayZEVM(gatewayAddress);
         uniswapRouter = uniswapRouterAddress;
+        gasLimitAmount = gas;
+    }
+
+    function setGasLimit(uint256 gas) external onlyOwner {
+        if (gas == 0) revert InvalidGasLimit();
         gasLimitAmount = gas;
     }
 
@@ -66,7 +95,8 @@ abstract contract UniversalNFT is
         uint256 tokenId,
         address receiver,
         address destination
-    ) public {
+    ) public payable whenNotPaused {
+        if (msg.value == 0) revert ZeroMsgValue();
         if (receiver == address(0)) revert InvalidAddress();
         string memory uri = tokenURI(tokenId);
         _burn(tokenId);
@@ -74,12 +104,28 @@ abstract contract UniversalNFT is
         (address gasZRC20, uint256 gasFee) = IZRC20(destination)
             .withdrawGasFeeWithGasLimit(gasLimitAmount);
         if (destination != gasZRC20) revert InvalidAddress();
-        if (
-            !IZRC20(destination).transferFrom(msg.sender, address(this), gasFee)
-        ) revert TransferFailed();
-        if (!IZRC20(destination).approve(address(gateway), gasFee)) {
-            revert ApproveFailed();
+
+        address WZETA = gateway.zetaToken();
+
+        IWETH9(WZETA).deposit{value: msg.value}();
+        IWETH9(WZETA).approve(uniswapRouter, msg.value);
+
+        uint256 out = SwapHelperLib.swapTokensForExactTokens(
+            uniswapRouter,
+            WZETA,
+            gasFee,
+            gasZRC20,
+            msg.value
+        );
+
+        uint256 remaining = msg.value - out;
+
+        if (remaining > 0) {
+            IWETH9(WZETA).withdraw(remaining);
+            (bool success, ) = msg.sender.call{value: remaining}("");
+            if (!success) revert TransferFailed();
         }
+
         bytes memory message = abi.encode(
             receiver,
             tokenId,
@@ -87,7 +133,6 @@ abstract contract UniversalNFT is
             0,
             msg.sender
         );
-
         CallOptions memory callOptions = CallOptions(gasLimitAmount, false);
 
         RevertOptions memory revertOptions = RevertOptions(
@@ -98,6 +143,7 @@ abstract contract UniversalNFT is
             gasLimitAmount
         );
 
+        IZRC20(gasZRC20).approve(address(gateway), gasFee);
         gateway.call(
             abi.encodePacked(connected[destination]),
             destination,
@@ -109,7 +155,10 @@ abstract contract UniversalNFT is
         emit TokenTransfer(receiver, destination, tokenId, uri);
     }
 
-    function safeMint(address to, string memory uri) public onlyOwner {
+    function safeMint(
+        address to,
+        string memory uri
+    ) public onlyOwner whenNotPaused {
         uint256 hash = uint256(
             keccak256(
                 abi.encodePacked(address(this), block.number, _nextTokenId++)
@@ -193,20 +242,33 @@ abstract contract UniversalNFT is
         address to,
         uint256 tokenId,
         address auth
-    ) internal override(ERC721, ERC721Enumerable) returns (address) {
+    )
+        internal
+        override(
+            ERC721Upgradeable,
+            ERC721EnumerableUpgradeable,
+            ERC721PausableUpgradeable
+        )
+        returns (address)
+    {
         return super._update(to, tokenId, auth);
     }
 
     function _increaseBalance(
         address account,
         uint128 value
-    ) internal override(ERC721, ERC721Enumerable) {
+    ) internal override(ERC721Upgradeable, ERC721EnumerableUpgradeable) {
         super._increaseBalance(account, value);
     }
 
     function tokenURI(
         uint256 tokenId
-    ) public view override(ERC721, ERC721URIStorage) returns (string memory) {
+    )
+        public
+        view
+        override(ERC721Upgradeable, ERC721URIStorageUpgradeable)
+        returns (string memory)
+    {
         return super.tokenURI(tokenId);
     }
 
@@ -215,9 +277,27 @@ abstract contract UniversalNFT is
     )
         public
         view
-        override(ERC721, ERC721Enumerable, ERC721URIStorage)
+        override(
+            ERC721Upgradeable,
+            ERC721EnumerableUpgradeable,
+            ERC721URIStorageUpgradeable
+        )
         returns (bool)
     {
         return super.supportsInterface(interfaceId);
     }
+
+    function _authorizeUpgrade(
+        address newImplementation
+    ) internal override onlyOwner {}
+
+    function pause() public onlyOwner {
+        _pause();
+    }
+
+    function unpause() public onlyOwner {
+        _unpause();
+    }
+
+    receive() external payable {}
 }

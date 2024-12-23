@@ -1,39 +1,35 @@
 import { task, types } from "hardhat/config";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
-import ZRC20ABI from "@zetachain/protocol-contracts/abi/ZRC20.sol/ZRC20.json";
 
 const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
   const { ethers } = hre;
   const [signer] = await ethers.getSigners();
 
-  const value = ethers.utils.parseUnits(args.amount, 18);
-  const gasAmount =
-    args.gasAmount && ethers.utils.parseUnits(args.gasAmount, 18);
+  const { isAddress } = hre.ethers.utils;
+
+  if (!isAddress(args.to) || !isAddress(args.revertAddress)) {
+    throw new Error("Invalid Ethereum address provided.");
+  }
 
   const txOptions = {
     gasPrice: args.txOptionsGasPrice,
     gasLimit: args.txOptionsGasLimit,
   };
-  let tx;
 
-  let contract;
-  try {
-    contract = await ethers.getContractAt("Universal", args.from);
-    await (contract as any).isUniversal();
-    const gasLimit = hre.ethers.BigNumber.from(args.txOptionsGasLimit);
-    const zrc20 = new ethers.Contract(args.to, ZRC20ABI.abi, signer);
-    const [, gasFee] = await zrc20.withdrawGasFeeWithGasLimit(gasLimit);
-    const zrc20TransferTx = await zrc20.approve(args.from, gasFee, txOptions);
-    await zrc20TransferTx.wait();
-    const tokenApprove = await contract.approve(args.from, value);
-    await tokenApprove.wait();
-  } catch (e) {
-    contract = await ethers.getContractAt("Connected", args.from);
-  }
+  const contract = await ethers.getContractAt(
+    "ZetaChainUniversalToken",
+    args.from
+  );
+
+  const value = ethers.utils.parseUnits(args.amount, 18);
+  const tokenApprove = await contract.approve(args.from, value);
+  await tokenApprove.wait();
+
+  const gasAmount = ethers.utils.parseUnits(args.gasAmount, 18);
 
   const receiver = args.receiver || signer.address;
 
-  tx = await (contract as any).transferCrossChain(
+  const tx = await (contract as any).transferCrossChain(
     args.to,
     receiver,
     args.amount,
@@ -59,7 +55,11 @@ const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
   }
 };
 
-task("transfer", "Transfer and lock an NFT", main)
+export const tokenTransfer = task(
+  "token:transfer",
+  "Transfer and lock an NFT",
+  main
+)
   .addParam("from", "The contract being transferred from")
   .addOptionalParam(
     "txOptionsGasPrice",
@@ -94,5 +94,5 @@ task("transfer", "Transfer and lock an NFT", main)
     "ZRC-20 of the gas token of the destination chain",
     "0x0000000000000000000000000000000000000000"
   )
-  .addOptionalParam("gasAmount", "The amount for gas")
+  .addParam("gasAmount", "The amount of gas to transfer", "0")
   .addParam("amount", "The amount of gas to transfer", "0");

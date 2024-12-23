@@ -2,6 +2,8 @@ import { task, types } from "hardhat/config";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 
 const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
+  const { isAddress } = hre.ethers.utils;
+
   const network = hre.network.name;
 
   const [signer] = await hre.ethers.getSigners();
@@ -11,16 +13,23 @@ const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
     );
   }
 
+  if (
+    !isAddress(args.gateway) ||
+    (args.uniswapRouter && !isAddress(args.uniswapRouter))
+  ) {
+    throw new Error("Invalid Ethereum address provided.");
+  }
+
   const factory: any = await hre.ethers.getContractFactory(args.name);
-  const contract = await factory.deploy(
-    args.gateway,
+
+  const contract = await hre.upgrades.deployProxy(factory, [
     signer.address,
     args.tokenName,
     args.tokenSymbol,
+    args.gateway,
     args.gasLimit,
-    ...(args.uniswapRouter ? [args.uniswapRouter] : [])
-  );
-  await contract.deployed();
+    ...(args.uniswapRouter ? [args.uniswapRouter] : []),
+  ]);
 
   if (args.json) {
     console.log(
@@ -38,11 +47,19 @@ const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
   }
 };
 
-task("deploy", "Deploy the NFT contract", main)
+export const tokenDeploy = task(
+  "token:deploy",
+  "Deploy a universal token contract",
+  main
+)
   .addFlag("json", "Output the result in JSON format")
   .addOptionalParam("tokenName", "Token name", "Universal Token")
   .addOptionalParam("tokenSymbol", "Token symbol", "UFT")
-  .addOptionalParam("name", "The contract name to deploy", "Universal")
+  .addOptionalParam(
+    "name",
+    "The contract name to deploy",
+    "ZetaChainUniversalToken"
+  )
   .addOptionalParam(
     "gasLimit",
     "Gas limit for the transaction",
