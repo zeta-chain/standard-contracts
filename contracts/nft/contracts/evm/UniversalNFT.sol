@@ -14,6 +14,7 @@ import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/U
 import {ERC721PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC721/extensions/ERC721PausableUpgradeable.sol";
 
 import "../shared/UniversalNFTEvents.sol";
+import "./UniversalNFTTransferrable.sol";
 
 contract UniversalNFT is
     Initializable,
@@ -24,14 +25,14 @@ contract UniversalNFT is
     OwnableUpgradeable,
     ERC721BurnableUpgradeable,
     UUPSUpgradeable,
-    UniversalNFTEvents
+    UniversalNFTEvents,
+    UniversalNFTTransferrable
 {
-    GatewayEVM public gateway;
     uint256 private _nextTokenId;
+    GatewayEVM public gateway;
     address public universal;
     uint256 public gasLimitAmount;
 
-    error InvalidAddress();
     error Unauthorized();
     error InvalidGasLimit();
     error GasTokenTransferFailed();
@@ -65,6 +66,18 @@ contract UniversalNFT is
         gateway = GatewayEVM(gatewayAddress);
     }
 
+    function getGateway() public view override returns (GatewayEVM) {
+        return gateway;
+    }
+
+    function getUniversal() public view override returns (address) {
+        return universal;
+    }
+
+    function getGasLimitAmount() public view override returns (uint256) {
+        return gasLimitAmount;
+    }
+
     function setGasLimit(uint256 gas) external onlyOwner {
         if (gas == 0) revert InvalidGasLimit();
         gasLimitAmount = gas;
@@ -91,45 +104,6 @@ contract UniversalNFT is
         _safeMint(to, tokenId);
         _setTokenURI(tokenId, uri);
         emit TokenMinted(to, tokenId, uri);
-    }
-
-    function transferCrossChain(
-        uint256 tokenId,
-        address receiver,
-        address destination
-    ) external payable whenNotPaused {
-        if (receiver == address(0)) revert InvalidAddress();
-
-        string memory uri = tokenURI(tokenId);
-        _burn(tokenId);
-        bytes memory message = abi.encode(
-            destination,
-            receiver,
-            tokenId,
-            uri,
-            msg.sender
-        );
-        if (destination == address(0)) {
-            gateway.call(
-                universal,
-                message,
-                RevertOptions(address(this), false, address(0), message, 0)
-            );
-        } else {
-            gateway.depositAndCall{value: msg.value}(
-                universal,
-                message,
-                RevertOptions(
-                    address(this),
-                    true,
-                    address(0),
-                    abi.encode(receiver, tokenId, uri, msg.sender),
-                    gasLimitAmount
-                )
-            );
-        }
-
-        emit TokenTransfer(destination, receiver, tokenId, uri);
     }
 
     function onCall(
