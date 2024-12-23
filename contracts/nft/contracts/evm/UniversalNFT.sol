@@ -33,15 +33,6 @@ contract UniversalNFT is
     address public universal;
     uint256 public gasLimitAmount;
 
-    error Unauthorized();
-    error InvalidGasLimit();
-    error GasTokenTransferFailed();
-
-    modifier onlyGateway() {
-        if (msg.sender != address(gateway)) revert Unauthorized();
-        _;
-    }
-
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
         _disableInitializers();
@@ -106,42 +97,6 @@ contract UniversalNFT is
         emit TokenMinted(to, tokenId, uri);
     }
 
-    function onCall(
-        MessageContext calldata context,
-        bytes calldata message
-    ) external payable onlyGateway returns (bytes4) {
-        if (context.sender != universal) revert Unauthorized();
-
-        (
-            address receiver,
-            uint256 tokenId,
-            string memory uri,
-            uint256 gasAmount,
-            address sender
-        ) = abi.decode(message, (address, uint256, string, uint256, address));
-
-        _safeMint(receiver, tokenId);
-        _setTokenURI(tokenId, uri);
-        if (gasAmount > 0) {
-            if (sender == address(0)) revert InvalidAddress();
-            (bool success, ) = payable(sender).call{value: gasAmount}("");
-            if (!success) revert GasTokenTransferFailed();
-        }
-        emit TokenTransferReceived(receiver, tokenId, uri);
-        return "";
-    }
-
-    function onRevert(RevertContext calldata context) external onlyGateway {
-        (, uint256 tokenId, string memory uri, address sender) = abi.decode(
-            context.revertMessage,
-            (address, uint256, string, address)
-        );
-
-        _safeMint(sender, tokenId);
-        _setTokenURI(tokenId, uri);
-        emit TokenTransferReverted(sender, tokenId, uri);
-    }
-
     // The following functions are overrides required by Solidity.
 
     function _update(
@@ -172,7 +127,12 @@ contract UniversalNFT is
     )
         public
         view
-        override(ERC721Upgradeable, ERC721URIStorageUpgradeable)
+        virtual
+        override(
+            ERC721Upgradeable,
+            ERC721URIStorageUpgradeable,
+            UniversalNFTTransferrable
+        )
         returns (string memory)
     {
         return super.tokenURI(tokenId);
@@ -183,10 +143,12 @@ contract UniversalNFT is
     )
         public
         view
+        virtual
         override(
             ERC721Upgradeable,
             ERC721EnumerableUpgradeable,
-            ERC721URIStorageUpgradeable
+            ERC721URIStorageUpgradeable,
+            UniversalNFTTransferrable
         )
         returns (bool)
     {
