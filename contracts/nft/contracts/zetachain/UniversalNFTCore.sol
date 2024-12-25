@@ -70,15 +70,17 @@ abstract contract UniversalNFTCore is
     ) public payable {
         if (msg.value == 0) revert ZeroMsgValue();
         if (receiver == address(0)) revert InvalidAddress();
+
         string memory uri = tokenURI(tokenId);
         _burn(tokenId);
+
+        emit TokenTransfer(receiver, destination, tokenId, uri);
 
         (address gasZRC20, uint256 gasFee) = IZRC20(destination)
             .withdrawGasFeeWithGasLimit(gasLimitAmount);
         if (destination != gasZRC20) revert InvalidAddress();
 
         address WZETA = gateway.zetaToken();
-
         IWETH9(WZETA).deposit{value: msg.value}();
         IWETH9(WZETA).approve(uniswapRouter, msg.value);
 
@@ -91,7 +93,6 @@ abstract contract UniversalNFTCore is
         );
 
         uint256 remaining = msg.value - out;
-
         if (remaining > 0) {
             IWETH9(WZETA).withdraw(remaining);
             (bool success, ) = msg.sender.call{value: remaining}("");
@@ -116,6 +117,7 @@ abstract contract UniversalNFTCore is
         );
 
         IZRC20(gasZRC20).approve(address(gateway), gasFee);
+
         gateway.call(
             abi.encodePacked(connected[destination]),
             destination,
@@ -123,8 +125,6 @@ abstract contract UniversalNFTCore is
             callOptions,
             revertOptions
         );
-
-        emit TokenTransfer(receiver, destination, tokenId, uri);
     }
 
     function onCall(

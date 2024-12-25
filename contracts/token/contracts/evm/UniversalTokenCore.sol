@@ -57,6 +57,7 @@ abstract contract UniversalTokenCore is
         uint256 amount
     ) external payable {
         if (receiver == address(0)) revert InvalidAddress();
+
         _burn(msg.sender, amount);
 
         bytes memory message = abi.encode(
@@ -65,6 +66,9 @@ abstract contract UniversalTokenCore is
             amount,
             msg.sender
         );
+
+        emit TokenTransfer(destination, receiver, amount);
+
         if (destination == address(0)) {
             gateway.call(
                 universal,
@@ -84,8 +88,6 @@ abstract contract UniversalTokenCore is
                 )
             );
         }
-
-        emit TokenTransfer(destination, receiver, amount);
     }
 
     function onCall(

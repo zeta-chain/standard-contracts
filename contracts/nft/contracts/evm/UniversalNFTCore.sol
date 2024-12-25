@@ -79,6 +79,8 @@ abstract contract UniversalNFTCore is
             msg.sender
         );
 
+        emit TokenTransfer(destination, receiver, tokenId, uri);
+
         if (destination == address(0)) {
             gateway.call(
                 universal,
@@ -98,8 +100,6 @@ abstract contract UniversalNFTCore is
                 )
             );
         }
-
-        emit TokenTransfer(destination, receiver, tokenId, uri);
     }
 
     function onCall(

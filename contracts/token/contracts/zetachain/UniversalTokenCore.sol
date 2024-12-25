@@ -70,7 +70,10 @@ abstract contract UniversalTokenCore is
     ) public payable {
         if (msg.value == 0) revert ZeroMsgValue();
         if (receiver == address(0)) revert InvalidAddress();
+
         _burn(msg.sender, amount);
+
+        emit TokenTransfer(destination, receiver, amount);
 
         (address gasZRC20, uint256 gasFee) = IZRC20(destination)
             .withdrawGasFeeWithGasLimit(gasLimitAmount);
@@ -117,7 +120,6 @@ abstract contract UniversalTokenCore is
             callOptions,
             revertOptions
         );
-        emit TokenTransfer(destination, receiver, amount);
     }
 
     function onCall(
