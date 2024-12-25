@@ -82,7 +82,9 @@ abstract contract UniversalTokenCore is
         address WZETA = gateway.zetaToken();
 
         IWETH9(WZETA).deposit{value: msg.value}();
-        IWETH9(WZETA).approve(uniswapRouter, msg.value);
+        if (!IWETH9(WZETA).approve(uniswapRouter, msg.value)) {
+            revert ApproveFailed();
+        }
 
         uint256 out = SwapHelperLib.swapTokensForExactTokens(
             uniswapRouter,
@@ -112,7 +114,9 @@ abstract contract UniversalTokenCore is
             gasLimitAmount
         );
 
-        IZRC20(gasZRC20).approve(address(gateway), gasFee);
+        if (!IZRC20(gasZRC20).approve(address(gateway), gasFee)) {
+            revert ApproveFailed();
+        }
         gateway.call(
             abi.encodePacked(connected[destination]),
             destination,
