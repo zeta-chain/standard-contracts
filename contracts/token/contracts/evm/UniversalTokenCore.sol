@@ -104,7 +104,7 @@ abstract contract UniversalTokenCore is
         _mint(receiver, amount);
         if (gasAmount > 0) {
             if (sender == address(0)) revert InvalidAddress();
-            (bool success, ) = payable(sender).call{value: amount}("");
+            (bool success, ) = payable(sender).call{value: gasAmount}("");
             if (!success) revert GasTokenTransferFailed();
         }
         emit TokenTransferReceived(receiver, amount);
