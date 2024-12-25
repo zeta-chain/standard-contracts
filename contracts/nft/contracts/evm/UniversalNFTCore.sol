@@ -43,7 +43,7 @@ abstract contract UniversalNFTCore is
         address gatewayAddress,
         address universalAddress,
         uint256 gas
-    ) internal {
+    ) internal virtual {
         if (gatewayAddress == address(0)) revert InvalidAddress();
         if (universalAddress == address(0)) revert InvalidAddress();
         if (gas == 0) revert InvalidGasLimit();

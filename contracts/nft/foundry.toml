@@ -7,5 +7,16 @@ test = 'test'
 cache_path  = 'cache_forge'
 verbosity = 3
 
+remappings = [
+  "ds-test/=node_modules/ds-test/src",
+  "test/=test",
+  "forge-std/=dependencies/forge-std-1.9.2/src/",
+  "openzeppelin-foundry-upgrades/=dependencies/openzeppelin-foundry-upgrades-0.3.2/src/",
+  "solidity-stringutils/=dependencies/openzeppelin-foundry-upgrades-0.3.2/lib/solidity-stringutils/",
+  "@openzeppelin/contracts/=node_modules/@openzeppelin/contracts/",
+  "@openzeppelin/contracts-upgradeable/=node_modules/@openzeppelin/contracts-upgradeable/"
+]
+
 [dependencies]
-forge-std = { version = "1.9.2" }
+forge-std = "1.9.2"
+openzeppelin-foundry-upgrades = "0.3.2"
