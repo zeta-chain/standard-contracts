@@ -11,6 +11,9 @@ import "./utils/WZETA.sol";
 import "../contracts/zetachain/UniversalNFT.sol";
 import "../contracts/shared/UniversalNFTEvents.sol";
 
+import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol";
+import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
+
 contract UniversalNFTIntegrationTest is
     Test,
     IGatewayZEVMEvents,
@@ -28,6 +31,23 @@ contract UniversalNFTIntegrationTest is
     CallOptions callOptions;
 
     function setUp() public {
+        IUniswapV2Factory factory;
+        IUniswapV2Router02 router;
+        address zrc20AndZetaPair;
+
+        // factory = new UniswapV2Factory(owner);
+        factory = IUniswapV2Factory(
+            deployCode(
+                "dependencies/@uniswap-v2-core-1.0.1/contracts/UniswapV2Factory.sol"
+            )
+        );
+
+        // 2. Deploy the Uniswap router, specifying the factory and the "WETH-like" token (zetaToken)
+        // router = new UniswapV2Router02(
+        //     address(factory),
+        //     address(zetaToken) // WETH9-compatible token
+        // );
+
         owner = address(this);
         addr1 = address(0x1234);
 
