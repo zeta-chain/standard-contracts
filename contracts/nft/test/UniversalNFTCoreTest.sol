@@ -42,7 +42,6 @@ contract UniversalNFTIntegrationTest is
             )
         );
 
-        // 2. Deploy the Uniswap router, specifying the factory and the "WETH-like" token (zetaToken)
         // router = new UniswapV2Router02(
         //     address(factory),
         //     address(zetaToken) // WETH9-compatible token
@@ -109,14 +108,13 @@ contract UniversalNFTIntegrationTest is
         address receiver = addr1;
         address destination = address(zrc20);
 
-        // Mint an NFT for testing
         UniversalNFT nftContract = new UniversalNFT();
         nftContract.initialize(
-            address(this), // Initial owner
-            "TestNFT", // Name of the NFT
-            "TNFT", // Symbol of the NFT
-            payable(address(gateway)), // Gateway address (ensure it's non-zero and valid)
-            100000, // Gas limit
+            address(this),
+            "TestNFT",
+            "TNFT",
+            payable(address(gateway)),
+            100000,
             0xF62849F9A0B5Bf2913b396098F7c7019b51A820a
         );
 
