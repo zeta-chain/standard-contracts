@@ -1,11 +1,24 @@
 [profile.default]
 src = 'contracts'
 out = 'out'
-viaIR = true
 libs = ['node_modules', 'lib']
+
+solc-version = "0.8.26"
+no-match-contract = '.*EchidnaTest$'
+optimizer = true
+optimizer_runs = 10_000
+
+fs_permissions = [{ access = "read", path = "out"}]
+
+viaIR = true
 test = 'test'
 cache_path  = 'cache_forge'
 verbosity = 3
+ffi = true
+ast = true
+build_info = true
+extra_output = ["storageLayout"]
+evm_version = "london"
 
 remappings = [
   "ds-test/=node_modules/ds-test/src",

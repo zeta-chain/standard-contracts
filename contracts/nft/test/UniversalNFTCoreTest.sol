@@ -5,10 +5,17 @@ import "forge-std/Test.sol";
 import "@zetachain/protocol-contracts/contracts/zevm/GatewayZEVM.sol";
 import "@zetachain/protocol-contracts/contracts/zevm/ZRC20.sol";
 import "@zetachain/protocol-contracts/contracts/zevm/SystemContract.sol";
+import "@zetachain/protocol-contracts/contracts/zevm/interfaces/IGatewayZEVM.sol";
 import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
 import "./utils/WZETA.sol";
+import "../contracts/zetachain/UniversalNFT.sol";
+import "../contracts/shared/UniversalNFTEvents.sol";
 
-contract UniversalNFTCoreIntegrationTest is Test {
+contract UniversalNFTIntegrationTest is
+    Test,
+    IGatewayZEVMEvents,
+    UniversalNFTEvents
+{
     address payable proxy;
     GatewayZEVM gateway;
     ZRC20 zrc20;
@@ -20,18 +27,11 @@ contract UniversalNFTCoreIntegrationTest is Test {
     RevertOptions revertOptions;
     CallOptions callOptions;
 
-    event TokenTransfer(
-        address indexed destination,
-        address indexed receiver,
-        uint256 tokenId,
-        string uri
-    );
-
     function setUp() public {
         owner = address(this);
-        // addr1 = address(0x1234);
+        addr1 = address(0x1234);
 
-        // zetaToken = new WETH9();
+        zetaToken = new WETH9();
 
         proxy = payable(
             Upgrades.deployUUPSProxy(
@@ -81,5 +81,40 @@ contract UniversalNFTCoreIntegrationTest is Test {
         });
 
         callOptions = CallOptions({gasLimit: 1, isArbitraryCall: true});
+    }
+
+    function testTransferCrossChain() public {
+        // Arrange
+        uint256 tokenId = 1;
+        address receiver = addr1;
+        address destination = address(zrc20);
+
+        // Mint an NFT for testing
+        UniversalNFT nftContract = new UniversalNFT();
+        nftContract.initialize(
+            address(this), // Initial owner
+            "TestNFT", // Name of the NFT
+            "TNFT", // Symbol of the NFT
+            payable(address(gateway)), // Gateway address (ensure it's non-zero and valid)
+            100000, // Gas limit
+            0xF62849F9A0B5Bf2913b396098F7c7019b51A820a
+        );
+
+        nftContract.safeMint(owner, "ipfs://test-uri");
+
+        // Act
+        vm.startPrank(owner);
+        nftContract.transferCrossChain{value: 1 ether}(
+            tokenId,
+            receiver,
+            destination
+        );
+        vm.stopPrank();
+
+        // Assert
+        vm.expectEmit(true, true, true, true);
+        emit TokenTransfer(receiver, destination, tokenId, "ipfs://test-uri");
+
+        assertEq(nftContract.ownerOf(tokenId), address(0));
     }
 }
