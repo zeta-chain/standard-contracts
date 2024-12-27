@@ -56,19 +56,19 @@ npx hardhat localnet-check
 balance
 
 echo -e "\nTransferring NFT: ZetaChain → Ethereum..."
-npx hardhat nft:transfer --network localhost --json --token-id "$NFT_ID" --from "$CONTRACT_ZETACHAIN" --to "$ZRC20_ETHEREUM" --gas-amount 1
+npx hardhat nft:transfer --network localhost --json --token-id "$NFT_ID" --contract "$CONTRACT_ZETACHAIN" --destination "$ZRC20_ETHEREUM" --gas-amount 1
 
 npx hardhat localnet-check
 balance
 
 echo -e "\nTransferring NFT: Ethereum → BNB..."
-npx hardhat nft:transfer --network localhost --json --token-id "$NFT_ID" --from "$CONTRACT_ETHEREUM" --to "$ZRC20_BNB" --gas-amount 1
+npx hardhat nft:transfer --network localhost --json --token-id "$NFT_ID" --contract "$CONTRACT_ETHEREUM" --destination "$ZRC20_BNB" --gas-amount 1
 
 npx hardhat localnet-check
 balance
 
 echo -e "\nTransferring NFT: BNB → ZetaChain..."
-npx hardhat nft:transfer --network localhost --json --token-id "$NFT_ID" --from "$CONTRACT_BNB"
+npx hardhat nft:transfer --network localhost --json --token-id "$NFT_ID" --contract "$CONTRACT_BNB"
 
 npx hardhat localnet-check
 balance
