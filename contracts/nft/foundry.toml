@@ -1,11 +1,39 @@
 [profile.default]
 src = 'contracts'
 out = 'out'
-viaIR = true
 libs = ['node_modules', 'lib']
+
+no-match-contract = '.*EchidnaTest$'
+optimizer = true
+optimizer_runs = 10_000
+
+fs_permissions = [{ access = "read", path = "out"}]
+
+viaIR = true
 test = 'test'
 cache_path  = 'cache_forge'
 verbosity = 3
+ffi = true
+ast = true
+build_info = true
+extra_output = ["storageLayout"]
+evm_version = "london"
+
+remappings = [
+  "ds-test/=node_modules/ds-test/src",
+  "test/=test",
+  "forge-std/=dependencies/forge-std-1.9.2/src/",
+  "openzeppelin-foundry-upgrades/=dependencies/openzeppelin-foundry-upgrades-0.3.2/src/",
+  "solidity-stringutils/=dependencies/openzeppelin-foundry-upgrades-0.3.2/lib/solidity-stringutils/",
+  "@openzeppelin/contracts/=node_modules/@openzeppelin/contracts/",
+  "@openzeppelin/contracts-upgradeable/=node_modules/@openzeppelin/contracts-upgradeable/",
+  "@uniswap/v2-core/=dependencies/@uniswap-v2-core-1.0.1/",
+  "@uniswap/v2-periphery/=dependencies/@uniswap-v2-periphery-1.1.0-beta.0/",
+  "@uniswap/lib/=node_modules/@uniswap/lib/"
+]
 
 [dependencies]
-forge-std = { version = "1.9.2" }
+forge-std = "1.9.2"
+openzeppelin-foundry-upgrades = "0.3.2"
+"@uniswap-v2-core" = "1.0.1"
+"@uniswap-v2-periphery" = "1.1.0-beta.0"

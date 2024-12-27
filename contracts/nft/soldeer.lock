@@ -1,0 +1,27 @@
+[[dependencies]]
+name = "@uniswap-v2-core"
+version = "1.0.1"
+url = "https://soldeer-revisions.s3.amazonaws.com/@uniswap-v2-core/1_0_1_22-01-2024_13:18:30_v2-core.zip"
+checksum = "efebb89237048771c19f52d3ce87ec4d0c591279bf1977c49f9e70e5fff530f0"
+integrity = "fda4e18a2a0c21eeddd8b6af36439f394e4ff74eb75705409a87b8952c9e2972"
+
+[[dependencies]]
+name = "@uniswap-v2-periphery"
+version = "1.1.0-beta.0"
+url = "https://soldeer-revisions.s3.amazonaws.com/@uniswap-v2-periphery/1_1_0-beta_0_22-01-2024_13:18:39_v2-periphery.zip"
+checksum = "3bdc6134f1a89bc72052acde4882eb165e27f220982f53b399d7a1121bf2ab06"
+integrity = "9257846e3b8e190d352f55e7d3f81ba271c9fc651ad61f045f46b49ea651f191"
+
+[[dependencies]]
+name = "forge-std"
+version = "1.9.2"
+url = "https://soldeer-revisions.s3.amazonaws.com/forge-std/1_9_2_06-08-2024_17:31:25_forge-std-1.9.2.zip"
+checksum = "20fd008c7c69b6c737cc0284469d1c76497107bc3e004d8381f6d8781cb27980"
+integrity = "f49457fb6591f0dfd8b59e02e6eb4508a115ef08a86b0803feb0a3939d82d783"
+
+[[dependencies]]
+name = "openzeppelin-foundry-upgrades"
+version = "0.3.2"
+url = "https://soldeer-revisions.s3.amazonaws.com/openzeppelin-foundry-upgrades/0_3_2_15-08-2024_13:33:43_openzeppelin-foundry-upgrades.zip"
+checksum = "664262fe158570c0b9742f18ac101b708ac5e4d4534daec321a47eeee200f225"
+integrity = "b5a783983733496162d86d73194c1da0608b82a1e3262eff4d1daec6c8509239"
