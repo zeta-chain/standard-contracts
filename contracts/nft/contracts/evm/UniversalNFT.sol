@@ -10,6 +10,7 @@ import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Ini
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
+// Import UniversalNFTCore for universal NFT functionality
 import "./UniversalNFTCore.sol";
 
 contract UniversalNFT is
@@ -21,9 +22,9 @@ contract UniversalNFT is
     OwnableUpgradeable,
     ERC721BurnableUpgradeable,
     UUPSUpgradeable,
-    UniversalNFTCore
+    UniversalNFTCore // Add UniversalNFTCore for universal features
 {
-    uint256 private _nextTokenId;
+    uint256 private _nextTokenId; // Track next token ID for minting
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -34,8 +35,8 @@ contract UniversalNFT is
         address initialOwner,
         string memory name,
         string memory symbol,
-        address payable gatewayAddress,
-        uint256 gas
+        address payable gatewayAddress, // Include EVM gateway address
+        uint256 gas // Set gas limit for universal NFT calls
     ) public initializer {
         __ERC721_init(name, symbol);
         __ERC721Enumerable_init();
@@ -44,13 +45,14 @@ contract UniversalNFT is
         __Ownable_init(initialOwner);
         __ERC721Burnable_init();
         __UUPSUpgradeable_init();
-        __UniversalNFTCore_init(gatewayAddress, address(this), gas);
+        __UniversalNFTCore_init(gatewayAddress, address(this), gas); // Initialize universal NFT core
     }
 
     function safeMint(
         address to,
         string memory uri
     ) public onlyOwner whenNotPaused {
+        // Generate globally unique token ID, feel free to supply your own logic
         uint256 hash = uint256(
             keccak256(
                 abi.encodePacked(address(this), block.number, _nextTokenId++)
@@ -108,7 +110,7 @@ contract UniversalNFT is
         override(
             ERC721Upgradeable,
             ERC721URIStorageUpgradeable,
-            UniversalNFTCore
+            UniversalNFTCore // Include UniversalNFTCore for URI overrides
         )
         returns (string memory)
     {
@@ -124,7 +126,7 @@ contract UniversalNFT is
             ERC721Upgradeable,
             ERC721EnumerableUpgradeable,
             ERC721URIStorageUpgradeable,
-            UniversalNFTCore
+            UniversalNFTCore // Include UniversalNFTCore for interface overrides
         )
         returns (bool)
     {

@@ -10,20 +10,21 @@ import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Ini
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
+// Import UniversalNFTCore for universal NFT functionality
 import "./UniversalNFTCore.sol";
 
 contract UniversalNFT is
-    Initializable,
-    ERC721Upgradeable,
-    ERC721URIStorageUpgradeable,
-    ERC721EnumerableUpgradeable,
-    ERC721PausableUpgradeable,
-    OwnableUpgradeable,
-    ERC721BurnableUpgradeable,
-    UUPSUpgradeable,
-    UniversalNFTCore
+    Initializable, // Allows upgradeable contract initialization
+    ERC721Upgradeable, // Base ERC721 implementation
+    ERC721URIStorageUpgradeable, // Enables metadata URI storage
+    ERC721EnumerableUpgradeable, // Provides enumerable token support
+    ERC721PausableUpgradeable, // Allows pausing token operations
+    OwnableUpgradeable, // Restricts access to owner-only functions
+    ERC721BurnableUpgradeable, // Adds burnable functionality
+    UUPSUpgradeable, // Supports upgradeable proxy pattern
+    UniversalNFTCore // Custom core for additional logic
 {
-    uint256 private _nextTokenId;
+    uint256 private _nextTokenId; // Track next token ID for minting
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -34,9 +35,9 @@ contract UniversalNFT is
         address initialOwner,
         string memory name,
         string memory symbol,
-        address payable gatewayAddress,
-        uint256 gas,
-        address uniswapRouterAddress
+        address payable gatewayAddress, // Include EVM gateway address
+        uint256 gas, // Set gas limit for universal NFT calls
+        address uniswapRouterAddress // Uniswap v2 router address for gas token swaps
     ) public initializer {
         __ERC721_init(name, symbol);
         __ERC721Enumerable_init();
@@ -45,13 +46,14 @@ contract UniversalNFT is
         __Ownable_init(initialOwner);
         __ERC721Burnable_init();
         __UUPSUpgradeable_init();
-        __UniversalNFTCore_init(gatewayAddress, gas, uniswapRouterAddress);
+        __UniversalNFTCore_init(gatewayAddress, gas, uniswapRouterAddress); // Initialize universal NFT core
     }
 
     function safeMint(
         address to,
         string memory uri
     ) public onlyOwner whenNotPaused {
+        // Generate globally unique token ID, feel free to supply your own logic
         uint256 hash = uint256(
             keccak256(
                 abi.encodePacked(address(this), block.number, _nextTokenId++)
@@ -97,7 +99,7 @@ contract UniversalNFT is
         override(
             ERC721Upgradeable,
             ERC721URIStorageUpgradeable,
-            UniversalNFTCore
+            UniversalNFTCore // Include UniversalNFTCore for URI overrides
         )
         returns (string memory)
     {
@@ -113,7 +115,7 @@ contract UniversalNFT is
             ERC721Upgradeable,
             ERC721EnumerableUpgradeable,
             ERC721URIStorageUpgradeable,
-            UniversalNFTCore
+            UniversalNFTCore // Include UniversalNFTCore for interface overrides
         )
         returns (bool)
     {
@@ -132,5 +134,5 @@ contract UniversalNFT is
         _unpause();
     }
 
-    receive() external payable {}
+    receive() external payable {} // Receive ZETA to pay for gas
 }
