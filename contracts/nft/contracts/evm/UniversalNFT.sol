@@ -36,7 +36,7 @@ contract UniversalNFT is
         string memory name,
         string memory symbol,
         address payable gatewayAddress, // Include EVM gateway address
-        uint256 gas // Set gas limit for universal NFT calls
+        uint256 gas // Set gas limit for universal NFT transfers
     ) public initializer {
         __ERC721_init(name, symbol);
         __ERC721Enumerable_init();
