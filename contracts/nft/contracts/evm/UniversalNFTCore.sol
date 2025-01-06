@@ -8,14 +8,25 @@ import {ERC721Upgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC72
 import {ERC721URIStorageUpgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC721/extensions/ERC721URIStorageUpgradeable.sol";
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 
+/**
+ * @title UniversalNFTCore
+ * @dev This abstract contract provides the core logic for Universal NFTs. It is designed
+ * to be imported into an OpenZeppelin-based ERC721 implementation, extending its
+ * functionality with cross-chain NFT transfer capabilities.
+ */
 abstract contract UniversalNFTCore is
     ERC721Upgradeable,
     ERC721URIStorageUpgradeable,
     OwnableUpgradeable,
     UniversalNFTEvents
 {
+    // Address of the EVM gateway contract
     GatewayEVM public gateway;
+
+    // Address of the universal NFT contract on ZetaChain
     address public universal;
+
+    // The amount of gas used when making cross-chain transfers
     uint256 public gasLimitAmount;
 
     error InvalidAddress();
@@ -28,17 +39,44 @@ abstract contract UniversalNFTCore is
         _;
     }
 
+    /**
+     * @notice Sets the gas limit for cross-chain transfers.
+     * @dev Can only be called by the contract owner.
+     * @param gas New gas limit value.
+     */
     function setGasLimit(uint256 gas) external onlyOwner {
         if (gas == 0) revert InvalidGasLimit();
         gasLimitAmount = gas;
     }
 
+    /**
+     * @notice Sets the universal contract address.
+     * @dev Can only be called by the contract owner.
+     * @param contractAddress The address of the universal contract.
+     */
     function setUniversal(address contractAddress) external onlyOwner {
         if (contractAddress == address(0)) revert InvalidAddress();
         universal = contractAddress;
         emit SetUniversal(contractAddress);
     }
 
+    /**
+     * @notice Sets the EVM gateway contract address.
+     * @dev Can only be called by the contract owner.
+     * @param gatewayAddress The address of the gateway contract.
+     */
+    function setGateway(address gatewayAddress) external onlyOwner {
+        if (gatewayAddress == address(0)) revert InvalidAddress();
+        gateway = GatewayEVM(gatewayAddress);
+    }
+
+    /**
+     * @notice Initializes the contract with gateway, universal, and gas limit settings.
+     * @dev To be called during contract deployment.
+     * @param gatewayAddress The address of the gateway contract.
+     * @param universalAddress The address of the universal contract.
+     * @param gas The gas limit to set.
+     */
     function __UniversalNFTCore_init(
         address gatewayAddress,
         address universalAddress,
@@ -54,11 +92,12 @@ abstract contract UniversalNFTCore is
 
     /**
      * @notice Transfers an NFT to another chain.
-     * @dev    Burns the NFT locally, then sends an encoded message to the
-     *         Gateway to recreate it on the destination chain (or revert if needed).
-     * @param  tokenId The ID of the NFT to transfer.
-     * @param  receiver The address on the destination chain that will receive the NFT.
-     * @param  destination The contract address on the destination chain (or address(0) if same chain).
+     * @dev Burns the NFT locally, then uses the Gateway to send a message to
+     * mint the same NFT on the destination chain. If the destination is the zero
+     * address, transfer the NFT to ZetaChain.
+     * @param tokenId The ID of the NFT to transfer.
+     * @param receiver The address on the destination chain that will receive the NFT.
+     * @param destination The ZRC-20 address of the gas token of the destination chain.
      */
     function transferCrossChain(
         uint256 tokenId,
@@ -102,6 +141,13 @@ abstract contract UniversalNFTCore is
         }
     }
 
+    /**
+     * @notice Mint an NFT in response to an incoming cross-chain transfer.
+     * @dev Called by the Gateway upon receiving a message.
+     * @param context The message context.
+     * @param message The encoded message containing information about the NFT.
+     * @return A constant indicating the function was successfully handled.
+     */
     function onCall(
         MessageContext calldata context,
         bytes calldata message
@@ -127,6 +173,11 @@ abstract contract UniversalNFTCore is
         return "";
     }
 
+    /**
+     * @notice Mint an NFT and send it to the sender if a cross-chain transfer fails.
+     * @dev Called by the Gateway if a call fails.
+     * @param context The revert context containing metadata and revert message.
+     */
     function onRevert(RevertContext calldata context) external onlyGateway {
         (, uint256 tokenId, string memory uri, address sender) = abi.decode(
             context.revertMessage,
@@ -138,6 +189,11 @@ abstract contract UniversalNFTCore is
         emit TokenTransferReverted(sender, tokenId, uri);
     }
 
+    /**
+     * @notice Gets the token URI for a given token ID.
+     * @param tokenId The ID of the token.
+     * @return The token URI as a string.
+     */
     function tokenURI(
         uint256 tokenId
     )
@@ -150,6 +206,11 @@ abstract contract UniversalNFTCore is
         return super.tokenURI(tokenId);
     }
 
+    /**
+     * @notice Checks if the contract supports a specific interface.
+     * @param interfaceId The interface identifier to check.
+     * @return True if the interface is supported, false otherwise.
+     */
     function supportsInterface(
         bytes4 interfaceId
     )

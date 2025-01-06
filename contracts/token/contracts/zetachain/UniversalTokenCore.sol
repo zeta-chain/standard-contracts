@@ -11,17 +11,34 @@ import {SwapHelperLib} from "@zetachain/toolkit/contracts/SwapHelperLib.sol";
 
 import "../shared/UniversalTokenEvents.sol";
 
+/**
+ * @title UniversalTokenCore
+ * @dev This abstract contract provides core logic for Universal Tokens with cross-chain
+ *      functionality powered by ZetaChain. It is designed to be extended by an
+ *      OpenZeppelin ERC-20-based implementation to add cross-chain capabilities.
+ *      This contract handles cross-chain token transfers between EVM and ZetaChain,
+ *      ZetaChain to EVM, and EVM to EVM.
+ */
 abstract contract UniversalTokenCore is
     UniversalContract,
     ERC20Upgradeable,
     OwnableUpgradeable,
     UniversalTokenEvents
 {
+    // Indicates this contract implements a Universal Contract
     bool public constant isUniversal = true;
 
+    // Address of the ZetaChain Gateway contract
     GatewayZEVM public gateway;
+
+    // Address of the Uniswap Router for token swaps
     address public uniswapRouter;
+
+    // Gas limit for cross-chain operations
     uint256 public gasLimitAmount;
+
+    // Mapping of connected ZRC20 tokens to their respective contracts
+    mapping(address => address) public connected;
 
     error TransferFailed();
     error Unauthorized();
@@ -30,13 +47,18 @@ abstract contract UniversalTokenCore is
     error ApproveFailed();
     error ZeroMsgValue();
 
-    mapping(address => address) public connected;
-
     modifier onlyGateway() {
         if (msg.sender != address(gateway)) revert Unauthorized();
         _;
     }
 
+    /**
+     * @notice Initializes the contract.
+     * @dev Should be called during contract deployment.
+     * @param gatewayAddress Address of the Gateway contract.
+     * @param gas Gas limit for cross-chain calls.
+     * @param uniswapRouterAddress Address of the Uniswap router contract.
+     */
     function __UniversalTokenCore_init(
         address gatewayAddress,
         uint256 gas,
@@ -50,11 +72,23 @@ abstract contract UniversalTokenCore is
         gasLimitAmount = gas;
     }
 
+    /**
+     * @notice Sets the gas limit for cross-chain transfers.
+     * @dev Can only be called by the contract owner.
+     * @param gas New gas limit value.
+     */
     function setGasLimit(uint256 gas) external onlyOwner {
         if (gas == 0) revert InvalidGasLimit();
         gasLimitAmount = gas;
     }
 
+    /**
+     * @notice Links a ZRC20 gas token address to a contract
+     *         on the corresponding chain.
+     * @dev Can only be called by the contract owner.
+     * @param zrc20 Address of the ZRC20 token.
+     * @param contractAddress Address of the corresponding contract.
+     */
     function setConnected(
         address zrc20,
         address contractAddress
@@ -63,6 +97,15 @@ abstract contract UniversalTokenCore is
         emit SetConnected(zrc20, contractAddress);
     }
 
+    /**
+     * @notice Transfers tokens to a connected chain.
+     * @dev This function accepts native ZETA tokens as gas fees, which are swapped
+     * for the corresponding ZRC20 gas token of the destination chain. The tokens are then
+     * transferred to the destination chain using the ZetaChain Gateway.
+     * @param destination Address of the ZRC20 gas token for the destination chain.
+     * @param receiver Address of the recipient on the destination chain.
+     * @param amount Amount of tokens to transfer.
+     */
     function transferCrossChain(
         address destination,
         address receiver,
@@ -126,6 +169,18 @@ abstract contract UniversalTokenCore is
         );
     }
 
+    /**
+     * @notice Handles cross-chain token transfers.
+     * @dev This function is called by the Gateway contract upon receiving a message.
+     * If the destination is ZetaChain, mint tokens for the receiver.
+     * If the destination is another chain, swap the gas token for the corresponding
+     * ZRC20 token and use the Gateway to send a message to transfer tokens to the
+     * destination chain.
+     * @param context Message context metadata.
+     * @param zrc20 ZRC20 token address.
+     * @param amount Amount of token provided.
+     * @param message Encoded payload containing token transfer metadata.
+     */
     function onCall(
         MessageContext calldata context,
         address zrc20,
@@ -173,6 +228,10 @@ abstract contract UniversalTokenCore is
         emit TokenTransferToDestination(destination, receiver, amount);
     }
 
+    /**
+     * @notice Handles a cross-chain call failure and reverts the token transfer.
+     * @param context Metadata about the failed call.
+     */
     function onRevert(RevertContext calldata context) external onlyGateway {
         (uint256 amount, address sender) = abi.decode(
             context.revertMessage,

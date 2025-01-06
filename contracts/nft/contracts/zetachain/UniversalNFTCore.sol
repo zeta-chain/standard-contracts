@@ -11,6 +11,15 @@ import "@zetachain/protocol-contracts/contracts/zevm/interfaces/IWZETA.sol";
 import "@zetachain/protocol-contracts/contracts/zevm/GatewayZEVM.sol";
 import {SwapHelperLib} from "@zetachain/toolkit/contracts/SwapHelperLib.sol";
 
+/**
+ * @title UniversalNFTCore
+ * @dev This abstract contract provides core logic for Universal NFTs with cross-chain
+ *      functionality powered by ZetaChain. It is designed to be imported into an
+ *      OpenZeppelin ERC721-based implementation to extend its capabilities. This contract
+ *      includes mechanisms for cross-chain NFT transfers between EVM and ZetaChain,
+ *      ZetaChain to EVM, and EVM to EVM. This contract handles all cross-chain NFT transfers.
+ *      Before making
+ */
 abstract contract UniversalNFTCore is
     UniversalContract,
     ERC721Upgradeable,
@@ -18,11 +27,19 @@ abstract contract UniversalNFTCore is
     OwnableUpgradeable,
     UniversalNFTEvents
 {
+    // Address of the ZetaChain Gateway contract
     GatewayZEVM public gateway;
+
+    // Address of the Uniswap Router for token swaps
     address public uniswapRouter;
+
+    // Indicates this contract implements a Universal Contract
     bool public constant isUniversal = true;
+
+    // Gas limit for cross-chain operations
     uint256 public gasLimitAmount;
 
+    // Mapping of connected ZRC-20 tokens to their respective contracts
     mapping(address => address) public connected;
 
     error TransferFailed();
@@ -37,6 +54,13 @@ abstract contract UniversalNFTCore is
         _;
     }
 
+    /**
+     * @notice Initializes the contract.
+     * @dev Should be called during contract deployment.
+     * @param gatewayAddress Address of the Gateway contract.
+     * @param gas Gas limit for cross-chain calls.
+     * @param uniswapRouterAddress Address of the Uniswap router contract.
+     */
     function __UniversalNFTCore_init(
         address gatewayAddress,
         uint256 gas,
@@ -50,11 +74,23 @@ abstract contract UniversalNFTCore is
         gasLimitAmount = gas;
     }
 
+    /**
+     * @notice Sets the gas limit for cross-chain transfers.
+     * @dev Can only be called by the contract owner.
+     * @param gas New gas limit value.
+     */
     function setGasLimit(uint256 gas) external onlyOwner {
         if (gas == 0) revert InvalidGasLimit();
         gasLimitAmount = gas;
     }
 
+    /**
+     * @notice Links a ZRC-20 gas token token address to a NFT contract
+     *         on the corresponding chain.
+     * @dev Can only be called by the contract owner.
+     * @param zrc20 Address of the ZRC-20 token.
+     * @param contractAddress Address of the corresponding contract.
+     */
     function setConnected(
         address zrc20,
         address contractAddress
@@ -63,6 +99,15 @@ abstract contract UniversalNFTCore is
         emit SetConnected(zrc20, contractAddress);
     }
 
+    /**
+     * @notice Transfers an NFT to a connected chain.
+     * @dev This function accepts native ZETA tokens as gas fees, which are swapped
+     * for the corresponding ZRC-20 gas token of the destination chain. The NFT is then
+     * transferred to the destination chain using the ZetaChain Gateway.
+     * @param tokenId The ID of the NFT to transfer.
+     * @param receiver Address of the recipient on the destination chain.
+     * @param destination Address of the ZRC-20 gas token for the destination chain.
+     */
     function transferCrossChain(
         uint256 tokenId,
         address receiver,
@@ -131,6 +176,18 @@ abstract contract UniversalNFTCore is
         );
     }
 
+    /**
+     * @notice Handles cross-chain NFT transfers.
+     * @dev This function is called by the Gateway contract upon receiving a message.
+     * If the destination is ZetaChain, mint an NFT and set its URI.
+     * If the destination is another chain, swap the gas token for the corresponding
+     * ZRC-20 token and use the Gateway to send a message to mint an NFT on the
+     * destination chain.
+     * @param context Message context metadata.
+     * @param zrc20 ZRC-20 token address.
+     * @param amount Amount of token provided.
+     * @param message Encoded payload containing NFT metadata.
+     */
     function onCall(
         MessageContext calldata context,
         address zrc20,
@@ -185,6 +242,10 @@ abstract contract UniversalNFTCore is
         emit TokenTransferToDestination(receiver, destination, tokenId, uri);
     }
 
+    /**
+     * @notice Handles a cross-chain call failure and reverts the NFT transfer.
+     * @param context Metadata about the failed call.
+     */
     function onRevert(RevertContext calldata context) external onlyGateway {
         (uint256 tokenId, string memory uri, address sender) = abi.decode(
             context.revertMessage,
@@ -196,6 +257,11 @@ abstract contract UniversalNFTCore is
         emit TokenTransferReverted(sender, tokenId, uri);
     }
 
+    /**
+     * @notice Returns the metadata URI for an NFT.
+     * @param tokenId The ID of the token.
+     * @return The URI string.
+     */
     function tokenURI(
         uint256 tokenId
     )
@@ -208,6 +274,11 @@ abstract contract UniversalNFTCore is
         return super.tokenURI(tokenId);
     }
 
+    /**
+     * @notice Checks if the contract supports a specific interface.
+     * @param interfaceId The interface ID.
+     * @return True if the interface is supported, false otherwise.
+     */
     function supportsInterface(
         bytes4 interfaceId
     )
