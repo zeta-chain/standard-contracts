@@ -101,7 +101,7 @@ contract UniversalNFTIntegrationTest is
 
         factory.createPair(address(zetaToken), address(zrc20));
 
-        router.addLiquidity(
+        router.addLiquidity( // throws error
             address(zetaToken),
             address(zrc20),
             10 ether,
