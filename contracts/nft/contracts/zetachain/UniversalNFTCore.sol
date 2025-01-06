@@ -54,6 +54,16 @@ abstract contract UniversalNFTCore is
     }
 
     /**
+     * @notice Sets the EVM gateway contract address.
+     * @dev Can only be called by the contract owner.
+     * @param gatewayAddress The address of the gateway contract.
+     */
+    function setGateway(address gatewayAddress) external onlyOwner {
+        if (gatewayAddress == address(0)) revert InvalidAddress();
+        gateway = GatewayZEVM(payable(gatewayAddress));
+    }
+
+    /**
      * @notice Initializes the contract.
      * @dev Should be called during contract deployment.
      * @param gatewayAddress Address of the Gateway contract.
