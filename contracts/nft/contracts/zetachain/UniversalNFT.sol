@@ -51,7 +51,7 @@ contract UniversalNFT is
     function safeMint(
         address to,
         string memory uri
-    ) public onlyOwner whenNotPaused {
+    ) public onlyOwner whenNotPaused returns (uint256) {
         uint256 hash = uint256(
             keccak256(
                 abi.encodePacked(address(this), block.number, _nextTokenId++)
@@ -62,6 +62,8 @@ contract UniversalNFT is
 
         _safeMint(to, tokenId);
         _setTokenURI(tokenId, uri);
+
+        return tokenId; // Return the generated tokenId
     }
 
     // The following functions are overrides required by Solidity.

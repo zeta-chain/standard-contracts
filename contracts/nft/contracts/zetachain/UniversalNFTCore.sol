@@ -41,7 +41,7 @@ abstract contract UniversalNFTCore is
         address gatewayAddress,
         uint256 gas,
         address uniswapRouterAddress
-    ) internal {
+    ) internal onlyInitializing {
         if (gatewayAddress == address(0) || uniswapRouterAddress == address(0))
             revert InvalidAddress();
         if (gas == 0) revert InvalidGasLimit();
