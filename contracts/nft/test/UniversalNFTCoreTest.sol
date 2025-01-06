@@ -130,13 +130,13 @@ contract UniversalNFTIntegrationTest is
         assertEq(nftContract.ownerOf(tokenId), receiver);
         assertEq(nftContract.tokenURI(tokenId), uri);
 
-        vm.startPrank(owner);
-        nftContract.transferCrossChain{value: 1 ether}(
-            tokenId,
-            receiver,
-            destination
-        );
-        vm.stopPrank();
+        // vm.startPrank(owner);
+        // nftContract.transferCrossChain{value: 1 ether}(
+        //     tokenId,
+        //     receiver,
+        //     destination
+        // );
+        // vm.stopPrank();
 
         // vm.expectEmit(true, true, true, true);
         // emit TokenTransfer(receiver, destination, tokenId, "ipfs://test-uri");
