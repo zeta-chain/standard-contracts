@@ -36,8 +36,6 @@ contract UniversalNFTIntegrationTest is
         owner = address(this);
         receiver = address(0x1234);
 
-        // Give the test contract enough native ETH to deposit
-        // so that 10 ether deposit doesn't revert.
         vm.deal(owner, 100 ether);
 
         zetaToken = new WETH9();
@@ -56,9 +54,6 @@ contract UniversalNFTIntegrationTest is
             )
         );
 
-        // -----------------
-        // Deploy gateway
-        // -----------------
         proxy = payable(
             Upgrades.deployUUPSProxy(
                 "GatewayZEVM.sol",
@@ -72,15 +67,12 @@ contract UniversalNFTIntegrationTest is
 
         protocolAddress = gateway.PROTOCOL_ADDRESS();
 
-        // -----------------
-        // Deploy system contract + ZRC20
-        // -----------------
         vm.startPrank(protocolAddress);
         systemContract = new SystemContract(address(0), address(0), address(0));
         zrc20 = new ZRC20(
             "TOKEN",
             "TKN",
-            18, // 18 decimals
+            18,
             1,
             CoinType.Gas,
             0,
@@ -106,17 +98,17 @@ contract UniversalNFTIntegrationTest is
         zetaToken.approve(address(gateway), 10 ether);
 
         zetaToken.approve(address(router), 10 ether);
-        zrc20.approve(address(router), 100_000 * 1e18);
+        zrc20.approve(address(router), 10 ether);
 
         factory.createPair(address(zetaToken), address(zrc20));
 
         router.addLiquidity(
             address(zetaToken),
             address(zrc20),
-            10 * 1e18,
-            10 * 1e18,
-            1e18,
-            1e18,
+            10 ether,
+            10 ether,
+            1 ether,
+            1 ether,
             owner,
             block.timestamp + 300
         );
@@ -155,10 +147,8 @@ contract UniversalNFTIntegrationTest is
 
         UniversalNFT nftContract = UniversalNFT(payable(proxyAddr));
 
-        // Now you can safely call all functions on `nftContract` via the proxy
         uint256 tokenId = nftContract.safeMint(receiver, uri);
 
-        // Verify ownership and tokenURI
         assertEq(nftContract.ownerOf(tokenId), receiver);
         assertEq(nftContract.tokenURI(tokenId), uri);
 
