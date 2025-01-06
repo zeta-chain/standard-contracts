@@ -81,19 +81,19 @@ abstract contract UniversalTokenCore is
      * @dev To be called during contract deployment.
      * @param gatewayAddress The address of the gateway contract.
      * @param universalAddress The address of the universal contract.
-     * @param gas The gas limit to set.
+     * @param gasLimit The gas limit to set.
      */
     function __UniversalTokenCore_init(
         address gatewayAddress,
         address universalAddress,
-        uint256 gas
+        uint256 gasLimit
     ) internal {
         if (gatewayAddress == address(0)) revert InvalidAddress();
         if (universalAddress == address(0)) revert InvalidAddress();
-        if (gas == 0) revert InvalidGasLimit();
+        if (gasLimit == 0) revert InvalidGasLimit();
         gateway = GatewayEVM(gatewayAddress);
         universal = universalAddress;
-        gasLimitAmount = gas;
+        gasLimitAmount = gasLimit;
     }
 
     /**

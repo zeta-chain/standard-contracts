@@ -66,20 +66,20 @@ abstract contract UniversalTokenCore is
      * @notice Initializes the contract.
      * @dev Should be called during contract deployment.
      * @param gatewayAddress Address of the Gateway contract.
-     * @param gas Gas limit for cross-chain calls.
+     * @param gasLimit Gas limit for cross-chain calls.
      * @param uniswapRouterAddress Address of the Uniswap router contract.
      */
     function __UniversalTokenCore_init(
         address gatewayAddress,
-        uint256 gas,
+        uint256 gasLimit,
         address uniswapRouterAddress
     ) internal {
         if (gatewayAddress == address(0) || uniswapRouterAddress == address(0))
             revert InvalidAddress();
-        if (gas == 0) revert InvalidGasLimit();
+        if (gasLimit == 0) revert InvalidGasLimit();
         gateway = GatewayZEVM(payable(gatewayAddress));
         uniswapRouter = uniswapRouterAddress;
-        gasLimitAmount = gas;
+        gasLimitAmount = gasLimit;
     }
 
     /**

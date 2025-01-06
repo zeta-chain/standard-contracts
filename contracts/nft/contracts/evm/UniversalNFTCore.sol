@@ -25,7 +25,9 @@ abstract contract UniversalNFTCore is
     // Address of the EVM gateway contract
     GatewayEVM public gateway;
 
-    // The address of the Universal NFT contract on ZetaChain. This contract serves as a key component for handling all cross-chain transfers while also functioning as an ERC-721 Universal NFT.
+    // The address of the Universal NFT contract on ZetaChain. This contract serves
+    // as a key component for handling all cross-chain transfers while also functioning
+    // as an ERC-721 Universal NFT.
     address public universal;
 
     // The amount of gas used when making cross-chain transfers
@@ -77,19 +79,19 @@ abstract contract UniversalNFTCore is
      * @dev To be called during contract deployment.
      * @param gatewayAddress The address of the gateway contract.
      * @param universalAddress The address of the universal contract.
-     * @param gas The gas limit to set.
+     * @param gasLimit The gas limit to set.
      */
     function __UniversalNFTCore_init(
         address gatewayAddress,
         address universalAddress,
-        uint256 gas
+        uint256 gasLimit
     ) internal {
         if (gatewayAddress == address(0)) revert InvalidAddress();
         if (universalAddress == address(0)) revert InvalidAddress();
-        if (gas == 0) revert InvalidGasLimit();
+        if (gasLimit == 0) revert InvalidGasLimit();
         gateway = GatewayEVM(gatewayAddress);
         universal = universalAddress;
-        gasLimitAmount = gas;
+        gasLimitAmount = gasLimit;
     }
 
     /**
