@@ -35,10 +35,9 @@ contract UniversalNFTIntegrationTest is
     function setUp() public {
         owner = address(this);
         receiver = address(0x1234);
+        zetaToken = new WETH9();
 
         vm.deal(owner, 100 ether);
-
-        zetaToken = new WETH9();
 
         factory = IUniswapV2Factory(
             deployCode(
@@ -86,13 +85,13 @@ contract UniversalNFTIntegrationTest is
         zetaToken.deposit{value: 10 ether}();
         zetaToken.approve(address(gateway), 10 ether);
 
-        zrc20.deposit(owner, 100_000 * 1e18);
+        zrc20.deposit(owner, 100 ether);
 
         vm.stopPrank();
 
         vm.startPrank(owner);
 
-        zrc20.approve(address(gateway), 100_000 * 1e18);
+        zrc20.approve(address(gateway), 100 ether);
 
         zetaToken.deposit{value: 10 ether}();
         zetaToken.approve(address(gateway), 10 ether);
