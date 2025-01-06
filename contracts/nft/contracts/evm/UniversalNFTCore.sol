@@ -11,8 +11,9 @@ import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Own
 /**
  * @title UniversalNFTCore
  * @dev This abstract contract provides the core logic for Universal NFTs. It is designed
- * to be imported into an OpenZeppelin-based ERC721 implementation, extending its
- * functionality with cross-chain NFT transfer capabilities.
+ *      to be imported into an OpenZeppelin-based ERC721 implementation, extending its
+ *      functionality with cross-chain NFT transfer capabilities via GatewayEVM. This
+ *      contract facilitates cross-chain NFT transfers to and from EVM-based networks.
  */
 abstract contract UniversalNFTCore is
     ERC721Upgradeable,
@@ -93,8 +94,8 @@ abstract contract UniversalNFTCore is
     /**
      * @notice Transfers an NFT to another chain.
      * @dev Burns the NFT locally, then uses the Gateway to send a message to
-     * mint the same NFT on the destination chain. If the destination is the zero
-     * address, transfer the NFT to ZetaChain.
+     *      mint the same NFT on the destination chain. If the destination is the zero
+     *      address, transfers the NFT to ZetaChain.
      * @param tokenId The ID of the NFT to transfer.
      * @param receiver The address on the destination chain that will receive the NFT.
      * @param destination The ZRC-20 address of the gas token of the destination chain.
@@ -174,7 +175,7 @@ abstract contract UniversalNFTCore is
     }
 
     /**
-     * @notice Mint an NFT and send it to the sender if a cross-chain transfer fails.
+     * @notice Mint an NFT and send it back to the sender if a cross-chain transfer fails.
      * @dev Called by the Gateway if a call fails.
      * @param context The revert context containing metadata and revert message.
      */

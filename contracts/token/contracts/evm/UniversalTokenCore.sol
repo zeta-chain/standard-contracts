@@ -11,8 +11,9 @@ import "../shared/UniversalTokenEvents.sol";
 /**
  * @title UniversalTokenCore
  * @dev This abstract contract provides the core logic for Universal Tokens. It is designed
- * to be imported into an OpenZeppelin-based ERC-20 implementation, extending its
- * functionality with cross-chain token transfer capabilities.
+ *      to be imported into an OpenZeppelin-based ERC20 implementation, extending its
+ *      functionality with cross-chain token transfer capabilities via GatewayEVM. This
+ *      contract facilitates cross-chain token transfers to and from EVM-based networks.
  */
 abstract contract UniversalTokenCore is
     ERC20Upgradeable,
@@ -85,8 +86,8 @@ abstract contract UniversalTokenCore is
     /**
      * @notice Transfers tokens to another chain.
      * @dev Burns the tokens locally, then uses the Gateway to send a message to
-     * mint the same tokens on the destination chain. If the destination is the zero
-     * address, transfer the tokens to ZetaChain.
+     *      mint the same tokens on the destination chain. If the destination is the zero
+     *      address, transfers the tokens to ZetaChain.
      * @param destination The ZRC-20 address of the gas token of the destination chain.
      * @param receiver The address on the destination chain that will receive the tokens.
      * @param amount The amount of tokens to transfer.
@@ -159,7 +160,7 @@ abstract contract UniversalTokenCore is
     }
 
     /**
-     * @notice Mints tokens and sends them to the sender if a cross-chain transfer fails.
+     * @notice Mints tokens and sends them back to the sender if a cross-chain transfer fails.
      * @dev Called by the Gateway if a call fails.
      * @param context The revert context containing metadata and revert message.
      */

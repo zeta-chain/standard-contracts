@@ -13,11 +13,11 @@ import "../shared/UniversalTokenEvents.sol";
 
 /**
  * @title UniversalTokenCore
- * @dev This abstract contract provides core logic for Universal Tokens with cross-chain
- *      functionality powered by ZetaChain. It is designed to be extended by an
- *      OpenZeppelin ERC-20-based implementation to add cross-chain capabilities.
- *      This contract handles cross-chain token transfers between EVM and ZetaChain,
- *      ZetaChain to EVM, and EVM to EVM.
+ * @dev This abstract contract provides the core logic for Universal Tokens. It is designed
+ *      to be imported into an OpenZeppelin-based ERC20 implementation, extending its
+ *      functionality with cross-chain token transfer capabilities via GatewayZEVM. This
+ *      contract facilitates cross-chain token transfers to and from ZetaChain and other
+ *      connected EVM-based networks.
  */
 abstract contract UniversalTokenCore is
     UniversalContract,
@@ -83,8 +83,7 @@ abstract contract UniversalTokenCore is
     }
 
     /**
-     * @notice Links a ZRC20 gas token address to a contract
-     *         on the corresponding chain.
+     * @notice Links a ZRC20 gas token address to a contract on the corresponding chain.
      * @dev Can only be called by the contract owner.
      * @param zrc20 Address of the ZRC20 token.
      * @param contractAddress Address of the corresponding contract.
@@ -100,8 +99,8 @@ abstract contract UniversalTokenCore is
     /**
      * @notice Transfers tokens to a connected chain.
      * @dev This function accepts native ZETA tokens as gas fees, which are swapped
-     * for the corresponding ZRC20 gas token of the destination chain. The tokens are then
-     * transferred to the destination chain using the ZetaChain Gateway.
+     *      for the corresponding ZRC20 gas token of the destination chain. The tokens are then
+     *      transferred to the destination chain using the ZetaChain Gateway.
      * @param destination Address of the ZRC20 gas token for the destination chain.
      * @param receiver Address of the recipient on the destination chain.
      * @param amount Amount of tokens to transfer.
@@ -172,10 +171,10 @@ abstract contract UniversalTokenCore is
     /**
      * @notice Handles cross-chain token transfers.
      * @dev This function is called by the Gateway contract upon receiving a message.
-     * If the destination is ZetaChain, mint tokens for the receiver.
-     * If the destination is another chain, swap the gas token for the corresponding
-     * ZRC20 token and use the Gateway to send a message to transfer tokens to the
-     * destination chain.
+     *      If the destination is ZetaChain, mint tokens for the receiver.
+     *      If the destination is another chain, swap the gas token for the corresponding
+     *      ZRC20 token and use the Gateway to send a message to transfer tokens to the
+     *      destination chain.
      * @param context Message context metadata.
      * @param zrc20 ZRC20 token address.
      * @param amount Amount of token provided.
@@ -194,6 +193,7 @@ abstract contract UniversalTokenCore is
             uint256 tokenAmount,
             address sender
         ) = abi.decode(message, (address, address, uint256, address));
+
         if (destination == address(0)) {
             _mint(receiver, tokenAmount);
         } else {

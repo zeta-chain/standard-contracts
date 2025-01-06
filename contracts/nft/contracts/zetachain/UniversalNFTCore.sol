@@ -13,12 +13,11 @@ import {SwapHelperLib} from "@zetachain/toolkit/contracts/SwapHelperLib.sol";
 
 /**
  * @title UniversalNFTCore
- * @dev This abstract contract provides core logic for Universal NFTs with cross-chain
- *      functionality powered by ZetaChain. It is designed to be imported into an
- *      OpenZeppelin ERC721-based implementation to extend its capabilities. This contract
- *      includes mechanisms for cross-chain NFT transfers between EVM and ZetaChain,
- *      ZetaChain to EVM, and EVM to EVM. This contract handles all cross-chain NFT transfers.
- *      Before making
+ * @dev This abstract contract provides the core logic for Universal NFTs. It is designed
+ *      to be imported into an OpenZeppelin-based ERC721 implementation, extending its
+ *      functionality with cross-chain NFT transfer capabilities via GatewayZEVM. This
+ *      contract facilitates cross-chain NFT transfers to and from ZetaChain and other
+ *      connected EVM-based networks.
  */
 abstract contract UniversalNFTCore is
     UniversalContract,
@@ -85,7 +84,7 @@ abstract contract UniversalNFTCore is
     }
 
     /**
-     * @notice Links a ZRC-20 gas token token address to a NFT contract
+     * @notice Links a ZRC-20 gas token address to an NFT contract
      *         on the corresponding chain.
      * @dev Can only be called by the contract owner.
      * @param zrc20 Address of the ZRC-20 token.
@@ -102,8 +101,8 @@ abstract contract UniversalNFTCore is
     /**
      * @notice Transfers an NFT to a connected chain.
      * @dev This function accepts native ZETA tokens as gas fees, which are swapped
-     * for the corresponding ZRC-20 gas token of the destination chain. The NFT is then
-     * transferred to the destination chain using the ZetaChain Gateway.
+     *      for the corresponding ZRC-20 gas token of the destination chain. The NFT is then
+     *      transferred to the destination chain using the ZetaChain Gateway.
      * @param tokenId The ID of the NFT to transfer.
      * @param receiver Address of the recipient on the destination chain.
      * @param destination Address of the ZRC-20 gas token for the destination chain.
@@ -179,10 +178,10 @@ abstract contract UniversalNFTCore is
     /**
      * @notice Handles cross-chain NFT transfers.
      * @dev This function is called by the Gateway contract upon receiving a message.
-     * If the destination is ZetaChain, mint an NFT and set its URI.
-     * If the destination is another chain, swap the gas token for the corresponding
-     * ZRC-20 token and use the Gateway to send a message to mint an NFT on the
-     * destination chain.
+     *      If the destination is ZetaChain, mint an NFT and set its URI.
+     *      If the destination is another chain, swap the gas token for the corresponding
+     *      ZRC-20 token and use the Gateway to send a message to mint an NFT on the
+     *      destination chain.
      * @param context Message context metadata.
      * @param zrc20 ZRC-20 token address.
      * @param amount Amount of token provided.
