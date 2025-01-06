@@ -63,7 +63,7 @@ contract UniversalNFT is
         _safeMint(to, tokenId);
         _setTokenURI(tokenId, uri);
 
-        return tokenId; // Return the generated tokenId
+        return tokenId;
     }
 
     // The following functions are overrides required by Solidity.

@@ -36,6 +36,10 @@ contract UniversalNFTIntegrationTest is
         owner = address(this);
         receiver = address(0x1234);
 
+        // Give the test contract enough native ETH to deposit
+        // so that 10 ether deposit doesn't revert.
+        vm.deal(owner, 100 ether);
+
         zetaToken = new WETH9();
 
         factory = IUniswapV2Factory(
@@ -52,6 +56,9 @@ contract UniversalNFTIntegrationTest is
             )
         );
 
+        // -----------------
+        // Deploy gateway
+        // -----------------
         proxy = payable(
             Upgrades.deployUUPSProxy(
                 "GatewayZEVM.sol",
@@ -65,12 +72,15 @@ contract UniversalNFTIntegrationTest is
 
         protocolAddress = gateway.PROTOCOL_ADDRESS();
 
+        // -----------------
+        // Deploy system contract + ZRC20
+        // -----------------
         vm.startPrank(protocolAddress);
         systemContract = new SystemContract(address(0), address(0), address(0));
         zrc20 = new ZRC20(
             "TOKEN",
             "TKN",
-            18,
+            18, // 18 decimals
             1,
             CoinType.Gas,
             0,
@@ -79,16 +89,38 @@ contract UniversalNFTIntegrationTest is
         );
         systemContract.setGasCoinZRC20(1, address(zrc20));
         systemContract.setGasPrice(1, 1);
-        vm.deal(protocolAddress, 1_000_000_000);
-        zetaToken.deposit{value: 10}();
-        zetaToken.approve(address(gateway), 10);
-        zrc20.deposit(owner, 100_000);
+
+        vm.deal(protocolAddress, 100 ether);
+        zetaToken.deposit{value: 10 ether}();
+        zetaToken.approve(address(gateway), 10 ether);
+
+        zrc20.deposit(owner, 100_000 * 1e18);
+
         vm.stopPrank();
 
         vm.startPrank(owner);
-        zrc20.approve(address(gateway), 100_000);
-        zetaToken.deposit{value: 10}();
-        zetaToken.approve(address(gateway), 10);
+
+        zrc20.approve(address(gateway), 100_000 * 1e18);
+
+        zetaToken.deposit{value: 10 ether}();
+        zetaToken.approve(address(gateway), 10 ether);
+
+        zetaToken.approve(address(router), 10 ether);
+        zrc20.approve(address(router), 100_000 * 1e18);
+
+        factory.createPair(address(zetaToken), address(zrc20));
+
+        router.addLiquidity(
+            address(zetaToken),
+            address(zrc20),
+            10 * 1e18,
+            10 * 1e18,
+            1e18,
+            1e18,
+            owner,
+            block.timestamp + 300
+        );
+
         vm.stopPrank();
 
         revertOptions = RevertOptions({
