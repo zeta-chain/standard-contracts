@@ -14,6 +14,7 @@ import "../shared/UniversalTokenEvents.sol";
  *      to be imported into an OpenZeppelin-based ERC20 implementation, extending its
  *      functionality with cross-chain token transfer capabilities via GatewayEVM. This
  *      contract facilitates cross-chain token transfers to and from EVM-based networks.
+ *      It's important to set the universal contract address before making cross-chain transfers.
  */
 abstract contract UniversalTokenCore is
     ERC20Upgradeable,
@@ -23,7 +24,9 @@ abstract contract UniversalTokenCore is
     // Address of the EVM gateway contract
     GatewayEVM public gateway;
 
-    // Address of the universal token contract on ZetaChain
+    // The address of the Universal Token contract on ZetaChain. This contract serves
+    // as a key component for handling all cross-chain transfers while also functioning
+    // as an ERC-20 Universal Token.
     address public universal;
 
     // The amount of gas used when making cross-chain transfers
