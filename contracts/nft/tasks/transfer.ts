@@ -7,14 +7,14 @@ const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
 
   const { isAddress } = hre.ethers.utils;
 
-  if (!isAddress(args.to) || !isAddress(args.revertAddress)) {
+  if (!isAddress(args.destination) || !isAddress(args.revertAddress)) {
     throw new Error("Invalid Ethereum address provided.");
   }
 
-  const nftContract = await ethers.getContractAt("IERC721", args.from);
+  const nftContract = await ethers.getContractAt("IERC721", args.contract);
   const approveTx = await nftContract
     .connect(signer)
-    .approve(args.from, args.tokenId);
+    .approve(args.contract, args.tokenId);
   await approveTx.wait();
 
   const txOptions = {
@@ -24,7 +24,7 @@ const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
 
   const contract = await ethers.getContractAt(
     "ZetaChainUniversalNFT",
-    args.from
+    args.contract
   );
 
   const gasAmount = ethers.utils.parseUnits(args.gasAmount, 18);
@@ -34,7 +34,7 @@ const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
   const tx = await contract.transferCrossChain(
     args.tokenId,
     receiver,
-    args.to,
+    args.destination,
     { ...txOptions, value: gasAmount }
   );
 
@@ -42,7 +42,7 @@ const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
   if (args.json) {
     console.log(
       JSON.stringify({
-        contractAddress: args.from,
+        contractAddress: args.contract,
         transferTransactionHash: tx.hash,
         sender: signer.address,
         tokenId: args.tokenId,
@@ -50,7 +50,7 @@ const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
     );
   } else {
     console.log(`🚀 Successfully transferred NFT to the contract.
-  📜 Contract address: ${args.from}
+  📜 Contract address: ${args.contract}
   🖼 NFT Contract address: ${args.nftContract}
   🆔 Token ID: ${args.tokenId}
   🔗 Transaction hash: ${tx.hash}`);
@@ -63,7 +63,7 @@ export const nftTransfer = task(
   main
 )
   .addOptionalParam("receiver", "The address to receive the NFT")
-  .addParam("from", "The contract being transferred from")
+  .addParam("contract", "The contract being transferred from")
   .addParam("tokenId", "The ID of the NFT to transfer")
   .addOptionalParam(
     "txOptionsGasPrice",
@@ -93,7 +93,7 @@ export const nftTransfer = task(
   .addFlag("isArbitraryCall", "Whether the call is arbitrary")
   .addFlag("json", "Output the result in JSON format")
   .addOptionalParam(
-    "to",
+    "destination",
     "ZRC-20 of the gas token of the destination chain",
     "0x0000000000000000000000000000000000000000"
   )
