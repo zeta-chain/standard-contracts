@@ -264,6 +264,12 @@ abstract contract UniversalNFTCore is
         _safeMint(sender, tokenId);
         _setTokenURI(tokenId, uri);
         emit TokenTransferReverted(sender, tokenId, uri);
+
+        if (context.amount > 0 && context.asset != address(0)) {
+            if (!IZRC20(context.asset).transfer(sender, context.amount)) {
+                revert TransferFailed();
+            }
+        }
     }
 
     /**
