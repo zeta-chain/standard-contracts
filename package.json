@@ -6,5 +6,18 @@
   "scripts": {
     "build": "sh scripts/build.sh"
   },
-  "packageManager": "yarn@1.22.21+sha1.1959a18351b811cdeedbd484a8f86c3cc3bbaf72"
+  "files": [
+    "dist",
+    "abi",
+    "contracts/nft/contracts",
+    "contracts/nft/typechain-types",
+    "contracts/nft/scripts",
+    "contracts/token/contracts",
+    "contracts/token/typechain-types",
+    "contracts/token/scripts"
+  ],
+  "packageManager": "yarn@1.22.21+sha1.1959a18351b811cdeedbd484a8f86c3cc3bbaf72",
+  "dependencies": {
+    "typescript": "^5.7.3"
+  }
 }
