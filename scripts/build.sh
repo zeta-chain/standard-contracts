@@ -3,6 +3,8 @@
 rm -rf abi && mkdir -p abi/contracts
 rm -rf typescript-types && mkdir typescript-types
 
+tsc
+
 for dir in ./contracts/*/; do
   subdir=$(echo $dir | cut -d'/' -f2)
   
