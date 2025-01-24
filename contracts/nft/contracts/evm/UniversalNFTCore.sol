@@ -128,7 +128,7 @@ abstract contract UniversalNFTCore is
             gateway.call(
                 universal,
                 message,
-                RevertOptions(address(this), false, address(0), message, 0)
+                RevertOptions(address(this), false, universal, message, 0)
             );
         } else {
             gateway.depositAndCall{value: msg.value}(
@@ -137,7 +137,7 @@ abstract contract UniversalNFTCore is
                 RevertOptions(
                     address(this),
                     true,
-                    address(0),
+                    universal,
                     abi.encode(receiver, tokenId, uri, msg.sender),
                     gasLimitAmount
                 )
