@@ -269,7 +269,6 @@ abstract contract UniversalNFTCore is
             context.revertMessage,
             (address, uint256, string, address)
         );
-
         _safeMint(sender, tokenId);
         _setTokenURI(tokenId, uri);
         emit TokenTransferReverted(sender, tokenId, uri);
@@ -291,7 +290,7 @@ abstract contract UniversalNFTCore is
         );
         _safeMint(sender, tokenId);
         _setTokenURI(tokenId, uri);
-        emit TokenTransferReverted(sender, tokenId, uri);
+        emit TokenTransferAborted(sender, tokenId, uri, context.outgoing);
     }
 
     /**
