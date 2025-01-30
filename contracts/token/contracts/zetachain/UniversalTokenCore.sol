@@ -103,6 +103,7 @@ abstract contract UniversalTokenCore is
         address contractAddress
     ) external onlyOwner {
         if (zrc20 == address(0)) revert InvalidAddress();
+        if (contractAddress == address(0)) revert InvalidAddress();
         connected[zrc20] = contractAddress;
         emit SetConnected(zrc20, contractAddress);
     }
