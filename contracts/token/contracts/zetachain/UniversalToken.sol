@@ -41,6 +41,7 @@ contract UniversalToken is
     ) public initializer {
         __ERC20_init(name, symbol);
         __ERC20Burnable_init();
+        __ERC20Pausable_init();
         __Ownable_init(initialOwner);
         __UUPSUpgradeable_init();
         __UniversalTokenCore_init(gatewayAddress, gas, uniswapRouterAddress); // Initialize the Universal Token core contract
