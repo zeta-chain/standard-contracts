@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.26;
+pragma solidity 0.8.26;
 
 import {ERC20Upgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
@@ -111,6 +111,8 @@ abstract contract UniversalTokenCore is
         address zrc20,
         address contractAddress
     ) external onlyOwner {
+        if (zrc20 == address(0)) revert InvalidAddress();
+        if (contractAddress == address(0)) revert InvalidAddress();
         connected[zrc20] = contractAddress;
         emit SetConnected(zrc20, contractAddress);
     }

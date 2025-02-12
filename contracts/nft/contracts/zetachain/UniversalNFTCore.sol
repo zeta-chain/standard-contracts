@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.26;
+pragma solidity 0.8.26;
 
 import "../shared/UniversalNFTEvents.sol";
 import {ERC721Upgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC721/ERC721Upgradeable.sol";
@@ -113,6 +113,8 @@ abstract contract UniversalNFTCore is
         address zrc20,
         address contractAddress
     ) external onlyOwner {
+        if (zrc20 == address(0)) revert InvalidAddress();
+        if (contractAddress == address(0)) revert InvalidAddress();
         connected[zrc20] = contractAddress;
         emit SetConnected(zrc20, contractAddress);
     }
