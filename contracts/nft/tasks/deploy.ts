@@ -40,7 +40,7 @@ const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
     );
   } else {
     console.log(`🚀 Successfully deployed "${args.name}" contract on ${network}.
-📜 Contract address: ${contract.target}
+📜 Contract address: ${contract.address}
 `);
   }
 };
