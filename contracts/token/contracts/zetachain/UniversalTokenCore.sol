@@ -11,6 +11,15 @@ import {SwapHelperLib} from "@zetachain/toolkit/contracts/SwapHelperLib.sol";
 
 import "../shared/UniversalTokenEvents.sol";
 
+struct AbortContext {
+    bytes sender;
+    address asset;
+    uint256 amount;
+    bool outgoing;
+    uint256 chainID;
+    bytes revertMessage;
+}
+
 /**
  * @title UniversalTokenCore
  * @dev This abstract contract provides the core logic for Universal Tokens. It is designed
@@ -163,8 +172,8 @@ abstract contract UniversalTokenCore is
         RevertOptions memory revertOptions = RevertOptions(
             address(this),
             true,
-            address(0),
-            abi.encode(amount, msg.sender),
+            address(this),
+            abi.encode(receiver, amount, msg.sender),
             gasLimitAmount
         );
 
@@ -232,7 +241,7 @@ abstract contract UniversalTokenCore is
                     address(this),
                     true,
                     address(0),
-                    abi.encode(tokenAmount, sender),
+                    abi.encode(receiver, tokenAmount, sender),
                     0
                 )
             );
@@ -245,11 +254,20 @@ abstract contract UniversalTokenCore is
      * @param context Metadata about the failed call.
      */
     function onRevert(RevertContext calldata context) external onlyGateway {
-        (uint256 amount, address sender) = abi.decode(
+        (, uint256 amount, address sender) = abi.decode(
             context.revertMessage,
-            (uint256, address)
+            (address, uint256, address)
         );
         _mint(sender, amount);
         emit TokenTransferReverted(sender, amount);
+    }
+
+    function onAbort(AbortContext calldata context) external {
+        (, uint256 amount, address sender) = abi.decode(
+            context.revertMessage,
+            (address, uint256, address)
+        );
+        _mint(sender, amount);
+        emit TokenTransferAborted(sender, amount);
     }
 }

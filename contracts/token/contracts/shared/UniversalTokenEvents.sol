@@ -12,6 +12,7 @@ contract UniversalTokenEvents {
     );
     event TokenTransferReceived(address indexed receiver, uint256 amount);
     event TokenTransferReverted(address indexed sender, uint256 amount);
+    event TokenTransferAborted(address indexed sender, uint256 amount);
     event TokenTransferToDestination(
         address indexed destination,
         address indexed sender,
