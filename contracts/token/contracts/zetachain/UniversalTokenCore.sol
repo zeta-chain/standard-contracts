@@ -251,5 +251,11 @@ abstract contract UniversalTokenCore is
         );
         _mint(sender, amount);
         emit TokenTransferReverted(sender, amount);
+
+        if (context.amount > 0 && context.asset != address(0)) {
+            if (!IZRC20(context.asset).transfer(sender, context.amount)) {
+                revert TransferFailed();
+            }
+        }
     }
 }
