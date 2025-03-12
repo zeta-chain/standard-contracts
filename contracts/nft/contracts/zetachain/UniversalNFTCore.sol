@@ -282,7 +282,7 @@ abstract contract UniversalNFTCore is
      * the NFT to the original sender on ZetaChain.
      * @param context Metadata about the failed call.
      */
-    function onAbort(AbortContext calldata context) external {
+    function onAbort(AbortContext calldata context) external onlyGateway {
         (, uint256 tokenId, string memory uri, address sender) = abi.decode(
             context.revertMessage,
             (address, uint256, string, address)

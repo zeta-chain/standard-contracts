@@ -259,7 +259,7 @@ abstract contract UniversalTokenCore is
         }
     }
 
-    function onAbort(AbortContext calldata context) external {
+    function onAbort(AbortContext calldata context) external onlyGateway {
         (, uint256 amount, address sender) = abi.decode(
             context.revertMessage,
             (address, uint256, address)
