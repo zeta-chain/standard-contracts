@@ -4,7 +4,7 @@ set -e
 set -x
 set -o pipefail
 
-if [ "$1" = "start" ]; then npx hardhat localnet --exit-on-error & sleep 25; fi
+if [ "$1" = "start" ]; then npx hardhat localnet --exit-on-error & sleep 15; fi
 
 function balance() {
   echo -e "\n🖼️  Balance"
