@@ -11,15 +11,6 @@ import "@zetachain/protocol-contracts/contracts/zevm/interfaces/IWZETA.sol";
 import "@zetachain/protocol-contracts/contracts/zevm/GatewayZEVM.sol";
 import {SwapHelperLib} from "@zetachain/toolkit/contracts/SwapHelperLib.sol";
 
-struct AbortContext {
-    bytes sender;
-    address asset;
-    uint256 amount;
-    bool outgoing;
-    uint256 chainID;
-    bytes revertMessage;
-}
-
 /**
  * @title UniversalNFTCore
  * @dev This abstract contract provides the core logic for Universal NFTs. It is designed

@@ -182,12 +182,11 @@ abstract contract UniversalNFTCore is
      * @dev Called by the Gateway if a call fails.
      * @param context The revert context containing metadata and revert message.
      */
-    function onRevert(RevertContext calldata context) external onlyGateway {
+    function onRevert(RevertContext calldata context) external {
         (, uint256 tokenId, string memory uri, address sender) = abi.decode(
             context.revertMessage,
             (address, uint256, string, address)
         );
-
         _safeMint(sender, tokenId);
         _setTokenURI(tokenId, uri);
         emit TokenTransferReverted(sender, tokenId, uri);
@@ -226,4 +225,6 @@ abstract contract UniversalNFTCore is
     {
         return super.supportsInterface(interfaceId);
     }
+
+    receive() external payable {}
 }

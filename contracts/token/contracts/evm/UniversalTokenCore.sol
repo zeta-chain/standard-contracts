@@ -185,4 +185,6 @@ abstract contract UniversalTokenCore is
         _mint(receiver, amount);
         emit TokenTransferReverted(receiver, amount);
     }
+
+    receive() external payable {}
 }

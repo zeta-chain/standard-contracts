@@ -11,15 +11,6 @@ import {SwapHelperLib} from "@zetachain/toolkit/contracts/SwapHelperLib.sol";
 
 import "../shared/UniversalTokenEvents.sol";
 
-struct AbortContext {
-    bytes sender;
-    address asset;
-    uint256 amount;
-    bool outgoing;
-    uint256 chainID;
-    bytes revertMessage;
-}
-
 /**
  * @title UniversalTokenCore
  * @dev This abstract contract provides the core logic for Universal Tokens. It is designed
