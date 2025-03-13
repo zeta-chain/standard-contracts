@@ -4,7 +4,7 @@ set -e
 set -x
 set -o pipefail
 
-if [ "$1" = "start" ]; then npx hardhat localnet --exit-on-error & sleep 15; fi
+npx hardhat localnet --exit-on-error & sleep 15
 
 function balance() {
   local ZETACHAIN=$(cast call "$CONTRACT_ZETACHAIN" "balanceOf(address)(uint256)" "$SENDER")
@@ -67,10 +67,10 @@ npx hardhat nft:transfer --network localhost --json --token-id "$NFT_ID" --contr
 npx hardhat localnet-check
 balance
 
-echo -e "\nTransferring NFT: BNB → ZetaChain..."
-npx hardhat nft:transfer --network localhost --json --token-id "$NFT_ID" --contract "$CONTRACT_BNB"
+# echo -e "\nTransferring NFT: BNB → ZetaChain..."
+# npx hardhat nft:transfer --network localhost --json --token-id "$NFT_ID" --contract "$CONTRACT_BNB"
 
-npx hardhat localnet-check
-balance
+# npx hardhat localnet-check
+# balance
 
-if [ "$1" = "start" ]; then npx hardhat localnet-stop; fi
+# npx hardhat localnet-stop

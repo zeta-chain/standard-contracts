@@ -37,6 +37,7 @@ abstract contract UniversalNFTCore is
     error Unauthorized();
     error InvalidGasLimit();
     error GasTokenTransferFailed();
+    error GasTokenRefundFailed();
 
     modifier onlyGateway() {
         if (msg.sender != address(gateway)) revert Unauthorized();
@@ -182,11 +183,17 @@ abstract contract UniversalNFTCore is
      * @dev Called by the Gateway if a call fails.
      * @param context The revert context containing metadata and revert message.
      */
-    function onRevert(RevertContext calldata context) external onlyGateway {
+    function onRevert(
+        RevertContext calldata context
+    ) external payable onlyGateway {
         (, uint256 tokenId, string memory uri, address sender) = abi.decode(
             context.revertMessage,
             (address, uint256, string, address)
         );
+        if (context.amount > 0) {
+            (bool success, ) = payable(sender).call{value: context.amount}("");
+            if (!success) revert GasTokenRefundFailed();
+        }
         _safeMint(sender, tokenId);
         _setTokenURI(tokenId, uri);
         emit TokenTransferReverted(sender, tokenId, uri);
