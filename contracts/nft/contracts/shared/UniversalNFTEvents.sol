@@ -21,6 +21,12 @@ contract UniversalNFTEvents {
         uint256 indexed tokenId,
         string uri
     );
+    event TokenTransferAborted(
+        address indexed sender,
+        uint256 indexed tokenId,
+        string uri,
+        bool outgoing
+    );
     event TokenTransferToDestination(
         address indexed destination,
         address indexed sender,

@@ -65,6 +65,4 @@ contract UniversalToken is
     ) internal override(ERC20Upgradeable, ERC20PausableUpgradeable) {
         super._update(from, to, value);
     }
-
-    receive() external payable {}
 }

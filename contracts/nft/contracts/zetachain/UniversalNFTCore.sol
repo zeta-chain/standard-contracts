@@ -169,8 +169,8 @@ abstract contract UniversalNFTCore is
         RevertOptions memory revertOptions = RevertOptions(
             address(this),
             true,
-            address(0),
-            abi.encode(tokenId, uri, msg.sender),
+            address(this),
+            abi.encode(receiver, tokenId, uri, msg.sender),
             gasLimitAmount
         );
 
@@ -245,7 +245,7 @@ abstract contract UniversalNFTCore is
                     address(this),
                     true,
                     address(0),
-                    abi.encode(tokenId, uri, sender),
+                    abi.encode(receiver, tokenId, uri, sender),
                     0
                 )
             );
@@ -258,11 +258,10 @@ abstract contract UniversalNFTCore is
      * @param context Metadata about the failed call.
      */
     function onRevert(RevertContext calldata context) external onlyGateway {
-        (uint256 tokenId, string memory uri, address sender) = abi.decode(
+        (, uint256 tokenId, string memory uri, address sender) = abi.decode(
             context.revertMessage,
-            (uint256, string, address)
+            (address, uint256, string, address)
         );
-
         _safeMint(sender, tokenId);
         _setTokenURI(tokenId, uri);
         emit TokenTransferReverted(sender, tokenId, uri);
@@ -272,6 +271,25 @@ abstract contract UniversalNFTCore is
                 revert TransferFailed();
             }
         }
+    }
+
+    /**
+     * @notice onAbort is executed when a transfer from one connected chain to another
+     * fails inside onCall, for example, because the amount of tokens supplied is not
+     * sufficient to cover the withdraw gas fee to the destination and also not enough
+     * to cover withdraw gas fee to the source chain. In this scenario we don't have
+     * enough tokens to send NFT cross-chain, so the best thing we can do is to transfer
+     * the NFT to the original sender on ZetaChain.
+     * @param context Metadata about the failed call.
+     */
+    function onAbort(AbortContext calldata context) external onlyGateway {
+        (, uint256 tokenId, string memory uri, address sender) = abi.decode(
+            context.revertMessage,
+            (address, uint256, string, address)
+        );
+        _safeMint(sender, tokenId);
+        _setTokenURI(tokenId, uri);
+        emit TokenTransferAborted(sender, tokenId, uri, context.outgoing);
     }
 
     /**
