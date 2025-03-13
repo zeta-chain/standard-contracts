@@ -127,7 +127,7 @@ abstract contract UniversalTokenCore is
             gateway.call(
                 universal,
                 message,
-                RevertOptions(address(this), false, address(0), message, 0)
+                RevertOptions(address(this), false, universal, message, 0)
             );
         } else {
             gateway.depositAndCall{value: msg.value}(
@@ -136,7 +136,7 @@ abstract contract UniversalTokenCore is
                 RevertOptions(
                     address(this),
                     true,
-                    address(0),
+                    universal,
                     abi.encode(amount, msg.sender),
                     gasLimitAmount
                 )
@@ -185,4 +185,6 @@ abstract contract UniversalTokenCore is
         _mint(receiver, amount);
         emit TokenTransferReverted(receiver, amount);
     }
+
+    receive() external payable {}
 }
