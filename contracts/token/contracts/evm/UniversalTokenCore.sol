@@ -178,12 +178,12 @@ abstract contract UniversalTokenCore is
      * @param context The revert context containing metadata and revert message.
      */
     function onRevert(RevertContext calldata context) external onlyGateway {
-        (uint256 amount, address receiver) = abi.decode(
+        (uint256 amount, address sender) = abi.decode(
             context.revertMessage,
             (uint256, address)
         );
-        _mint(receiver, amount);
-        emit TokenTransferReverted(receiver, amount);
+        _mint(sender, amount);
+        emit TokenTransferReverted(sender, amount);
     }
 
     receive() external payable {}
