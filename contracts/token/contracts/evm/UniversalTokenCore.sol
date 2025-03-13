@@ -183,11 +183,11 @@ abstract contract UniversalTokenCore is
             context.revertMessage,
             (uint256, address)
         );
+        _mint(sender, amount);
         if (context.amount > 0) {
             (bool success, ) = payable(sender).call{value: context.amount}("");
             if (!success) revert GasTokenRefundFailed();
         }
-        _mint(sender, amount);
         emit TokenTransferReverted(sender, amount);
     }
 
