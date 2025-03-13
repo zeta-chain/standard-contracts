@@ -36,6 +36,7 @@ abstract contract UniversalTokenCore is
     error Unauthorized();
     error InvalidGasLimit();
     error GasTokenTransferFailed();
+    error GasTokenRefundFailed();
 
     /**
      * @dev Ensures that the function can only be called by the Gateway contract.
@@ -182,6 +183,10 @@ abstract contract UniversalTokenCore is
             context.revertMessage,
             (uint256, address)
         );
+        if (context.amount > 0) {
+            (bool success, ) = payable(sender).call{value: context.amount}("");
+            if (!success) revert GasTokenRefundFailed();
+        }
         _mint(sender, amount);
         emit TokenTransferReverted(sender, amount);
     }
