@@ -4,7 +4,7 @@ set -e
 set -x
 set -o pipefail
 
-if [ "$1" = "start" ]; then npx hardhat localnet --exit-on-error & sleep 15; fi
+npx hardhat localnet --exit-on-error & sleep 15
 
 function balance() {
   echo -e "\n🖼️  Balance"
@@ -73,4 +73,4 @@ npx hardhat token:transfer --network localhost --json --amount 10 --from "$CONTR
 npx hardhat localnet-check
 balance
 
-if [ "$1" = "start" ]; then npx hardhat localnet-stop; fi
+npx hardhat localnet-stop

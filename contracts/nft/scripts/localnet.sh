@@ -62,7 +62,7 @@ npx hardhat localnet-check
 balance
 
 echo -e "\nTransferring NFT: Ethereum → BNB..."
-npx hardhat nft:transfer --network localhost --json --token-id "$NFT_ID" --contract "$CONTRACT_ETHEREUM" --destination "$ZRC20_BNB" --gas-amount 1
+npx hardhat nft:transfer --network localhost --json --token-id "$NFT_ID" --contract "$CONTRACT_ETHEREUM" --destination "$ZRC20_BNB" --gas-amount 0.000000000001
 
 npx hardhat localnet-check
 balance

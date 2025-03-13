@@ -46,6 +46,7 @@ abstract contract UniversalTokenCore is
     error InvalidGasLimit();
     error ApproveFailed();
     error ZeroMsgValue();
+    error TokenRefundFailed();
 
     modifier onlyGateway() {
         if (msg.sender != address(gateway)) revert Unauthorized();
@@ -254,7 +255,7 @@ abstract contract UniversalTokenCore is
 
         if (context.amount > 0 && context.asset != address(0)) {
             if (!IZRC20(context.asset).transfer(sender, context.amount)) {
-                revert TransferFailed();
+                revert TokenRefundFailed();
             }
         }
     }
@@ -266,5 +267,11 @@ abstract contract UniversalTokenCore is
         );
         _mint(sender, amount);
         emit TokenTransferAborted(sender, amount);
+
+        if (context.amount > 0 && context.asset != address(0)) {
+            if (!IZRC20(context.asset).transfer(sender, context.amount)) {
+                revert TokenRefundFailed();
+            }
+        }
     }
 }
