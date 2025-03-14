@@ -38,6 +38,7 @@ abstract contract UniversalNFTCore is
     error InvalidGasLimit();
     error GasTokenTransferFailed();
     error GasTokenRefundFailed();
+    error TransferToZetaChainRequiresNoGas();
 
     modifier onlyGateway() {
         if (msg.sender != address(gateway)) revert Unauthorized();
@@ -126,6 +127,7 @@ abstract contract UniversalNFTCore is
         emit TokenTransfer(destination, receiver, tokenId, uri);
 
         if (destination == address(0)) {
+            if (msg.value > 0) revert TransferToZetaChainRequiresNoGas();
             gateway.call(
                 universal,
                 message,

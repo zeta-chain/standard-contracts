@@ -37,6 +37,7 @@ abstract contract UniversalTokenCore is
     error InvalidGasLimit();
     error GasTokenTransferFailed();
     error GasTokenRefundFailed();
+    error TransferToZetaChainRequiresNoGas();
 
     /**
      * @dev Ensures that the function can only be called by the Gateway contract.
@@ -125,6 +126,7 @@ abstract contract UniversalTokenCore is
         emit TokenTransfer(destination, receiver, amount);
 
         if (destination == address(0)) {
+            if (msg.value > 0) revert TransferToZetaChainRequiresNoGas();
             gateway.call(
                 universal,
                 message,
