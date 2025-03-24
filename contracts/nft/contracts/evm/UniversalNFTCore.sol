@@ -198,7 +198,13 @@ abstract contract UniversalNFTCore is
             (bool success, ) = payable(sender).call{value: context.amount}("");
             if (!success) revert GasTokenRefundFailed();
         }
-        emit TokenTransferReverted(sender, tokenId, uri);
+        emit TokenTransferReverted(
+            sender,
+            tokenId,
+            uri,
+            address(0), // gas token
+            context.amount
+        );
     }
 
     /**

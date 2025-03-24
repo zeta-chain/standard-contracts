@@ -251,7 +251,12 @@ abstract contract UniversalTokenCore is
             (address, uint256, address)
         );
         _mint(sender, amount);
-        emit TokenTransferReverted(sender, amount);
+        emit TokenTransferReverted(
+            sender,
+            amount,
+            context.asset,
+            context.amount
+        );
 
         if (context.amount > 0 && context.asset != address(0)) {
             if (!IZRC20(context.asset).transfer(sender, context.amount)) {
@@ -266,7 +271,12 @@ abstract contract UniversalTokenCore is
             (address, uint256, address)
         );
         _mint(sender, amount);
-        emit TokenTransferAborted(sender, amount);
+        emit TokenTransferAborted(
+            sender,
+            amount,
+            context.asset,
+            context.amount
+        );
 
         if (context.amount > 0 && context.asset != address(0)) {
             if (!IZRC20(context.asset).transfer(sender, context.amount)) {

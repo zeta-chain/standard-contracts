@@ -265,7 +265,13 @@ abstract contract UniversalNFTCore is
         );
         _safeMint(sender, tokenId);
         _setTokenURI(tokenId, uri);
-        emit TokenTransferReverted(sender, tokenId, uri);
+        emit TokenTransferReverted(
+            sender,
+            tokenId,
+            uri,
+            context.asset,
+            context.amount
+        );
 
         if (context.amount > 0 && context.asset != address(0)) {
             if (!IZRC20(context.asset).transfer(sender, context.amount)) {
@@ -290,7 +296,14 @@ abstract contract UniversalNFTCore is
         );
         _safeMint(sender, tokenId);
         _setTokenURI(tokenId, uri);
-        emit TokenTransferAborted(sender, tokenId, uri, context.outgoing);
+        emit TokenTransferAborted(
+            sender,
+            tokenId,
+            uri,
+            context.outgoing,
+            context.asset,
+            context.amount
+        );
 
         if (context.amount > 0 && context.asset != address(0)) {
             if (!IZRC20(context.asset).transfer(sender, context.amount)) {
