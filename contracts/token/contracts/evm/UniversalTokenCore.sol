@@ -190,7 +190,12 @@ abstract contract UniversalTokenCore is
             (bool success, ) = payable(sender).call{value: context.amount}("");
             if (!success) revert GasTokenRefundFailed();
         }
-        emit TokenTransferReverted(sender, amount, address(0), context.amount);
+        emit TokenTransferReverted(
+            sender,
+            amount,
+            address(0), // gas token
+            context.amount
+        );
     }
 
     receive() external payable {}
