@@ -36,7 +36,9 @@ abstract contract UniversalTokenCore is
     error Unauthorized();
     error InvalidGasLimit();
     error GasTokenTransferFailed();
+    error GasTokenRefundFailed();
     error TransferToZetaChainRequiresNoGas();
+
     /**
      * @dev Ensures that the function can only be called by the Gateway contract.
      */
@@ -179,12 +181,21 @@ abstract contract UniversalTokenCore is
      * @param context The revert context containing metadata and revert message.
      */
     function onRevert(RevertContext calldata context) external onlyGateway {
-        (uint256 amount, address receiver) = abi.decode(
+        (uint256 amount, address sender) = abi.decode(
             context.revertMessage,
             (uint256, address)
         );
-        _mint(receiver, amount);
-        emit TokenTransferReverted(receiver, amount);
+        _mint(sender, amount);
+        if (context.amount > 0) {
+            (bool success, ) = payable(sender).call{value: context.amount}("");
+            if (!success) revert GasTokenRefundFailed();
+        }
+        emit TokenTransferReverted(
+            sender,
+            amount,
+            address(0), // gas token
+            context.amount
+        );
     }
 
     receive() external payable {}

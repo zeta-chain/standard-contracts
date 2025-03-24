@@ -19,13 +19,17 @@ contract UniversalNFTEvents {
     event TokenTransferReverted(
         address indexed sender,
         uint256 indexed tokenId,
-        string uri
+        string uri,
+        address refundAsset,
+        uint256 refundAmount
     );
     event TokenTransferAborted(
         address indexed sender,
         uint256 indexed tokenId,
         string uri,
-        bool outgoing
+        bool outgoing,
+        address refundAsset,
+        uint256 refundAmount
     );
     event TokenTransferToDestination(
         address indexed destination,
