@@ -47,6 +47,7 @@ abstract contract UniversalNFTCore is
     error InvalidGasLimit();
     error ApproveFailed();
     error ZeroMsgValue();
+    error TokenRefundFailed();
 
     modifier onlyGateway() {
         if (msg.sender != address(gateway)) revert Unauthorized();
@@ -264,11 +265,17 @@ abstract contract UniversalNFTCore is
         );
         _safeMint(sender, tokenId);
         _setTokenURI(tokenId, uri);
-        emit TokenTransferReverted(sender, tokenId, uri);
+        emit TokenTransferReverted(
+            sender,
+            tokenId,
+            uri,
+            context.asset,
+            context.amount
+        );
 
         if (context.amount > 0 && context.asset != address(0)) {
             if (!IZRC20(context.asset).transfer(sender, context.amount)) {
-                revert TransferFailed();
+                revert TokenRefundFailed();
             }
         }
     }
@@ -289,7 +296,20 @@ abstract contract UniversalNFTCore is
         );
         _safeMint(sender, tokenId);
         _setTokenURI(tokenId, uri);
-        emit TokenTransferAborted(sender, tokenId, uri, context.outgoing);
+        emit TokenTransferAborted(
+            sender,
+            tokenId,
+            uri,
+            context.outgoing,
+            context.asset,
+            context.amount
+        );
+
+        if (context.amount > 0 && context.asset != address(0)) {
+            if (!IZRC20(context.asset).transfer(sender, context.amount)) {
+                revert TokenRefundFailed();
+            }
+        }
     }
 
     /**
