@@ -123,6 +123,22 @@ abstract contract UniversalTokenCore is
         address receiver,
         uint256 amount
     ) public payable {
+        _transferCrossChain(destination, receiver, amount);
+    }
+
+    /**
+     * @notice Internal function that handles the core logic for cross-chain token transfer.
+     * @dev This function can be overridden by child contracts to add custom functionality.
+     *      It handles the gas fee calculation, token swaps, and cross-chain transfer logic.
+     * @param destination Address of the ZRC20 gas token for the destination chain.
+     * @param receiver Address of the recipient on the destination chain.
+     * @param amount Amount of tokens to transfer.
+     */
+    function _transferCrossChain(
+        address destination,
+        address receiver,
+        uint256 amount
+    ) internal virtual {
         if (msg.value == 0) revert ZeroMsgValue();
         if (receiver == address(0)) revert InvalidAddress();
 
