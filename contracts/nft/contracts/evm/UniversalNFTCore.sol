@@ -109,7 +109,22 @@ abstract contract UniversalNFTCore is
         uint256 tokenId,
         address receiver,
         address destination
-    ) external payable virtual {
+    ) external payable {
+        _transferCrossChain(tokenId, receiver, destination);
+    }
+
+    /**
+     * @notice Internal function that handles the core logic for cross-chain NFT transfer.
+     * @dev This function can be overridden by child contracts to add custom functionality.
+     * @param tokenId The ID of the NFT to transfer.
+     * @param receiver The address on the destination chain that will receive the NFT.
+     * @param destination The ZRC-20 address of the gas token of the destination chain.
+     */
+    function _transferCrossChain(
+        uint256 tokenId,
+        address receiver,
+        address destination
+    ) internal virtual {
         if (receiver == address(0)) revert InvalidAddress();
 
         string memory uri = tokenURI(tokenId);
