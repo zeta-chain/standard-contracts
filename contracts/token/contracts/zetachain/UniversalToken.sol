@@ -30,6 +30,18 @@ contract UniversalToken is
         _disableInitializers();
     }
 
+    address public minter;
+
+    modifier onlyMinter() {
+        require(msg.sender == minter, "Not authorized to mint");
+        _;
+    }
+
+    function setMinter(address minterAddress) external onlyOwner {
+        require(minterAddress != address(0), "Invalid minter address");
+        minter = minterAddress;
+    }
+
     function initialize(
         address initialOwner,
         string memory name,
@@ -54,7 +66,7 @@ contract UniversalToken is
         _unpause();
     }
 
-    function mint(address to, uint256 amount) public onlyOwner {
+    function mint(address to, uint256 amount) external onlyMinter {
         _mint(to, amount);
     }
 
