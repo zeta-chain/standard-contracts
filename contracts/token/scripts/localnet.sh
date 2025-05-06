@@ -4,7 +4,9 @@ set -e
 set -x
 set -o pipefail
 
-npx hardhat localnet --exit-on-error & sleep 15
+yarn zetachain localnet start --force-kill --skip sui ton solana --exit-on-error &
+
+while [ ! -f "localnet.json" ]; do sleep 1; done
 
 function balance() {
   echo -e "\n🖼️  Balance"
@@ -46,31 +48,31 @@ npx hardhat token:set-universal --network localhost --contract "$CONTRACT_BNB" -
 npx hardhat token:set-connected --network localhost --contract "$CONTRACT_ZETACHAIN" --connected "$CONTRACT_ETHEREUM" --zrc20 "$ZRC20_ETHEREUM" --json &>/dev/null
 npx hardhat token:set-connected --network localhost --contract "$CONTRACT_ZETACHAIN" --connected "$CONTRACT_BNB" --zrc20 "$ZRC20_BNB" --json &>/dev/null
 
-npx hardhat localnet-check
+yarn zetachain localnet check
 balance
 
 TOKEN=$(npx hardhat token:mint --network localhost --json --contract "$CONTRACT_ZETACHAIN" --to "$SENDER" --amount 10 | jq -r '.contractAddress')
 echo -e "\nMinted tokens: $TOKEN on ZetaChain."
 
-npx hardhat localnet-check
+yarn zetachain localnet check
 balance
 
 echo -e "\nTransferring token: ZetaChain → Ethereum..."
 npx hardhat token:transfer --network localhost --json --amount 10 --from "$CONTRACT_ZETACHAIN" --to "$ZRC20_ETHEREUM" --gas-amount 1
 
-npx hardhat localnet-check
+yarn zetachain localnet check
 balance
 
 echo -e "\nTransferring token: Ethereum → BNB..."
 npx hardhat token:transfer --network localhost --json --amount 10 --from "$CONTRACT_ETHEREUM" --to "$ZRC20_BNB" --gas-amount 1
 
-npx hardhat localnet-check
+yarn zetachain localnet check
 balance
 
 echo -e "\nTransferring token: BNB → ZetaChain..."
 npx hardhat token:transfer --network localhost --json --amount 10 --from "$CONTRACT_BNB"
 
-npx hardhat localnet-check
+yarn zetachain localnet check
 balance
 
-npx hardhat localnet-stop
+yarn zetachain localnet stop

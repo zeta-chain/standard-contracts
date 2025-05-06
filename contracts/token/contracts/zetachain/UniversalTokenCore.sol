@@ -38,7 +38,7 @@ abstract contract UniversalTokenCore is
     uint256 public gasLimitAmount;
 
     // Mapping of connected ZRC20 tokens to their respective contracts
-    mapping(address => address) public connected;
+    mapping(address => bytes) public connected;
 
     error TransferFailed();
     error Unauthorized();
@@ -105,7 +105,7 @@ abstract contract UniversalTokenCore is
     ) external onlyOwner {
         if (zrc20 == address(0)) revert InvalidAddress();
         if (contractAddress == address(0)) revert InvalidAddress();
-        connected[zrc20] = contractAddress;
+        connected[zrc20] = abi.encodePacked(contractAddress);
         emit SetConnected(zrc20, contractAddress);
     }
 
@@ -189,7 +189,7 @@ abstract contract UniversalTokenCore is
             revert ApproveFailed();
         }
         gateway.call(
-            abi.encodePacked(connected[destination]),
+            connected[destination],
             destination,
             message,
             callOptions,
@@ -215,7 +215,9 @@ abstract contract UniversalTokenCore is
         uint256 amount,
         bytes calldata message
     ) external override onlyGateway {
-        if (context.sender != connected[zrc20]) revert Unauthorized();
+        if (keccak256(context.sender) != keccak256(connected[zrc20]))
+            revert Unauthorized();
+
         (
             address destination,
             address receiver,
