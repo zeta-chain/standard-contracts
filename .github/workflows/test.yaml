@@ -40,4 +40,4 @@ jobs:
           cd "${{ matrix.example-dir }}"
           yarn
           chmod +x ./scripts/localnet.sh
-          ./scripts/localnet.sh start
+          ./scripts/localnet.sh
