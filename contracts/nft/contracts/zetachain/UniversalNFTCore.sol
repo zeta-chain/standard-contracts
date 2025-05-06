@@ -39,7 +39,7 @@ abstract contract UniversalNFTCore is
     uint256 public gasLimitAmount;
 
     // Mapping of connected ZRC-20 tokens to their respective contracts
-    mapping(address => address) public connected;
+    mapping(address => bytes) public connected;
 
     error TransferFailed();
     error Unauthorized();
@@ -103,10 +103,10 @@ abstract contract UniversalNFTCore is
      */
     function setConnected(
         address zrc20,
-        address contractAddress
+        bytes calldata contractAddress
     ) external onlyOwner {
         if (zrc20 == address(0)) revert InvalidAddress();
-        if (contractAddress == address(0)) revert InvalidAddress();
+        if (contractAddress.length == 0) revert InvalidAddress();
         connected[zrc20] = contractAddress;
         emit SetConnected(zrc20, contractAddress);
     }
@@ -196,7 +196,7 @@ abstract contract UniversalNFTCore is
         }
 
         gateway.call(
-            abi.encodePacked(connected[destination]),
+            connected[destination],
             destination,
             message,
             callOptions,
@@ -222,7 +222,8 @@ abstract contract UniversalNFTCore is
         uint256 amount,
         bytes calldata message
     ) external override onlyGateway {
-        if (context.sender != connected[zrc20]) revert Unauthorized();
+        if (keccak256(context.sender) != keccak256(connected[zrc20]))
+            revert Unauthorized();
 
         (
             address destination,
@@ -253,7 +254,7 @@ abstract contract UniversalNFTCore is
                 revert ApproveFailed();
             }
             gateway.withdrawAndCall(
-                abi.encodePacked(connected[destination]),
+                connected[destination],
                 out - gasFee,
                 destination,
                 abi.encode(receiver, tokenId, uri, out - gasFee, sender),

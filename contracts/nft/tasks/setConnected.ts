@@ -11,11 +11,7 @@ const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
     );
   }
 
-  if (
-    !isAddress(args.contract) ||
-    !isAddress(args.zrc20) ||
-    !isAddress(args.connected)
-  ) {
+  if (!isAddress(args.contract) || !isAddress(args.zrc20)) {
     throw new Error("Invalid Ethereum address provided.");
   }
 
@@ -39,7 +35,7 @@ const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
     console.log(`🚀 Successfully set the connected contract.
 📜 Contract address: ${args.contract}
 🔗 ZRC20 address: ${args.zrc20}
-🔗 Connected contract address: ${args.contractAddress}
+🔗 Connected contract address: ${args.connected}
 🔗 Transaction hash: ${tx.hash}`);
   }
 };
@@ -51,5 +47,8 @@ export const nftSetConnected = task(
 )
   .addParam("contract", "The address of the deployed contract")
   .addParam("zrc20", "The ZRC20 address to link to the connected contract")
-  .addParam("connected", "The address of the connected contract to set")
+  .addParam(
+    "connected",
+    "The bytes representation of the connected contract to set"
+  )
   .addFlag("json", "Output the result in JSON format");
