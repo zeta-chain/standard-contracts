@@ -3,7 +3,7 @@ pragma solidity 0.8.26;
 
 contract UniversalTokenEvents {
     event SetUniversal(address indexed universalAddress);
-    event SetConnected(address indexed zrc20, address contractAddress);
+    event SetConnected(address indexed zrc20, bytes contractAddress);
     event TokenMinted(address indexed to, uint256 amount);
     event TokenTransfer(
         address indexed destination,

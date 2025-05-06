@@ -103,11 +103,11 @@ abstract contract UniversalNFTCore is
      */
     function setConnected(
         address zrc20,
-        address contractAddress
+        bytes calldata contractAddress
     ) external onlyOwner {
         if (zrc20 == address(0)) revert InvalidAddress();
-        if (contractAddress == address(0)) revert InvalidAddress();
-        connected[zrc20] = abi.encodePacked(contractAddress);
+        if (contractAddress.length == 0) revert InvalidAddress();
+        connected[zrc20] = contractAddress;
         emit SetConnected(zrc20, contractAddress);
     }
 
