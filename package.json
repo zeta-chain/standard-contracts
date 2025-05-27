@@ -34,5 +34,9 @@
   },
   "dependencies": {
     "@zetachain/standard-contracts": "^1.0.0-rc2"
+  },
+  "resolutions": {
+    "@solana/web3.js": "^1.88.2",
+    "@solana/spl-token": "^0.3.14"
   }
 }
