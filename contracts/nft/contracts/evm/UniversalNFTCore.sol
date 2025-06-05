@@ -7,6 +7,7 @@ import "../shared/UniversalNFTEvents.sol";
 import {ERC721Upgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC721/ERC721Upgradeable.sol";
 import {ERC721URIStorageUpgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC721/extensions/ERC721URIStorageUpgradeable.sol";
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 
 /**
  * @title UniversalNFTCore
@@ -20,7 +21,8 @@ abstract contract UniversalNFTCore is
     ERC721Upgradeable,
     ERC721URIStorageUpgradeable,
     OwnableUpgradeable,
-    UniversalNFTEvents
+    UniversalNFTEvents,
+    ReentrancyGuardUpgradeable
 {
     // Address of the EVM gateway contract
     GatewayEVM public gateway;
@@ -88,6 +90,8 @@ abstract contract UniversalNFTCore is
         address universalAddress,
         uint256 gasLimit
     ) internal {
+        __ReentrancyGuard_init();
+
         if (gatewayAddress == address(0)) revert InvalidAddress();
         if (universalAddress == address(0)) revert InvalidAddress();
         if (gasLimit == 0) revert InvalidGasLimit();
@@ -124,13 +128,14 @@ abstract contract UniversalNFTCore is
         uint256 tokenId,
         address receiver,
         address destination
-    ) internal virtual {
+    ) internal virtual nonReentrant {
         if (receiver == address(0)) revert InvalidAddress();
 
+        if (destination == address(0) && msg.value > 0) {
+            revert TransferToZetaChainRequiresNoGas();
+        }
+
         string memory uri = tokenURI(tokenId);
-
-        _burn(tokenId);
-
         bytes memory message = abi.encode(
             destination,
             receiver,
@@ -139,10 +144,10 @@ abstract contract UniversalNFTCore is
             msg.sender
         );
 
+        _burn(tokenId);
         emit TokenTransfer(destination, receiver, tokenId, uri);
 
         if (destination == address(0)) {
-            if (msg.value > 0) revert TransferToZetaChainRequiresNoGas();
             gateway.call(
                 universal,
                 message,

@@ -5,6 +5,7 @@ import "@zetachain/protocol-contracts/contracts/evm/GatewayEVM.sol";
 import {RevertOptions} from "@zetachain/protocol-contracts/contracts/evm/GatewayEVM.sol";
 import {ERC20Upgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 
 import "../shared/UniversalTokenEvents.sol";
 
@@ -19,7 +20,8 @@ import "../shared/UniversalTokenEvents.sol";
 abstract contract UniversalTokenCore is
     ERC20Upgradeable,
     OwnableUpgradeable,
-    UniversalTokenEvents
+    UniversalTokenEvents,
+    ReentrancyGuardUpgradeable
 {
     // Address of the EVM gateway contract
     GatewayEVM public gateway;
@@ -90,6 +92,8 @@ abstract contract UniversalTokenCore is
         address universalAddress,
         uint256 gasLimit
     ) internal {
+        __ReentrancyGuard_init();
+
         if (gatewayAddress == address(0)) revert InvalidAddress();
         if (universalAddress == address(0)) revert InvalidAddress();
         if (gasLimit == 0) revert InvalidGasLimit();
@@ -127,10 +131,12 @@ abstract contract UniversalTokenCore is
         address destination,
         address receiver,
         uint256 amount
-    ) internal virtual {
+    ) internal virtual nonReentrant {
         if (receiver == address(0)) revert InvalidAddress();
 
-        _burn(msg.sender, amount);
+        if (destination == address(0) && msg.value > 0) {
+            revert TransferToZetaChainRequiresNoGas();
+        }
 
         bytes memory message = abi.encode(
             destination,
@@ -139,10 +145,10 @@ abstract contract UniversalTokenCore is
             msg.sender
         );
 
+        _burn(msg.sender, amount);
         emit TokenTransfer(destination, receiver, amount);
 
         if (destination == address(0)) {
-            if (msg.value > 0) revert TransferToZetaChainRequiresNoGas();
             gateway.call(
                 universal,
                 message,

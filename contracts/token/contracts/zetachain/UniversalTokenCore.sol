@@ -3,6 +3,7 @@ pragma solidity 0.8.26;
 
 import {ERC20Upgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import "@zetachain/protocol-contracts/contracts/zevm/interfaces/UniversalContract.sol";
 import "@zetachain/protocol-contracts/contracts/zevm/interfaces/IGatewayZEVM.sol";
 import "@zetachain/protocol-contracts/contracts/zevm/interfaces/IWZETA.sol";
@@ -23,7 +24,8 @@ abstract contract UniversalTokenCore is
     UniversalContract,
     ERC20Upgradeable,
     OwnableUpgradeable,
-    UniversalTokenEvents
+    UniversalTokenEvents,
+    ReentrancyGuardUpgradeable
 {
     // Indicates this contract implements a Universal Contract
     bool public constant isUniversal = true;
@@ -75,6 +77,8 @@ abstract contract UniversalTokenCore is
         uint256 gasLimit,
         address uniswapRouterAddress
     ) internal {
+        __ReentrancyGuard_init();
+
         if (gatewayAddress == address(0) || uniswapRouterAddress == address(0))
             revert InvalidAddress();
         if (gasLimit == 0) revert InvalidGasLimit();
@@ -138,12 +142,13 @@ abstract contract UniversalTokenCore is
         address destination,
         address receiver,
         uint256 amount
-    ) internal virtual {
+    ) internal virtual nonReentrant {
         if (msg.value == 0) revert ZeroMsgValue();
         if (receiver == address(0)) revert InvalidAddress();
 
-        _burn(msg.sender, amount);
+        bytes memory message = abi.encode(receiver, amount, 0, msg.sender);
 
+        _burn(msg.sender, amount);
         emit TokenTransfer(destination, receiver, amount);
 
         (address gasZRC20, uint256 gasFee) = IZRC20(destination)
@@ -172,8 +177,6 @@ abstract contract UniversalTokenCore is
             (bool success, ) = msg.sender.call{value: remaining}("");
             if (!success) revert TransferFailed();
         }
-
-        bytes memory message = abi.encode(receiver, amount, 0, msg.sender);
 
         CallOptions memory callOptions = CallOptions(gasLimitAmount, false);
 
