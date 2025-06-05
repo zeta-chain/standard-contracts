@@ -10,6 +10,7 @@ import "@zetachain/protocol-contracts/contracts/zevm/interfaces/IGatewayZEVM.sol
 import "@zetachain/protocol-contracts/contracts/zevm/interfaces/IWZETA.sol";
 import "@zetachain/protocol-contracts/contracts/zevm/GatewayZEVM.sol";
 import {SwapHelperLib} from "@zetachain/toolkit/contracts/SwapHelperLib.sol";
+import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 
 /**
  * @title UniversalNFTCore
@@ -24,7 +25,8 @@ abstract contract UniversalNFTCore is
     ERC721Upgradeable,
     ERC721URIStorageUpgradeable,
     OwnableUpgradeable,
-    UniversalNFTEvents
+    UniversalNFTEvents,
+    ReentrancyGuardUpgradeable
 {
     // Address of the ZetaChain Gateway contract
     GatewayZEVM public gateway;
@@ -76,6 +78,8 @@ abstract contract UniversalNFTCore is
         uint256 gasLimit,
         address uniswapRouterAddress
     ) internal {
+        __ReentrancyGuard_init();
+
         if (gatewayAddress == address(0) || uniswapRouterAddress == address(0))
             revert InvalidAddress();
         if (gasLimit == 0) revert InvalidGasLimit();
@@ -140,13 +144,20 @@ abstract contract UniversalNFTCore is
         uint256 tokenId,
         address receiver,
         address destination
-    ) internal virtual {
+    ) internal virtual nonReentrant {
         if (msg.value == 0) revert ZeroMsgValue();
         if (receiver == address(0)) revert InvalidAddress();
 
         string memory uri = tokenURI(tokenId);
-        _burn(tokenId);
+        bytes memory message = abi.encode(
+            receiver,
+            tokenId,
+            uri,
+            0,
+            msg.sender
+        );
 
+        _burn(tokenId);
         emit TokenTransfer(receiver, destination, tokenId, uri);
 
         (address gasZRC20, uint256 gasFee) = IZRC20(destination)
@@ -174,13 +185,6 @@ abstract contract UniversalNFTCore is
             if (!success) revert TransferFailed();
         }
 
-        bytes memory message = abi.encode(
-            receiver,
-            tokenId,
-            uri,
-            0,
-            msg.sender
-        );
         CallOptions memory callOptions = CallOptions(gasLimitAmount, false);
 
         RevertOptions memory revertOptions = RevertOptions(
