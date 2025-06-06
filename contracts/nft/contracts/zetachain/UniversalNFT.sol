@@ -56,7 +56,7 @@ contract UniversalNFT is
         // Generate globally unique token ID, feel free to supply your own logic
         uint256 hash = uint256(
             keccak256(
-                abi.encodePacked(address(this), block.number, _nextTokenId++)
+                abi.encodePacked(block.timestamp, msg.sender, _nextTokenId++)
             )
         );
 
