@@ -55,9 +55,7 @@ contract UniversalNFT is
     ) public onlyOwner whenNotPaused {
         // Generate globally unique token ID, feel free to supply your own logic
         uint256 hash = uint256(
-            keccak256(
-                abi.encodePacked(address(this), block.number, _nextTokenId++)
-            )
+            keccak256(abi.encodePacked(block.timestamp, to, _nextTokenId++))
         );
 
         uint256 tokenId = hash & 0x00FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF;
