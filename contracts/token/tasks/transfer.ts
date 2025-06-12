@@ -88,7 +88,7 @@ export const tokenTransfer = task(
   .addOptionalParam(
     "onRevertGasLimit",
     "The gas limit for the revert transaction",
-    7000000
+    "7000000"
   )
   .addOptionalParam("receiver", "The receiver of the token")
   .addFlag("isArbitraryCall", "Whether the call is arbitrary")
