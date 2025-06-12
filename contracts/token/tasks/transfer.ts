@@ -1,77 +1,82 @@
-import { task, types } from "hardhat/config";
+import { task } from "hardhat/config";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
+import { ethers } from "ethers";
+
+const DEFAULT_GAS_LIMIT = "1000000";
 
 const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
   const { ethers } = hre;
-  const [signer] = await ethers.getSigners();
-
   const { isAddress } = hre.ethers.utils;
+
+  let signer;
+
+  if (args.rpc) {
+    const provider = new ethers.providers.JsonRpcProvider(args.rpc);
+    signer = new ethers.Wallet(process.env.PRIVATE_KEY || "", provider);
+  } else {
+    [signer] = await ethers.getSigners();
+  }
 
   if (!isAddress(args.to) || !isAddress(args.revertAddress)) {
     throw new Error("Invalid Ethereum address provided.");
   }
 
-  const txOptions = {
-    gasPrice: args.txOptionsGasPrice,
-    gasLimit: args.txOptionsGasLimit,
-  };
-
   const contract = await ethers.getContractAt(
     "ZetaChainUniversalToken",
-    args.from
+    args.from,
+    signer
   );
 
   const value = ethers.utils.parseUnits(args.amount, 18);
-  const tokenApprove = await contract.approve(args.from, value);
+  const tokenApprove = await contract.approve(args.from, value, {
+    gasLimit: args.gasLimit,
+  });
   await tokenApprove.wait();
 
   const gasAmount = ethers.utils.parseUnits(args.gasAmount, 18);
-
   const receiver = args.receiver || signer.address;
 
   const tx = await (contract as any).transferCrossChain(
     args.to,
     receiver,
     args.amount,
-    { ...txOptions, value: gasAmount }
+    {
+      gasLimit: args.gasLimit,
+      value: gasAmount,
+    }
   );
 
-  await tx.wait();
+  const receipt = await tx.wait();
+
   if (args.json) {
     console.log(
       JSON.stringify({
         contractAddress: args.from,
         transferTransactionHash: tx.hash,
         sender: signer.address,
-        tokenId: args.tokenId,
+        amount: args.amount,
+        gasUsed: receipt.gasUsed.toString(),
       })
     );
   } else {
-    console.log(`🚀 Successfully transferred NFT to the contract.
+    console.log(`🚀 Successfully transferred token.
 📜 Contract address: ${args.from}
-🖼 NFT Contract address: ${args.nftContract}
-🆔 Token ID: ${args.tokenId}
-🔗 Transaction hash: ${tx.hash}`);
+👤 Amount: ${args.amount}
+🔗 Transaction hash: ${tx.hash}
+⛽ Gas used: ${receipt.gasUsed.toString()}`);
   }
 };
 
 export const tokenTransfer = task(
   "token:transfer",
-  "Transfer and lock an NFT",
+  "Transfer and lock a token",
   main
 )
   .addParam("from", "The contract being transferred from")
   .addOptionalParam(
-    "txOptionsGasPrice",
-    "The gas price for the transaction",
-    10000000000,
-    types.int
-  )
-  .addOptionalParam(
-    "txOptionsGasLimit",
-    "The gas limit for the transaction",
-    7000000,
-    types.int
+    "gasLimit",
+    "Gas limit for the transaction",
+    DEFAULT_GAS_LIMIT
   )
   .addFlag("callOnRevert", "Whether to call on revert")
   .addOptionalParam(
@@ -83,8 +88,7 @@ export const tokenTransfer = task(
   .addOptionalParam(
     "onRevertGasLimit",
     "The gas limit for the revert transaction",
-    7000000,
-    types.int
+    7000000
   )
   .addOptionalParam("receiver", "The receiver of the token")
   .addFlag("isArbitraryCall", "Whether the call is arbitrary")
@@ -94,5 +98,6 @@ export const tokenTransfer = task(
     "ZRC-20 of the gas token of the destination chain",
     "0x0000000000000000000000000000000000000000"
   )
+  .addOptionalParam("rpc", "Custom RPC URL to use for the transaction")
   .addParam("gasAmount", "The amount of gas to transfer", "0")
-  .addParam("amount", "The amount of gas to transfer", "0");
+  .addParam("amount", "The amount of tokens to transfer", "0");
