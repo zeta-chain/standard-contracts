@@ -3,16 +3,14 @@ import "@zetachain/localnet/tasks";
 import "@nomicfoundation/hardhat-toolbox";
 import "@zetachain/toolkit/tasks";
 
-import { getHardhatConfigNetworks } from "@zetachain/networks";
 import { HardhatUserConfig } from "hardhat/config";
+import { getHardhatConfig } from "@zetachain/toolkit/client";
 
 import "@nomiclabs/hardhat-ethers";
 import "@openzeppelin/hardhat-upgrades";
 
 const config: HardhatUserConfig = {
-  networks: {
-    ...getHardhatConfigNetworks(),
-  },
+  ...getHardhatConfig({ accounts: [process.env.PRIVATE_KEY] }),
   solidity: {
     compilers: [
       {
