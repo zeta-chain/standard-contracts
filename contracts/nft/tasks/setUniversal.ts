@@ -1,10 +1,22 @@
 import { task } from "hardhat/config";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { EVMUniversalNFT } from "@/typechain-types";
+import { ethers } from "ethers";
+
+const DEFAULT_GAS_LIMIT = "300000";
 
 const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
   const { isAddress } = hre.ethers.utils;
-  const [signer] = await hre.ethers.getSigners();
+
+  let signer;
+
+  if (args.rpc) {
+    const provider = new ethers.providers.JsonRpcProvider(args.rpc);
+    signer = new ethers.Wallet(process.env.PRIVATE_KEY || "", provider);
+  } else {
+    [signer] = await hre.ethers.getSigners();
+  }
+
   if (!signer) {
     throw new Error(
       `Wallet not found. Please, run "npx hardhat account --save" or set PRIVATE_KEY env variable (for example, in a .env file)`
@@ -17,11 +29,12 @@ const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
 
   const contract: EVMUniversalNFT = await hre.ethers.getContractAt(
     "EVMUniversalNFT",
-    args.contract
+    args.contract,
+    signer
   );
 
   const tx = await contract.setUniversal(args.universal, {
-    gasLimit: 1000000,
+    gasLimit: args.gasLimit,
   });
   const receipt = await tx.wait();
 
@@ -31,13 +44,15 @@ const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
         contractAddress: args.contract,
         universalContract: args.universal,
         transactionHash: tx.hash,
+        gasUsed: receipt.gasUsed.toString(),
       })
     );
   } else {
     console.log(`🚀 Successfully set the universal contract.
 📜 Contract address: ${args.contract}
-🔗 Universal contract address: ${args.universalContract}
-🔗 Transaction hash: ${tx.hash}`);
+🔗 Universal contract address: ${args.universal}
+🔗 Transaction hash: ${tx.hash}
+⛽ Gas used: ${receipt.gasUsed.toString()}`);
   }
 };
 
@@ -48,4 +63,10 @@ export const nftSetUniversal = task(
 )
   .addParam("contract", "The address of the deployed contract")
   .addParam("universal", "The address of the universal contract to set")
+  .addOptionalParam(
+    "gasLimit",
+    "Gas limit for the transaction",
+    DEFAULT_GAS_LIMIT
+  )
+  .addOptionalParam("rpc", "Custom RPC URL to use for the transaction")
   .addFlag("json", "Output the result in JSON format");
