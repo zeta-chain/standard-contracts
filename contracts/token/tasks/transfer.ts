@@ -28,7 +28,7 @@ const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
   );
 
   const value = ethers.utils.parseUnits(args.amount, 18);
-  const tokenApprove = await contract.approve(args.contract, value, {
+  const tokenApprove = await contract.approve(args.destination, value, {
     gasLimit: args.gasLimit,
   });
   await tokenApprove.wait();
