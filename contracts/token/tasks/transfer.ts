@@ -17,18 +17,18 @@ const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
     [signer] = await ethers.getSigners();
   }
 
-  if (!isAddress(args.to) || !isAddress(args.revertAddress)) {
+  if (!isAddress(args.destination) || !isAddress(args.revertAddress)) {
     throw new Error("Invalid Ethereum address provided.");
   }
 
   const contract = await ethers.getContractAt(
     "ZetaChainUniversalToken",
-    args.from,
+    args.contract,
     signer
   );
 
   const value = ethers.utils.parseUnits(args.amount, 18);
-  const tokenApprove = await contract.approve(args.from, value, {
+  const tokenApprove = await contract.approve(args.contract, value, {
     gasLimit: args.gasLimit,
   });
   await tokenApprove.wait();
@@ -37,7 +37,7 @@ const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
   const receiver = args.receiver || signer.address;
 
   const tx = await (contract as any).transferCrossChain(
-    args.to,
+    args.destination,
     receiver,
     args.amount,
     {
@@ -51,7 +51,7 @@ const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
   if (args.json) {
     console.log(
       JSON.stringify({
-        contractAddress: args.from,
+        contractAddress: args.contract,
         transferTransactionHash: tx.hash,
         sender: signer.address,
         amount: args.amount,
@@ -59,11 +59,7 @@ const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
       })
     );
   } else {
-    console.log(`🚀 Successfully transferred token.
-📜 Contract address: ${args.from}
-👤 Amount: ${args.amount}
-🔗 Transaction hash: ${tx.hash}
-⛽ Gas used: ${receipt.gasUsed.toString()}`);
+    console.log(`🚀 Successfully transferred token.\n📜 Contract address: ${args.contract}\n👤 Amount: ${args.amount}\n🔗 Transaction hash: ${tx.hash}\n⛽ Gas used: ${receipt.gasUsed.toString()}`);
   }
 };
 
@@ -72,7 +68,7 @@ export const tokenTransfer = task(
   "Transfer and lock a token",
   main
 )
-  .addParam("from", "The contract being transferred from")
+  .addParam("contract", "The contract being transferred from")
   .addOptionalParam(
     "gasLimit",
     "Gas limit for the transaction",
@@ -94,7 +90,7 @@ export const tokenTransfer = task(
   .addFlag("isArbitraryCall", "Whether the call is arbitrary")
   .addFlag("json", "Output the result in JSON format")
   .addOptionalParam(
-    "to",
+    "destination",
     "ZRC-20 of the gas token of the destination chain",
     "0x0000000000000000000000000000000000000000"
   )
