@@ -58,19 +58,19 @@ yarn zetachain localnet check
 balance
 
 echo -e "\nTransferring token: ZetaChain → Ethereum..."
-npx hardhat token:transfer --network localhost --json --amount 10 --from "$CONTRACT_ZETACHAIN" --to "$ZRC20_ETHEREUM" --gas-amount 1
+npx hardhat token:transfer --network localhost --json --amount 10 --contract "$CONTRACT_ZETACHAIN" --destination "$ZRC20_ETHEREUM" --gas-amount 1
 
 yarn zetachain localnet check
 balance
 
 echo -e "\nTransferring token: Ethereum → BNB..."
-npx hardhat token:transfer --network localhost --json --amount 10 --from "$CONTRACT_ETHEREUM" --to "$ZRC20_BNB" --gas-amount 1
+npx hardhat token:transfer --network localhost --json --amount 10 --contract "$CONTRACT_ETHEREUM" --destination "$ZRC20_BNB" --gas-amount 1
 
 yarn zetachain localnet check
 balance
 
 echo -e "\nTransferring token: BNB → ZetaChain..."
-npx hardhat token:transfer --network localhost --json --amount 10 --from "$CONTRACT_BNB"
+npx hardhat token:transfer --network localhost --json --amount 10 --contract "$CONTRACT_BNB" --destination "$CONTRACT_ZETACHAIN"
 
 yarn zetachain localnet check
 balance
