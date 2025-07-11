@@ -19,12 +19,12 @@ jobs:
     strategy:
       matrix:
         include:
-          - project: "contracts/nft"
-            file: "nft.sarif"
-          - project: "contracts/token"
-            file: "token.sarif"
           - project: "contracts/messaging"
             file: "messaging.sarif"
+          - project: "contracts/token"
+            file: "token.sarif"
+          - project: "contracts/nft"
+            file: "nft.sarif"
     permissions:
       contents: read
       security-events: write
@@ -36,7 +36,7 @@ jobs:
       - name: Install Node.js
         uses: actions/setup-node@v2
         with:
-          node-version: "21"
+          node-version: "22"
 
       - name: Install Dependencies
         run: yarn install
@@ -45,16 +45,14 @@ jobs:
         uses: foundry-rs/foundry-toolchain@v1
 
       - name: Build projects
-        continue-on-error: true
         run: yarn build
 
       - name: Run Slither on ${{ matrix.project}}
         uses: crytic/slither-action@main
-        continue-on-error: true
         with:
           ignore-compile: true
           sarif: ${{ matrix.file}}
-          node-version: "21"
+          node-version: "22"
           target: ${{ matrix.project}}
           fail-on: none
 
