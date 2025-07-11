@@ -1,6 +1,7 @@
 import { task } from "hardhat/config";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { Example } from "../typechain-types";
+import { ethers } from "ethers";
 
 const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
   const [signer] = await hre.ethers.getSigners();
@@ -15,7 +16,7 @@ const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
     args.contract
   );
 
-  await contract.setConnected(args.zrc20, args.connected);
+  await contract.setConnected(args.zrc20, ethers.utils.hexlify(args.connected));
   console.log("Successfully set the connected contract.");
 };
 
