@@ -23,6 +23,8 @@ jobs:
             file: "nft.sarif"
           - project: "contracts/token"
             file: "token.sarif"
+          - project: "contracts/messaging"
+            file: "messaging.sarif"
     permissions:
       contents: read
       security-events: write
