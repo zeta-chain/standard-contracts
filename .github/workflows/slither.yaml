@@ -54,7 +54,7 @@ jobs:
         with:
           ignore-compile: true
           sarif: ${{ matrix.file}}
-          node-version: "18"
+          node-version: "21"
           target: ${{ matrix.project}}
           fail-on: none
 
