@@ -16,7 +16,13 @@ const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
     args.contract
   );
 
-  await contract.setConnected(args.zrc20, ethers.utils.hexlify(args.connected));
+  const tx = await contract.setConnected(
+    args.zrc20,
+    ethers.utils.arrayify(args.connected)
+  );
+  console.log(ethers.utils.toUtf8Bytes(args.connected));
+  await tx.wait();
+
   console.log("Successfully set the connected contract.");
 };
 

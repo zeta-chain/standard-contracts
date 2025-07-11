@@ -56,6 +56,6 @@
     "@solana/spl-memo": "^0.2.5",
     "@solana/web3.js": "^1.95.2",
     "@zetachain/protocol-contracts": "13.0.0",
-    "zetachain": "^6.0.0"
+    "zetachain": "5.0.3"
   }
 }

@@ -51,14 +51,14 @@ contract UniversalRouter is UniversalContract, Ownable {
         bytes calldata message
     ) external override onlyGateway {
         (
-            address receiver,
+            bytes memory receiver,
             address targetToken,
             bytes memory data,
             CallOptions memory callOptions,
             RevertOptions memory revertOptions
         ) = abi.decode(
                 message,
-                (address, address, bytes, CallOptions, RevertOptions)
+                (bytes, address, bytes, CallOptions, RevertOptions)
             );
 
         uint256 inputForGas;

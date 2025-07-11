@@ -56,11 +56,11 @@ contract Messaging is Ownable {
         ) = abi.decode(message, (bytes, bytes, uint256, bool, address));
         if (keccak256(sender) != keccak256(connected[zrc20]))
             revert Unauthorized();
-        // if (isCall) {
-        //     onMessageReceive(data, sender, amount);
-        // } else {
-        //     onMessageRevert(data, sender, amount);
-        // }
+        if (isCall) {
+            onMessageReceive(data, sender, amount);
+        } else {
+            onMessageRevert(data, sender, amount);
+        }
         return "";
     }
 
