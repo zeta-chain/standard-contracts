@@ -15,21 +15,8 @@ const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
     args.contract
   );
 
-  const tx = await contract.setConnected(args.zrc20, args.connected);
-  const receipt = await tx.wait();
-
-  if (args.json) {
-    console.log(
-      JSON.stringify({
-        contractAddress: args.contract,
-        transactionHash: tx.hash,
-      })
-    );
-  } else {
-    console.log(`🚀 Successfully set the universal contract.
-📜 Contract address: ${args.contract}
-🔗 Transaction hash: ${tx.hash}`);
-  }
+  await contract.setConnected(args.zrc20, args.connected);
+  console.log("Successfully set the connected contract.");
 };
 
 task("connected-set-connected", "Sets connected contract", main)

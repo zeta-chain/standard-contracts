@@ -24,11 +24,11 @@ contract Messaging is Ownable {
         _;
     }
 
-    mapping(address => address) public connected;
+    mapping(address => bytes) public connected;
 
     function setConnected(
         address zrc20,
-        address contractAddress
+        bytes memory contractAddress
     ) external onlyOwner {
         connected[zrc20] = contractAddress;
     }
@@ -49,17 +49,18 @@ contract Messaging is Ownable {
         if (context.sender != router) revert Unauthorized();
         (
             bytes memory data,
-            address sender,
+            bytes memory sender,
             uint256 amount,
             bool isCall,
             address zrc20
-        ) = abi.decode(message, (bytes, address, uint256, bool, address));
-        if (sender != connected[zrc20]) revert Unauthorized();
-        if (isCall) {
-            onMessageReceive(data, sender, amount);
-        } else {
-            onMessageRevert(data, sender, amount);
-        }
+        ) = abi.decode(message, (bytes, bytes, uint256, bool, address));
+        if (keccak256(sender) != keccak256(connected[zrc20]))
+            revert Unauthorized();
+        // if (isCall) {
+        //     onMessageReceive(data, sender, amount);
+        // } else {
+        //     onMessageRevert(data, sender, amount);
+        // }
         return "";
     }
 
@@ -73,7 +74,7 @@ contract Messaging is Ownable {
 
     function onMessageReceive(
         bytes memory data,
-        address sender,
+        bytes memory sender,
         uint256 amount
     ) internal virtual {
         // To be overridden in the child contract
@@ -81,7 +82,7 @@ contract Messaging is Ownable {
 
     function onMessageRevert(
         bytes memory data,
-        address sender,
+        bytes memory sender,
         uint256 amount
     ) internal virtual {
         // To be overridden in the child contract

@@ -64,22 +64,11 @@ const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
 
   let tx;
 
-  let contract;
-  try {
-    contract = await ethers.getContractAt("Universal", args.from);
-    await (contract as any).isUniversal();
-    const gasLimit = hre.ethers.BigNumber.from(args.txOptionsGasLimit);
-    const zrc20 = new ethers.Contract(args.to, ZRC20ABI.abi, signer);
-    const [, gasFee] = await zrc20.withdrawGasFeeWithGasLimit(gasLimit);
-    const zrc20TransferTx = await zrc20.approve(args.from, gasFee, txOptions);
-    await zrc20TransferTx.wait();
-  } catch (e) {
-    contract = await ethers.getContractAt("Example", args.from);
-  }
+  const contract = await ethers.getContractAt("Example", args.from);
 
   const gasAmount = ethers.utils.parseUnits(args.gasAmount, 18);
 
-  tx = await (contract as any).sendMessage(
+  tx = await contract.sendMessage(
     args.to,
     message,
     callOptions,
@@ -101,7 +90,7 @@ task("transfer", "Make a cross-chain call", main)
   .addOptionalParam(
     "txOptionsGasLimit",
     "The gas limit for the transaction",
-    7000000,
+    10000000,
     types.int
   )
   .addFlag("callOnRevert", "Whether to call on revert")
@@ -114,7 +103,7 @@ task("transfer", "Make a cross-chain call", main)
   .addOptionalParam(
     "onRevertGasLimit",
     "The gas limit for the revert transaction",
-    7000000,
+    1000000,
     types.int
   )
   .addFlag("json", "Output the result in JSON format")
@@ -129,7 +118,7 @@ task("transfer", "Make a cross-chain call", main)
   .addOptionalParam(
     "callOptionsGasLimit",
     "The gas limit for the call",
-    7000000,
+    1000000,
     types.int
   )
   .addOptionalParam(

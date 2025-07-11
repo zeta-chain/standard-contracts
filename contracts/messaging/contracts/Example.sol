@@ -15,7 +15,7 @@ contract Example is Messaging {
 
     function onMessageReceive(
         bytes memory data,
-        address sender,
+        bytes memory sender,
         uint256 amount
     ) internal override {
         emit OnMessageReceiveEvent(data);
@@ -23,7 +23,7 @@ contract Example is Messaging {
 
     function onMessageRevert(
         bytes memory data,
-        address sender,
+        bytes memory sender,
         uint256 amount
     ) internal override {
         emit OnMessageRevertEvent();
