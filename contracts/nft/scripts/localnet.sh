@@ -4,7 +4,9 @@ set -e
 set -x
 set -o pipefail
 
-if [ "$1" = "start" ]; then npx hardhat localnet --exit-on-error & sleep 10; fi
+yarn zetachain localnet start --force-kill --skip sui ton solana --exit-on-error &
+
+while [ ! -f "localnet.json" ]; do sleep 1; done
 
 function balance() {
   local ZETACHAIN=$(cast call "$CONTRACT_ZETACHAIN" "balanceOf(address)(uint256)" "$SENDER")
@@ -46,31 +48,31 @@ npx hardhat nft:set-universal --network localhost --contract "$CONTRACT_BNB" --u
 npx hardhat nft:set-connected --network localhost --contract "$CONTRACT_ZETACHAIN" --connected "$CONTRACT_ETHEREUM" --zrc20 "$ZRC20_ETHEREUM" --json &>/dev/null
 npx hardhat nft:set-connected --network localhost --contract "$CONTRACT_ZETACHAIN" --connected "$CONTRACT_BNB" --zrc20 "$ZRC20_BNB" --json &>/dev/null
 
-npx hardhat localnet-check
+yarn zetachain localnet check
 balance
 
 NFT_ID=$(npx hardhat nft:mint --network localhost --json --contract "$CONTRACT_ZETACHAIN" --token-uri https://example.com/nft/metadata/1 | jq -r '.tokenId')
 echo -e "\nMinted NFT with ID: $NFT_ID on ZetaChain."
 
-npx hardhat localnet-check
+yarn zetachain localnet check
 balance
 
 echo -e "\nTransferring NFT: ZetaChain → Ethereum..."
-npx hardhat nft:transfer --network localhost --json --token-id "$NFT_ID" --from "$CONTRACT_ZETACHAIN" --to "$ZRC20_ETHEREUM" --gas-amount 1
+npx hardhat nft:transfer --network localhost --json --token-id "$NFT_ID" --contract "$CONTRACT_ZETACHAIN" --destination "$ZRC20_ETHEREUM" --gas-amount 1
 
-npx hardhat localnet-check
+yarn zetachain localnet check
 balance
 
 echo -e "\nTransferring NFT: Ethereum → BNB..."
-npx hardhat nft:transfer --network localhost --json --token-id "$NFT_ID" --from "$CONTRACT_ETHEREUM" --to "$ZRC20_BNB" --gas-amount 1
+npx hardhat nft:transfer --network localhost --json --token-id "$NFT_ID" --contract "$CONTRACT_ETHEREUM" --destination "$ZRC20_BNB" --gas-amount 1
 
-npx hardhat localnet-check
+yarn zetachain localnet check
 balance
 
 echo -e "\nTransferring NFT: BNB → ZetaChain..."
-npx hardhat nft:transfer --network localhost --json --token-id "$NFT_ID" --from "$CONTRACT_BNB"
+npx hardhat nft:transfer --network localhost --json --token-id "$NFT_ID" --contract "$CONTRACT_BNB"
 
-npx hardhat localnet-check
+yarn zetachain localnet check
 balance
 
-if [ "$1" = "start" ]; then npx hardhat localnet-stop; fi
+yarn zetachain localnet stop

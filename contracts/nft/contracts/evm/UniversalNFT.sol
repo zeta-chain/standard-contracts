@@ -1,45 +1,30 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
-import "@zetachain/protocol-contracts/contracts/evm/GatewayEVM.sol";
-import {RevertContext} from "@zetachain/protocol-contracts/contracts/Revert.sol";
-import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import {ERC721Upgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC721/ERC721Upgradeable.sol";
-import {ERC721EnumerableUpgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC721/extensions/ERC721EnumerableUpgradeable.sol";
-import {ERC721URIStorageUpgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC721/extensions/ERC721URIStorageUpgradeable.sol";
 import {ERC721BurnableUpgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC721/extensions/ERC721BurnableUpgradeable.sol";
+import {ERC721EnumerableUpgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC721/extensions/ERC721EnumerableUpgradeable.sol";
+import {ERC721PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC721/extensions/ERC721PausableUpgradeable.sol";
+import {ERC721URIStorageUpgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC721/extensions/ERC721URIStorageUpgradeable.sol";
+import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
-import {ERC721PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC721/extensions/ERC721PausableUpgradeable.sol";
 
-import "../shared/UniversalNFTEvents.sol";
+// Import UniversalNFTCore for universal NFT functionality
+import "./UniversalNFTCore.sol";
 
 contract UniversalNFT is
     Initializable,
     ERC721Upgradeable,
-    ERC721URIStorageUpgradeable,
     ERC721EnumerableUpgradeable,
+    ERC721URIStorageUpgradeable,
     ERC721PausableUpgradeable,
     OwnableUpgradeable,
     ERC721BurnableUpgradeable,
     UUPSUpgradeable,
-    UniversalNFTEvents
+    UniversalNFTCore // Add UniversalNFTCore for universal features
 {
-    GatewayEVM public gateway;
-    uint256 private _nextTokenId;
-    address public universal;
-    uint256 public gasLimitAmount;
-
-    error InvalidAddress();
-    error Unauthorized();
-    error InvalidGasLimit();
-    error GasTokenTransferFailed();
-
-    modifier onlyGateway() {
-        if (msg.sender != address(gateway)) revert Unauthorized();
-        _;
-    }
+    uint256 private _nextTokenId; // Track next token ID for minting
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -50,123 +35,45 @@ contract UniversalNFT is
         address initialOwner,
         string memory name,
         string memory symbol,
-        address payable gatewayAddress,
-        uint256 gas
+        address payable gatewayAddress, // Include EVM gateway address
+        uint256 gas // Set gas limit for universal NFT transfers
     ) public initializer {
         __ERC721_init(name, symbol);
         __ERC721Enumerable_init();
         __ERC721URIStorage_init();
+        __ERC721Pausable_init();
         __Ownable_init(initialOwner);
         __ERC721Burnable_init();
         __UUPSUpgradeable_init();
-        if (gatewayAddress == address(0)) revert InvalidAddress();
-        if (gas == 0) revert InvalidGasLimit();
-        gasLimitAmount = gas;
-        gateway = GatewayEVM(gatewayAddress);
-    }
-
-    function setGasLimit(uint256 gas) external onlyOwner {
-        if (gas == 0) revert InvalidGasLimit();
-        gasLimitAmount = gas;
-    }
-
-    function setUniversal(address contractAddress) external onlyOwner {
-        if (contractAddress == address(0)) revert InvalidAddress();
-        universal = contractAddress;
-        emit SetUniversal(contractAddress);
+        __UniversalNFTCore_init(gatewayAddress, address(this), gas); // Initialize universal NFT core
     }
 
     function safeMint(
         address to,
         string memory uri
-    ) public whenNotPaused onlyOwner {
+    ) public onlyOwner whenNotPaused {
+        // Generate globally unique token ID, feel free to supply your own logic
         uint256 hash = uint256(
-            keccak256(
-                abi.encodePacked(address(this), block.number, _nextTokenId++)
-            )
+            keccak256(abi.encodePacked(block.timestamp, to, _nextTokenId++))
         );
 
         uint256 tokenId = hash & 0x00FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF;
 
         _safeMint(to, tokenId);
         _setTokenURI(tokenId, uri);
-        emit TokenMinted(to, tokenId, uri);
     }
 
-    function transferCrossChain(
-        uint256 tokenId,
-        address receiver,
-        address destination
-    ) external payable whenNotPaused {
-        if (receiver == address(0)) revert InvalidAddress();
-
-        string memory uri = tokenURI(tokenId);
-        _burn(tokenId);
-        bytes memory message = abi.encode(
-            destination,
-            receiver,
-            tokenId,
-            uri,
-            msg.sender
-        );
-        if (destination == address(0)) {
-            gateway.call(
-                universal,
-                message,
-                RevertOptions(address(this), false, address(0), message, 0)
-            );
-        } else {
-            gateway.depositAndCall{value: msg.value}(
-                universal,
-                message,
-                RevertOptions(
-                    address(this),
-                    true,
-                    address(0),
-                    abi.encode(receiver, tokenId, uri, msg.sender),
-                    gasLimitAmount
-                )
-            );
-        }
-
-        emit TokenTransfer(destination, receiver, tokenId, uri);
+    function pause() public onlyOwner {
+        _pause();
     }
 
-    function onCall(
-        MessageContext calldata context,
-        bytes calldata message
-    ) external payable onlyGateway returns (bytes4) {
-        if (context.sender != universal) revert Unauthorized();
-
-        (
-            address receiver,
-            uint256 tokenId,
-            string memory uri,
-            uint256 gasAmount,
-            address sender
-        ) = abi.decode(message, (address, uint256, string, uint256, address));
-
-        _safeMint(receiver, tokenId);
-        _setTokenURI(tokenId, uri);
-        if (gasAmount > 0) {
-            if (sender == address(0)) revert InvalidAddress();
-            (bool success, ) = payable(sender).call{value: gasAmount}("");
-            if (!success) revert GasTokenTransferFailed();
-        }
-        emit TokenTransferReceived(receiver, tokenId, uri);
-        return "";
+    function unpause() public onlyOwner {
+        _unpause();
     }
 
-    function onRevert(RevertContext calldata context) external onlyGateway {
-        (, uint256 tokenId, string memory uri, address sender) = abi.decode(
-            context.revertMessage,
-            (address, uint256, string, address)
-        );
-
-        _safeMint(sender, tokenId);
-        _setTokenURI(tokenId, uri);
-        emit TokenTransferReverted(sender, tokenId, uri);
-    }
+    function _authorizeUpgrade(
+        address newImplementation
+    ) internal override onlyOwner {}
 
     // The following functions are overrides required by Solidity.
 
@@ -198,7 +105,11 @@ contract UniversalNFT is
     )
         public
         view
-        override(ERC721Upgradeable, ERC721URIStorageUpgradeable)
+        override(
+            ERC721Upgradeable,
+            ERC721URIStorageUpgradeable,
+            UniversalNFTCore // Include UniversalNFTCore for URI overrides
+        )
         returns (string memory)
     {
         return super.tokenURI(tokenId);
@@ -212,24 +123,11 @@ contract UniversalNFT is
         override(
             ERC721Upgradeable,
             ERC721EnumerableUpgradeable,
-            ERC721URIStorageUpgradeable
+            ERC721URIStorageUpgradeable,
+            UniversalNFTCore // Include UniversalNFTCore for interface overrides
         )
         returns (bool)
     {
         return super.supportsInterface(interfaceId);
     }
-
-    function _authorizeUpgrade(
-        address newImplementation
-    ) internal override onlyOwner {}
-
-    function pause() public onlyOwner {
-        _pause();
-    }
-
-    function unpause() public onlyOwner {
-        _unpause();
-    }
-
-    receive() external payable {}
 }
