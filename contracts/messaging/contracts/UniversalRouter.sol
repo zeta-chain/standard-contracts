@@ -111,9 +111,13 @@ contract UniversalRouter is UniversalContract, Ownable {
             callOptions.gasLimit
         );
 
-        bytes memory m = callOptions.isArbitraryCall
-            ? abi.encodePacked(data, context.sender, outputAmount, true, zrc20)
-            : abi.encode(data, context.sender, outputAmount, true, zrc20);
+        bytes memory m = abi.encode(
+            data,
+            context.sender,
+            outputAmount,
+            true,
+            zrc20
+        );
 
         gateway.withdrawAndCall(
             abi.encodePacked(receiver),
