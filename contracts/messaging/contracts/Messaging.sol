@@ -72,6 +72,8 @@ contract Messaging is Ownable {
         emit OnRevertEvent("Event from onRevert()", context);
     }
 
+    /// @dev This function is intended to be overridden by child contracts.
+    /// slither-disable-next-line dead-code
     function onMessageReceive(
         bytes memory data,
         bytes memory sender,
@@ -80,6 +82,8 @@ contract Messaging is Ownable {
         // To be overridden in the child contract
     }
 
+    /// @dev This function is intended to be overridden by child contracts.
+    /// slither-disable-next-line dead-code
     function onMessageRevert(
         bytes memory data,
         bytes memory sender,
