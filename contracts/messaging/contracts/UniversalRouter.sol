@@ -131,6 +131,7 @@ contract UniversalRouter is UniversalContract, Ownable {
             zrc20
         );
 
+        emit MessageRelayed();
         gateway.withdrawAndCall(
             abi.encodePacked(receiver),
             outputAmount,
@@ -139,8 +140,6 @@ contract UniversalRouter is UniversalContract, Ownable {
             callOptions,
             revertOptionsUniversal
         );
-
-        emit MessageRelayed();
     }
 
     // onRevert is called when a contract on the destination chain reverts.
