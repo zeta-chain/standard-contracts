@@ -118,7 +118,8 @@ contract UniversalRouter is UniversalContract, Ownable {
                 zrc20,
                 revertOptions.onRevertGasLimit,
                 receiver,
-                data
+                data,
+                gasZRC20
             ),
             gasLimit
         );
@@ -150,10 +151,11 @@ contract UniversalRouter is UniversalContract, Ownable {
             address destination,
             uint256 onRevertGasLimit,
             bytes memory receiver,
-            bytes memory data
+            bytes memory data,
+            address targetChainZRC20
         ) = abi.decode(
                 context.revertMessage,
-                (RevertOptions, address, uint256, bytes, bytes)
+                (RevertOptions, address, uint256, bytes, bytes, address)
             );
         uint256 out = SwapHelperLib.swapExactTokensForTokens(
             uniswapRouter,
@@ -174,7 +176,7 @@ contract UniversalRouter is UniversalContract, Ownable {
             abi.encodePacked(revertOptions.revertAddress),
             out - gasFee,
             destination,
-            abi.encode(data, receiver, out - gasFee, false),
+            abi.encode(data, receiver, out - gasFee, false, targetChainZRC20),
             CallOptions(onRevertGasLimit, false),
             RevertOptions(address(0), false, address(0), "", 0)
         );

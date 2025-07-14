@@ -7,6 +7,7 @@ contract Example is Messaging {
     event OnMessageReceiveEvent(bytes);
     event OnMessageRevertEvent();
     event HelloEvent(string);
+    event OnRevertEventEVM();
 
     constructor(
         address payable _gateway,
@@ -19,6 +20,7 @@ contract Example is Messaging {
         bytes memory sender,
         uint256 amount
     ) internal override {
+        string memory msg = abi.decode(data, (string));
         emit OnMessageReceiveEvent(data);
     }
 
@@ -35,13 +37,8 @@ contract Example is Messaging {
         RevertContext calldata context
     ) external payable override onlyGateway {
         if (context.sender != router) revert("Unauthorized");
-        emit OnRevertEvent("Event from onRevert()", context);
+        emit OnRevertEventEVM();
         // Revert from ZetaChain
-    }
-
-    function hello(bytes memory message) external {
-        string memory msg = abi.decode(message, (string));
-        emit HelloEvent(msg);
     }
 
     function sendMessage(

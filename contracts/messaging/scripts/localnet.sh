@@ -4,7 +4,7 @@ set -e
 set -x
 set -o pipefail
 
-yarn zetachain localnet start --force-kill --exit-on-error --verbosity debug &
+yarn zetachain localnet start --force-kill --verbosity debug &
 
 while [ ! -f "localnet.json" ]; do sleep 1; done
 
@@ -34,6 +34,10 @@ npx hardhat connected-set-connected --network localhost --contract "$CONTRACT_ET
 npx hardhat connected-set-connected --network localhost --contract "$CONTRACT_BNB"  --zrc20 "$ZRC20_ETHEREUM" --connected "$CONTRACT_ETHEREUM" --json
 
 npx hardhat transfer --network localhost --json --from "$CONTRACT_ETHEREUM" --to "$ZRC20_BNB" --gas-amount 1 --call-on-revert --revert-address "$CONTRACT_ETHEREUM" --revert-message "hello" --types '["string"]' alice
+
+yarn zetachain localnet check
+
+npx hardhat transfer --network localhost --json --from "$CONTRACT_ETHEREUM" --to "$ZRC20_BNB" --gas-amount 1 --call-on-revert --revert-address "$CONTRACT_ETHEREUM" --revert-message "hello" --types '["uint256"]' 42
 
 yarn zetachain localnet check
 
