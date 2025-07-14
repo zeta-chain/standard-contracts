@@ -10,8 +10,8 @@ contract Example is Messaging {
     constructor(
         address payable _gateway,
         address owner,
-        address router
-    ) Messaging(_gateway, owner, router) {}
+        address _router
+    ) Messaging(_gateway, owner, _router) {}
 
     function onMessageReceive(
         bytes memory data,
