@@ -8,7 +8,6 @@ import {CallOptions} from "@zetachain/protocol-contracts/contracts/zevm/interfac
 
 contract Messaging is Ownable {
     GatewayEVM public immutable gateway;
-    uint256 private _nextTokenId;
     address public router;
 
     event HelloEvent(string, string);
