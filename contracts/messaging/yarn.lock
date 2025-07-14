@@ -3171,7 +3171,7 @@
   resolved "https://registry.npmjs.org/@zetachain/standard-contracts/-/standard-contracts-2.0.1.tgz#aefd28bb81f1f05b183bd73dc62bd68e456a6ebf"
   integrity sha512-SHV9a1bSgy8litI/LRZ4VIus7Gsjy0wj3n9bZeIsEydn0C5NNZxYO4XW+P06dlEyDQjtcVJQHoQOyHkodBoVsQ==
 
-"@zetachain/toolkit@16.0.0":
+"@zetachain/toolkit@16.0.0", "@zetachain/toolkit@^16.0.0":
   version "16.0.0"
   resolved "https://registry.npmjs.org/@zetachain/toolkit/-/toolkit-16.0.0.tgz#7fb25367e602da5bd9e82703dd9ac51dcb2df13a"
   integrity sha512-6+EgH41k2h9KC/J0Fwptk5yLzD2gLpe1bom3RQmSRsrHj944+a8vdjVYBc+k6Nj2Yux5PrezOcD/89UM8859Zw==
