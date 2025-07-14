@@ -112,7 +112,7 @@ contract UniversalRouter is UniversalContract, Ownable {
         RevertOptions memory revertOptionsUniversal = RevertOptions(
             address(this),
             true,
-            address(this),
+            revertOptions.abortAddress,
             abi.encode(
                 revertOptions,
                 zrc20,
