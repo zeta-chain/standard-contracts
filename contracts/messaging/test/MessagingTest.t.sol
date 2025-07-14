@@ -34,13 +34,12 @@ contract MessagingTest is FoundrySetup {
             address(zetaSetup.uniswapV2Router())
         );
 
-        // Deploy ETH messaging contract with mockGateway
         ethMessaging = new Example(
             payable(address(evmSetup.wrapGatewayEVM(chainIdETH))),
             owner,
             address(router)
         );
-        // Deploy BNB messaging contract with mockGateway
+
         bnbMessaging = new Example(
             payable(address(evmSetup.wrapGatewayEVM(chainIdBNB))),
             owner,
