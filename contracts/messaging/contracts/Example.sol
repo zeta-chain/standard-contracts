@@ -75,7 +75,7 @@ contract Example is Messaging {
             connected[destination],
             destination,
             data,
-            CallOptions(200000, false),
+            CallOptions(200_000, false),
             revertOptions
         );
         gateway.depositAndCall{value: msg.value}(
