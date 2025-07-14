@@ -17,6 +17,7 @@ contract UniversalRouter is UniversalContract, Ownable {
     error InsufficientOutAmount(uint256 out, uint256 gasFee);
     error Unauthorized();
     error InvalidAddress();
+    error ApproveFailed();
 
     event GasFeeAndOut(uint256 gasFee, uint256 out);
     event RevertEvent(string);
@@ -91,10 +92,21 @@ contract UniversalRouter is UniversalContract, Ownable {
         );
 
         if (gasZRC20 == targetToken) {
-            IZRC20(gasZRC20).approve(address(gateway), outputAmount + gasFee);
+            if (
+                !IZRC20(gasZRC20).approve(
+                    address(gateway),
+                    outputAmount + gasFee
+                )
+            ) {
+                revert ApproveFailed();
+            }
         } else {
-            IZRC20(gasZRC20).approve(address(gateway), gasFee);
-            IZRC20(targetToken).approve(address(gateway), outputAmount);
+            if (!IZRC20(gasZRC20).approve(address(gateway), gasFee)) {
+                revert ApproveFailed();
+            }
+            if (!IZRC20(targetToken).approve(address(gateway), outputAmount)) {
+                revert ApproveFailed();
+            }
         }
 
         RevertOptions memory revertOptionsUniversal = RevertOptions(
@@ -156,7 +168,9 @@ contract UniversalRouter is UniversalContract, Ownable {
         );
         if (out < gasFee) revert("Insufficient out amount for gas fee");
 
-        IZRC20(destination).approve(address(gateway), out);
+        if (!IZRC20(destination).approve(address(gateway), out)) {
+            revert ApproveFailed();
+        }
         gateway.withdrawAndCall(
             abi.encodePacked(revertOptions.revertAddress),
             out - gasFee,
