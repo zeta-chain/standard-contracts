@@ -11,7 +11,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 contract UniversalRouter is UniversalContract, Ownable {
     GatewayZEVM public immutable gateway;
     address public immutable uniswapRouter;
-    bool public isUniversal = true;
+    bool public constant isUniversal = true;
 
     error TransferFailed();
     error InsufficientOutAmount(uint256 out, uint256 gasFee);
