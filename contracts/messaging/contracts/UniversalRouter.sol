@@ -165,7 +165,7 @@ contract UniversalRouter is UniversalContract, Ownable {
         (, uint256 gasFee) = IZRC20(destination).withdrawGasFeeWithGasLimit(
             onRevertGasLimit
         );
-        if (out < gasFee) revert("Insufficient out amount for gas fee");
+        if (out < gasFee) revert InsufficientOutAmount(out, gasFee);
 
         if (!IZRC20(destination).approve(address(gateway), out)) {
             revert ApproveFailed();
