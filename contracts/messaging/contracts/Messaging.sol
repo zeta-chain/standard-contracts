@@ -45,8 +45,7 @@ contract Messaging is Ownable {
     function onCall(
         MessageContext calldata context,
         bytes calldata message
-    ) external payable onlyGateway returns (bytes4) {
-        if (context.sender != router) revert Unauthorized();
+    ) external payable onlyGateway returns (bytes memory) {
         (
             bytes memory data,
             bytes memory sender,
@@ -54,8 +53,10 @@ contract Messaging is Ownable {
             bool isCall,
             address zrc20
         ) = abi.decode(message, (bytes, bytes, uint256, bool, address));
-        if (keccak256(sender) != keccak256(connected[zrc20]))
-            revert Unauthorized();
+        if (
+            context.sender != router ||
+            keccak256(sender) != keccak256(connected[zrc20])
+        ) revert Unauthorized();
         if (isCall) {
             onMessageReceive(data, sender, amount);
         } else {

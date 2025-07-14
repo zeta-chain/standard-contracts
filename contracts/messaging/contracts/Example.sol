@@ -8,10 +8,10 @@ contract Example is Messaging {
     event OnMessageRevertEvent();
 
     constructor(
-        address payable gateway,
+        address payable _gateway,
         address owner,
         address router
-    ) Messaging(gateway, owner, router) {}
+    ) Messaging(_gateway, owner, router) {}
 
     function onMessageReceive(
         bytes memory data,
