@@ -11,11 +11,6 @@ const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
     gasLimit: args.txOptionsGasLimit,
   };
 
-  const callOptions = {
-    isArbitraryCall: args.callOptionsIsArbitraryCall,
-    gasLimit: args.callOptionsGasLimit,
-  };
-
   if (args.callOptionsIsArbitraryCall && !args.function) {
     throw new Error("You must provide a function to call");
   }
@@ -71,7 +66,7 @@ const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
   tx = await contract.sendMessage(
     args.to,
     message,
-    callOptions,
+    args.callOptionsGasLimit,
     revertOptions,
     { ...txOptions, value: gasAmount }
   );
@@ -114,7 +109,6 @@ task("transfer", "Make a cross-chain call", main)
   )
   .addParam("gasAmount", "The amount of gas to transfer", "0")
   .addParam("types", `The types of the parameters (example: '["string"]')`)
-  .addFlag("callOptionsIsArbitraryCall", "Call any function")
   .addOptionalParam(
     "callOptionsGasLimit",
     "The gas limit for the call",

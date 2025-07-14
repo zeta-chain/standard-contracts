@@ -10,7 +10,6 @@ contract Messaging is Ownable {
     GatewayEVM public immutable gateway;
     address public immutable router;
 
-    event HelloEvent(string, string);
     event OnCallEvent(string);
     event OnRevertEvent(string, RevertContext);
 

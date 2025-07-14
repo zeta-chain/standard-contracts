@@ -55,11 +55,11 @@ contract UniversalRouter is UniversalContract, Ownable {
             bytes memory receiver,
             address targetToken,
             bytes memory data,
-            CallOptions memory callOptions,
+            uint256 gasLimit,
             RevertOptions memory revertOptions
         ) = abi.decode(
                 message,
-                (bytes, address, bytes, CallOptions, RevertOptions)
+                (bytes, address, bytes, uint256, RevertOptions)
             );
 
         uint256 inputForGas;
@@ -68,7 +68,7 @@ contract UniversalRouter is UniversalContract, Ownable {
         uint256 swapAmount;
 
         (gasZRC20, gasFee) = IZRC20(targetToken).withdrawGasFeeWithGasLimit(
-            callOptions.gasLimit
+            gasLimit
         );
         if (gasZRC20 == zrc20) {
             swapAmount = amount - gasFee;
@@ -120,10 +120,10 @@ contract UniversalRouter is UniversalContract, Ownable {
                 receiver,
                 data
             ),
-            callOptions.gasLimit
+            gasLimit
         );
 
-        bytes memory m = abi.encode(
+        bytes memory msg = abi.encode(
             data,
             context.sender,
             outputAmount,
@@ -136,8 +136,8 @@ contract UniversalRouter is UniversalContract, Ownable {
             abi.encodePacked(receiver),
             outputAmount,
             targetToken,
-            m,
-            callOptions,
+            msg,
+            CallOptions(gasLimit, false),
             revertOptionsUniversal
         );
     }

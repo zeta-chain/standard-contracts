@@ -6,6 +6,7 @@ import "./Messaging.sol";
 contract Example is Messaging {
     event OnMessageReceiveEvent(bytes);
     event OnMessageRevertEvent();
+    event HelloEvent(string);
 
     constructor(
         address payable _gateway,
@@ -38,44 +39,22 @@ contract Example is Messaging {
         // Revert from ZetaChain
     }
 
+    function hello(bytes memory message) external {
+        string memory msg = abi.decode(message, (string));
+        emit HelloEvent(msg);
+    }
+
     function sendMessage(
         address destination,
         bytes memory data,
-        CallOptions memory callOptions,
+        uint256 gasLimit,
         RevertOptions memory revertOptions
     ) external payable {
         bytes memory message = abi.encode(
             connected[destination],
             destination,
             data,
-            callOptions,
-            revertOptions
-        );
-        gateway.depositAndCall{value: msg.value}(
-            router,
-            message,
-            revertOptions
-        );
-    }
-
-    // Simplified function for demo purposes
-
-    function sendSimpleMessage(
-        address destination,
-        string memory data
-    ) external payable {
-        RevertOptions memory revertOptions = RevertOptions(
-            address(0),
-            false,
-            address(0),
-            "",
-            0
-        );
-        bytes memory message = abi.encode(
-            connected[destination],
-            destination,
-            data,
-            CallOptions(200_000, false),
+            gasLimit,
             revertOptions
         );
         gateway.depositAndCall{value: msg.value}(
