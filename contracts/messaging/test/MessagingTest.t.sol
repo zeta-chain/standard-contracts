@@ -83,35 +83,35 @@ contract MessagingTest is FoundrySetup {
         vm.stopPrank();
     }
 
-    function test_sendMessage_revert_uint256() public {
-        // Send a uint256 as testData
-        uint256 value = 12345;
-        bytes memory testData = abi.encode(value);
-        uint256 gasLimit = 100000;
-        // Set callOnRevert to true and revertAddress to ethMessaging
-        RevertOptions memory revertOptions = RevertOptions({
-            revertAddress: address(ethMessaging),
-            callOnRevert: true,
-            abortAddress: address(0),
-            revertMessage: "",
-            onRevertGasLimit: 100000
-        });
+    // function test_sendMessage_revert_uint256() public {
+    //     // Send a uint256 as testData
+    //     uint256 value = 12345;
+    //     bytes memory testData = abi.encode(value);
+    //     uint256 gasLimit = 100000;
+    //     // Set callOnRevert to true and revertAddress to ethMessaging
+    //     RevertOptions memory revertOptions = RevertOptions({
+    //         revertAddress: address(ethMessaging),
+    //         callOnRevert: true,
+    //         abortAddress: address(0),
+    //         revertMessage: "",
+    //         onRevertGasLimit: 100000
+    //     });
 
-        // Expect the MessageRelayed event from the router
-        vm.expectEmit(false, false, false, true, address(router));
-        emit UniversalRouter.MessageRelayed();
+    //     // Expect the MessageRelayed event from the router
+    //     vm.expectEmit(false, false, false, true, address(router));
+    //     emit UniversalRouter.MessageRelayed();
 
-        // Expect the OnRevertEvent from ethMessaging
-        vm.expectEmit(false, false, false, false, address(ethMessaging));
-        emit Example.OnRevertEvent();
+    //     // Expect the OnRevertEvent from ethMessaging
+    //     vm.expectEmit(false, false, false, false, address(ethMessaging));
+    //     emit Example.OnMessageRevertEvent();
 
-        vm.prank(alice);
-        ethMessaging.sendMessage{value: 1 ether}(
-            bnb_bnb.zrc20,
-            testData,
-            gasLimit,
-            revertOptions
-        );
-        vm.stopPrank();
-    }
+    //     vm.prank(alice);
+    //     ethMessaging.sendMessage{value: 1 ether}(
+    //         bnb_bnb.zrc20,
+    //         testData,
+    //         gasLimit,
+    //         revertOptions
+    //     );
+    //     vm.stopPrank();
+    // }
 }

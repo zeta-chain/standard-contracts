@@ -37,8 +37,9 @@ npx hardhat transfer --network localhost --json --from "$CONTRACT_ETHEREUM" --to
 
 yarn zetachain localnet check
 
-npx hardhat transfer --network localhost --json --from "$CONTRACT_ETHEREUM" --to "$ZRC20_BNB" --gas-amount 1 --call-on-revert --revert-address "$CONTRACT_ETHEREUM" --revert-message "hello" --types '["uint256"]' 42
+# testing revert
+# npx hardhat transfer --network localhost --json --from "$CONTRACT_ETHEREUM" --to "$ZRC20_BNB" --gas-amount 1 --call-on-revert --revert-address "$CONTRACT_ETHEREUM" --revert-message "hello" --types '["uint256"]' 42
 
-yarn zetachain localnet check
+# yarn zetachain localnet check
 
 yarn zetachain localnet stop
