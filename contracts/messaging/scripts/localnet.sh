@@ -11,6 +11,7 @@ while [ ! -f "localnet.json" ]; do sleep 1; done
 npx hardhat compile --force --quiet
 
 ZRC20_ETHEREUM=$(jq -r '.addresses[] | select(.type=="ZRC-20 ETH on 11155112") | .address' localnet.json)
+USDC_ETHEREUM=$(jq -r '.addresses[] | select(.type=="ERC-20 USDC" and .chain=="ethereum") | .address' localnet.json)
 ZRC20_BNB=$(jq -r '.addresses[] | select(.type=="ZRC-20 BNB on 98") | .address' localnet.json)
 GATEWAY_ETHEREUM=$(jq -r '.addresses[] | select(.type=="gateway" and .chain=="ethereum") | .address' localnet.json)
 GATEWAY_ZETACHAIN=$(jq -r '.addresses[] | select(.type=="gateway" and .chain=="zetachain") | .address' localnet.json)
@@ -34,6 +35,10 @@ npx hardhat connected-set-connected --network localhost --contract "$CONTRACT_ET
 npx hardhat connected-set-connected --network localhost --contract "$CONTRACT_BNB"  --zrc20 "$ZRC20_ETHEREUM" --connected "$CONTRACT_ETHEREUM" --json
 
 npx hardhat transfer --network localhost --json --from "$CONTRACT_ETHEREUM" --to "$ZRC20_BNB" --gas-amount 1 --call-on-revert --revert-address "$CONTRACT_ETHEREUM" --revert-message "hello" --types '["string"]' alice
+
+yarn zetachain localnet check
+
+npx hardhat transfer --network localhost --json --from "$CONTRACT_ETHEREUM" --to "$ZRC20_BNB" --gas-amount 1 --call-on-revert --revert-address "$CONTRACT_ETHEREUM" --revert-message "hello" --types '["string"]' alice --erc20 "$USDC_ETHEREUM"  
 
 yarn zetachain localnet check
 

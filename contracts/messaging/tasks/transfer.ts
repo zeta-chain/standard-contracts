@@ -48,7 +48,7 @@ const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
   }
 
   const revertOptions = {
-    abortAddress: "0x0000000000000000000000000000000000000000", // not used
+    abortAddress: args.abortAddress,
     callOnRevert: args.callOnRevert,
     onRevertGasLimit: args.onRevertGasLimit,
     revertAddress: args.revertAddress,
@@ -61,15 +61,30 @@ const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
 
   const contract = await ethers.getContractAt("Example", args.from);
 
-  const gasAmount = ethers.utils.parseUnits(args.gasAmount, 18);
-
-  tx = await contract.sendMessage(
-    args.to,
-    message,
-    args.callOptionsGasLimit,
-    revertOptions,
-    { ...txOptions, value: gasAmount }
-  );
+  if (args.erc20) {
+    const erc20 = await ethers.getContractAt("IERC20", args.erc20);
+    const amount = ethers.utils.parseUnits(args.gasAmount, 18);
+    const approveTx = await erc20.approve(args.from, amount);
+    await approveTx.wait();
+    tx = await (contract as any).functions[
+      "sendMessage(address,uint256,address,bytes,uint256,(address,bool,address,bytes,uint256))"
+    ](
+      args.to,
+      amount,
+      args.erc20,
+      message,
+      args.callOptionsGasLimit,
+      revertOptions
+    );
+  } else {
+    const gasAmount = ethers.utils.parseUnits(args.gasAmount, 18);
+    tx = await (contract as any).functions[
+      "sendMessage(address,bytes,uint256,(address,bool,address,bytes,uint256))"
+    ](args.to, message, args.callOptionsGasLimit, revertOptions, {
+      ...txOptions,
+      value: gasAmount,
+    });
+  }
 
   await tx.wait();
 };
@@ -120,4 +135,9 @@ task("transfer", "Make a cross-chain call", main)
     "The function to call on the destination chain (only for arbitrary calls)"
   )
   .addOptionalParam("erc20", "The address of the ERC20 token to transfer")
-  .addVariadicPositionalParam("values", "The values of the parameters");
+  .addVariadicPositionalParam("values", "The values of the parameters")
+  .addOptionalParam(
+    "abortAddress",
+    "The address to call on abort",
+    "0x0000000000000000000000000000000000000000"
+  );

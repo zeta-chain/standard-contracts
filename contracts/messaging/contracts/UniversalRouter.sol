@@ -12,6 +12,8 @@ contract UniversalRouter is UniversalContract, Ownable {
     GatewayZEVM public immutable gateway;
     address public immutable uniswapRouter;
     bool public constant isUniversal = true;
+    // address public constant CORE_REGISTRY =
+    //     0x610178dA211FEF7D417bC0e6FeD39F05609AD788;
 
     error TransferFailed();
     error InsufficientOutAmount(uint256 out, uint256 gasFee);
@@ -30,6 +32,14 @@ contract UniversalRouter is UniversalContract, Ownable {
     }
 
     event MessageRelayed();
+
+    struct CallParams {
+        bytes receiver;
+        address targetToken;
+        bytes data;
+        uint256 gasLimit;
+        RevertOptions revertOpts;
+    }
 
     constructor(
         address payable gatewayAddress,
@@ -51,25 +61,18 @@ contract UniversalRouter is UniversalContract, Ownable {
         uint256 amount,
         bytes calldata message
     ) external override onlyGateway {
-        (
-            bytes memory receiver,
-            address targetToken,
-            bytes memory data,
-            uint256 gasLimit,
-            RevertOptions memory revertOptions
-        ) = abi.decode(
-                message,
-                (bytes, address, bytes, uint256, RevertOptions)
-            );
+        CallParams memory callParams = _decode(message);
 
         uint256 inputForGas;
+        uint256 swapAmount;
+        address sourceGasZRC20;
         address gasZRC20;
         uint256 gasFee;
-        uint256 swapAmount;
 
-        (gasZRC20, gasFee) = IZRC20(targetToken).withdrawGasFeeWithGasLimit(
-            gasLimit
-        );
+        (sourceGasZRC20, ) = IZRC20(zrc20).withdrawGasFee();
+
+        (gasZRC20, gasFee) = IZRC20(callParams.targetToken)
+            .withdrawGasFeeWithGasLimit(callParams.gasLimit);
         if (gasZRC20 == zrc20) {
             swapAmount = amount - gasFee;
         } else {
@@ -87,11 +90,11 @@ contract UniversalRouter is UniversalContract, Ownable {
             uniswapRouter,
             zrc20,
             swapAmount,
-            targetToken,
+            callParams.targetToken,
             0
         );
 
-        if (gasZRC20 == targetToken) {
+        if (gasZRC20 == callParams.targetToken) {
             if (
                 !IZRC20(gasZRC20).approve(
                     address(gateway),
@@ -104,7 +107,12 @@ contract UniversalRouter is UniversalContract, Ownable {
             if (!IZRC20(gasZRC20).approve(address(gateway), gasFee)) {
                 revert ApproveFailed();
             }
-            if (!IZRC20(targetToken).approve(address(gateway), outputAmount)) {
+            if (
+                !IZRC20(callParams.targetToken).approve(
+                    address(gateway),
+                    outputAmount
+                )
+            ) {
                 revert ApproveFailed();
             }
         }
@@ -112,33 +120,33 @@ contract UniversalRouter is UniversalContract, Ownable {
         RevertOptions memory revertOptionsUniversal = RevertOptions(
             address(this),
             true,
-            revertOptions.abortAddress,
+            callParams.revertOpts.abortAddress,
             abi.encode(
-                revertOptions,
+                callParams.revertOpts,
                 zrc20,
-                revertOptions.onRevertGasLimit,
-                receiver,
-                data,
+                callParams.revertOpts.onRevertGasLimit,
+                callParams.receiver,
+                callParams.data,
                 gasZRC20
             ),
-            gasLimit
+            callParams.gasLimit
         );
 
         bytes memory msg = abi.encode(
-            data,
+            callParams.data,
             context.sender,
             outputAmount,
             true,
-            zrc20
+            sourceGasZRC20
         );
 
         emit MessageRelayed();
         gateway.withdrawAndCall(
-            abi.encodePacked(receiver),
+            abi.encodePacked(callParams.receiver),
             outputAmount,
-            targetToken,
+            callParams.targetToken,
             msg,
-            CallOptions(gasLimit, false),
+            CallOptions(callParams.gasLimit, false),
             revertOptionsUniversal
         );
     }
@@ -180,5 +188,12 @@ contract UniversalRouter is UniversalContract, Ownable {
             CallOptions(onRevertGasLimit, false),
             RevertOptions(address(0), false, address(0), "", 0)
         );
+    }
+
+    function _decode(
+        bytes calldata payload
+    ) internal pure returns (CallParams memory p) {
+        (p.receiver, p.targetToken, p.data, p.gasLimit, p.revertOpts) = abi
+            .decode(payload, (bytes, address, bytes, uint256, RevertOptions));
     }
 }

@@ -61,30 +61,28 @@ contract Example is Messaging {
         );
     }
 
-    // Send a message with an ERC-20 token. Currently, not supported.
-    //
-    // function sendMessage(
-    //     address targetToken,
-    //     uint256 amount,
-    //     address asset,
-    //     bytes memory data,
-    //     CallOptions memory callOptions,
-    //     RevertOptions memory revertOptions
-    // ) external {
-    //     bytes memory message = abi.encode(
-    //         abi.encodePacked(counterparty),
-    //         targetToken,
-    //         data,
-    //         callOptions,
-    //         revertOptions
-    //     );
-    //     if (!IERC20(asset).transferFrom(msg.sender, address(this), amount)) {
-    //         revert TransferFailed();
-    //     }
-    //     if (!IERC20(asset).approve(address(gateway), amount)) {
-    //         revert ApprovalFailed();
-    //     }
+    function sendMessage(
+        address destination,
+        uint256 amount,
+        address asset,
+        bytes memory data,
+        uint256 gasLimit,
+        RevertOptions memory revertOptions
+    ) external {
+        bytes memory message = abi.encode(
+            connected[destination],
+            destination,
+            data,
+            gasLimit,
+            revertOptions
+        );
+        if (!IERC20(asset).transferFrom(msg.sender, address(this), amount)) {
+            revert TransferFailed();
+        }
+        if (!IERC20(asset).approve(address(gateway), amount)) {
+            revert ApprovalFailed();
+        }
 
-    //     gateway.depositAndCall(router, amount, asset, message, revertOptions);
-    // }
+        gateway.depositAndCall(router, amount, asset, message, revertOptions);
+    }
 }
