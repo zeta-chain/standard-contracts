@@ -7,13 +7,14 @@ import "@zetachain/protocol-contracts/contracts/zevm/interfaces/IGatewayZEVM.sol
 import "@zetachain/protocol-contracts/contracts/zevm/GatewayZEVM.sol";
 import {SwapHelperLib} from "@zetachain/toolkit/contracts/SwapHelperLib.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "./interfaces/IBaseRegistry.sol";
 
 contract UniversalRouter is UniversalContract, Ownable {
     GatewayZEVM public immutable gateway;
     address public immutable uniswapRouter;
     bool public constant isUniversal = true;
-    // address public constant CORE_REGISTRY =
-    //     0x610178dA211FEF7D417bC0e6FeD39F05609AD788;
+    address public constant CORE_REGISTRY =
+        0x610178dA211FEF7D417bC0e6FeD39F05609AD788;
 
     error TransferFailed();
     error InsufficientOutAmount(uint256 out, uint256 gasFee);
@@ -31,11 +32,11 @@ contract UniversalRouter is UniversalContract, Ownable {
         _;
     }
 
-    event MessageRelayed();
+    event MessageRelayed(bytes, address);
 
     struct CallParams {
         bytes receiver;
-        address targetToken;
+        address destination;
         bytes data;
         uint256 gasLimit;
         RevertOptions revertOpts;
@@ -71,10 +72,10 @@ contract UniversalRouter is UniversalContract, Ownable {
 
         (sourceGasZRC20, ) = IZRC20(zrc20).withdrawGasFee();
 
-        (gasZRC20, gasFee) = IZRC20(callParams.targetToken)
+        (gasZRC20, gasFee) = IZRC20(callParams.destination)
             .withdrawGasFeeWithGasLimit(callParams.gasLimit);
-        if (gasZRC20 == zrc20) {
-            swapAmount = amount - gasFee;
+        if (gasZRC20 == callParams.destination) {
+            swapAmount = amount;
         } else {
             inputForGas = SwapHelperLib.swapTokensForExactTokens(
                 uniswapRouter,
@@ -90,11 +91,11 @@ contract UniversalRouter is UniversalContract, Ownable {
             uniswapRouter,
             zrc20,
             swapAmount,
-            callParams.targetToken,
+            callParams.destination,
             0
         );
 
-        if (gasZRC20 == callParams.targetToken) {
+        if (gasZRC20 == callParams.destination) {
             if (
                 !IZRC20(gasZRC20).approve(
                     address(gateway),
@@ -108,7 +109,7 @@ contract UniversalRouter is UniversalContract, Ownable {
                 revert ApproveFailed();
             }
             if (
-                !IZRC20(callParams.targetToken).approve(
+                !IZRC20(callParams.destination).approve(
                     address(gateway),
                     outputAmount
                 )
@@ -116,6 +117,9 @@ contract UniversalRouter is UniversalContract, Ownable {
                 revert ApproveFailed();
             }
         }
+
+        (, , , bytes memory asset, , ) = IBaseRegistry(CORE_REGISTRY)
+            .getZRC20TokenInfo(callParams.destination);
 
         RevertOptions memory revertOptionsUniversal = RevertOptions(
             address(this),
@@ -132,7 +136,7 @@ contract UniversalRouter is UniversalContract, Ownable {
             callParams.gasLimit
         );
 
-        bytes memory msg = abi.encode(
+        bytes memory m = abi.encode(
             callParams.data,
             context.sender,
             outputAmount,
@@ -140,12 +144,14 @@ contract UniversalRouter is UniversalContract, Ownable {
             sourceGasZRC20
         );
 
-        emit MessageRelayed();
+        emit MessageRelayed(asset, callParams.destination);
         gateway.withdrawAndCall(
             abi.encodePacked(callParams.receiver),
-            outputAmount,
-            callParams.targetToken,
-            msg,
+            gasZRC20 == callParams.destination
+                ? outputAmount - gasFee
+                : outputAmount,
+            callParams.destination,
+            m,
             CallOptions(callParams.gasLimit, false),
             revertOptionsUniversal
         );
@@ -193,7 +199,7 @@ contract UniversalRouter is UniversalContract, Ownable {
     function _decode(
         bytes calldata payload
     ) internal pure returns (CallParams memory p) {
-        (p.receiver, p.targetToken, p.data, p.gasLimit, p.revertOpts) = abi
+        (p.receiver, p.destination, p.data, p.gasLimit, p.revertOpts) = abi
             .decode(payload, (bytes, address, bytes, uint256, RevertOptions));
     }
 }

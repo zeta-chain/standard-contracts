@@ -4,7 +4,7 @@ pragma solidity 0.8.26;
 import "./Messaging.sol";
 
 contract Example is Messaging {
-    event OnMessageReceiveEvent(bytes);
+    event OnMessageReceiveEvent(bytes, bytes);
     event OnMessageRevertEvent();
     event HelloEvent(string);
     event OnRevertEventEVM();
@@ -18,16 +18,18 @@ contract Example is Messaging {
     function onMessageReceive(
         bytes memory data,
         bytes memory sender,
-        uint256 amount
+        uint256 amount,
+        bytes memory asset
     ) internal override {
         string memory msg = abi.decode(data, (string));
-        emit OnMessageReceiveEvent(data);
+        emit OnMessageReceiveEvent(data, asset);
     }
 
     function onMessageRevert(
         bytes memory data,
         bytes memory sender,
-        uint256 amount
+        uint256 amount,
+        bytes memory asset
     ) internal override {
         emit OnMessageRevertEvent();
         // Revert from destination chain

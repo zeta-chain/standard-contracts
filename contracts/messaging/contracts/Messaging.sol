@@ -49,16 +49,17 @@ contract Messaging is Ownable {
             bytes memory sender,
             uint256 amount,
             bool isCall,
-            address zrc20
-        ) = abi.decode(message, (bytes, bytes, uint256, bool, address));
+            address zrc20,
+            bytes memory asset
+        ) = abi.decode(message, (bytes, bytes, uint256, bool, address, bytes));
         if (
             context.sender != router ||
             keccak256(sender) != keccak256(connected[zrc20])
         ) revert Unauthorized();
         if (isCall) {
-            onMessageReceive(data, sender, amount);
+            onMessageReceive(data, sender, amount, asset);
         } else {
-            onMessageRevert(data, sender, amount);
+            onMessageRevert(data, sender, amount, asset);
         }
         return "";
     }
@@ -76,7 +77,8 @@ contract Messaging is Ownable {
     function onMessageReceive(
         bytes memory data,
         bytes memory sender,
-        uint256 amount
+        uint256 amount,
+        bytes memory asset
     ) internal virtual {
         // To be overridden in the child contract
     }
@@ -86,7 +88,8 @@ contract Messaging is Ownable {
     function onMessageRevert(
         bytes memory data,
         bytes memory sender,
-        uint256 amount
+        uint256 amount,
+        bytes memory asset
     ) internal virtual {
         // To be overridden in the child contract
     }

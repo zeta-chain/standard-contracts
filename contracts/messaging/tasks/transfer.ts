@@ -4,7 +4,6 @@ import ZRC20ABI from "@zetachain/protocol-contracts/abi/ZRC20.sol/ZRC20.json";
 
 const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
   const { ethers } = hre;
-  const [signer] = await ethers.getSigners();
 
   const txOptions = {
     gasPrice: args.txOptionsGasPrice,

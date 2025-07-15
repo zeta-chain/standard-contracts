@@ -12,6 +12,7 @@ npx hardhat compile --force --quiet
 
 ZRC20_ETHEREUM=$(jq -r '.addresses[] | select(.type=="ZRC-20 ETH on 11155112") | .address' localnet.json)
 USDC_ETHEREUM=$(jq -r '.addresses[] | select(.type=="ERC-20 USDC" and .chain=="ethereum") | .address' localnet.json)
+ZRC20_USDC_BNB=$(jq -r '.addresses[] | select(.type=="ZRC-20 USDC on 98") | .address' localnet.json)
 ZRC20_BNB=$(jq -r '.addresses[] | select(.type=="ZRC-20 BNB on 98") | .address' localnet.json)
 GATEWAY_ETHEREUM=$(jq -r '.addresses[] | select(.type=="gateway" and .chain=="ethereum") | .address' localnet.json)
 GATEWAY_ZETACHAIN=$(jq -r '.addresses[] | select(.type=="gateway" and .chain=="zetachain") | .address' localnet.json)
@@ -34,17 +35,26 @@ echo -e "\n🔗 Setting counterparty contracts..."
 npx hardhat connected-set-connected --network localhost --contract "$CONTRACT_ETHEREUM" --zrc20 "$ZRC20_BNB" --connected "$CONTRACT_BNB" --json
 npx hardhat connected-set-connected --network localhost --contract "$CONTRACT_BNB"  --zrc20 "$ZRC20_ETHEREUM" --connected "$CONTRACT_ETHEREUM" --json
 
+# Gas
 npx hardhat transfer --network localhost --json --from "$CONTRACT_ETHEREUM" --to "$ZRC20_BNB" --gas-amount 1 --call-on-revert --revert-address "$CONTRACT_ETHEREUM" --revert-message "hello" --types '["string"]' alice
 
 yarn zetachain localnet check
 
+# Source ERC-20
 npx hardhat transfer --network localhost --json --from "$CONTRACT_ETHEREUM" --to "$ZRC20_BNB" --gas-amount 1 --call-on-revert --revert-address "$CONTRACT_ETHEREUM" --revert-message "hello" --types '["string"]' alice --erc20 "$USDC_ETHEREUM"  
 
 yarn zetachain localnet check
+
+sleep 1000000
+
+# Destination ERC-20
+# npx hardhat transfer --network localhost --json --from "$CONTRACT_ETHEREUM" --to "$ZRC20_USDC_BNB" --gas-amount 1 --call-on-revert --revert-address "$CONTRACT_ETHEREUM" --revert-message "hello" --types '["string"]' alice
+
+# yarn zetachain localnet check
 
 # testing revert
 # npx hardhat transfer --network localhost --json --from "$CONTRACT_ETHEREUM" --to "$ZRC20_BNB" --gas-amount 1 --call-on-revert --revert-address "$CONTRACT_ETHEREUM" --revert-message "hello" --types '["uint256"]' 42
 
 # yarn zetachain localnet check
 
-yarn zetachain localnet stop
+# yarn zetachain localnet stop
