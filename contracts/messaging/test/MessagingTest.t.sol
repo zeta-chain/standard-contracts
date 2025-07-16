@@ -70,8 +70,8 @@ contract MessagingTest is FoundrySetup {
         vm.expectEmit(false, false, false, true, address(router));
         emit UniversalRouter.MessageRelayed();
 
-        // vm.expectEmit(false, false, false, true, address(bnbMessaging));
-        // emit Example.OnMessageReceiveEvent(testData);
+        vm.expectEmit(false, false, false, true, address(bnbMessaging));
+        emit Example.OnMessageReceiveEvent(testData);
 
         vm.prank(alice);
         ethMessaging.sendMessage{value: 1 ether}(

@@ -116,8 +116,12 @@ contract UniversalRouter is UniversalContract, Ownable {
             }
         }
 
-        (, , , bytes memory asset, , ) = IBaseRegistry(CORE_REGISTRY)
-            .getZRC20TokenInfo(callParams.destination);
+        bytes memory asset;
+        if (gasZRC20 != callParams.destination) {
+            (, , , asset, , ) = IBaseRegistry(CORE_REGISTRY).getZRC20TokenInfo(
+                callParams.destination
+            );
+        }
 
         RevertOptions memory revertOptionsUniversal = RevertOptions(
             address(this),
