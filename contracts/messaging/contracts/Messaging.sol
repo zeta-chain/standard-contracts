@@ -61,7 +61,7 @@ contract Messaging is Ownable {
         if (asset.length > 0) {
             address assetAddress = address(uint160(bytes20(asset)));
             bool success = IERC20(assetAddress).transferFrom(
-                address(gateway),
+                msg.sender,
                 address(this),
                 amount
             );
