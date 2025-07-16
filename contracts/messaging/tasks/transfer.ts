@@ -66,9 +66,10 @@ const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
     const approveTx = await erc20.approve(args.from, amount);
     await approveTx.wait();
     tx = await (contract as any).functions[
-      "sendMessage(address,uint256,address,bytes,uint256,(address,bool,address,bytes,uint256))"
+      "sendMessage(bytes,address,uint256,address,bytes,uint256,(address,bool,address,bytes,uint256))"
     ](
       args.to,
+      args.targetToken,
       amount,
       args.erc20,
       message,
@@ -78,11 +79,18 @@ const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
   } else {
     const gasAmount = ethers.utils.parseUnits(args.gasAmount, 18);
     tx = await (contract as any).functions[
-      "sendMessage(address,bytes,uint256,(address,bool,address,bytes,uint256))"
-    ](args.to, message, args.callOptionsGasLimit, revertOptions, {
-      ...txOptions,
-      value: gasAmount,
-    });
+      "sendMessage(bytes,address,bytes,uint256,(address,bool,address,bytes,uint256))"
+    ](
+      args.to,
+      args.targetToken,
+      message,
+      args.callOptionsGasLimit,
+      revertOptions,
+      {
+        ...txOptions,
+        value: gasAmount,
+      }
+    );
   }
 
   await tx.wait();
@@ -116,11 +124,7 @@ task("transfer", "Make a cross-chain call", main)
     types.int
   )
   .addFlag("json", "Output the result in JSON format")
-  .addOptionalParam(
-    "to",
-    "ZRC-20 of the gas token of the destination chain",
-    "0x0000000000000000000000000000000000000000"
-  )
+  .addParam("to", "The address of the destination contract")
   .addParam("gasAmount", "The amount of gas to transfer", "0")
   .addParam("types", `The types of the parameters (example: '["string"]')`)
   .addOptionalParam(
@@ -139,4 +143,8 @@ task("transfer", "Make a cross-chain call", main)
     "abortAddress",
     "The address to call on abort",
     "0x0000000000000000000000000000000000000000"
+  )
+  .addParam(
+    "targetToken",
+    "The address of the target token on the destination chain"
   );

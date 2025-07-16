@@ -32,7 +32,7 @@ contract UniversalRouter is UniversalContract, Ownable {
         _;
     }
 
-    event MessageRelayed(bytes, address);
+    event MessageRelayed(bytes);
 
     struct CallParams {
         bytes receiver;
@@ -141,12 +141,13 @@ contract UniversalRouter is UniversalContract, Ownable {
             context.sender,
             outputAmount,
             true,
-            sourceGasZRC20
+            sourceGasZRC20,
+            asset
         );
 
-        emit MessageRelayed(asset, callParams.destination);
+        emit MessageRelayed(asset);
         gateway.withdrawAndCall(
-            abi.encodePacked(callParams.receiver),
+            callParams.receiver,
             gasZRC20 == callParams.destination
                 ? outputAmount - gasFee
                 : outputAmount,

@@ -44,14 +44,15 @@ contract Example is Messaging {
     }
 
     function sendMessage(
-        address destination,
+        bytes memory receiver,
+        address targetToken,
         bytes memory data,
         uint256 gasLimit,
         RevertOptions memory revertOptions
     ) external payable {
         bytes memory message = abi.encode(
-            connected[destination],
-            destination,
+            receiver,
+            targetToken,
             data,
             gasLimit,
             revertOptions
@@ -64,7 +65,8 @@ contract Example is Messaging {
     }
 
     function sendMessage(
-        address destination,
+        bytes memory receiver,
+        address targetToken,
         uint256 amount,
         address asset,
         bytes memory data,
@@ -72,8 +74,8 @@ contract Example is Messaging {
         RevertOptions memory revertOptions
     ) external {
         bytes memory message = abi.encode(
-            connected[destination],
-            destination,
+            receiver,
+            targetToken,
             data,
             gasLimit,
             revertOptions
