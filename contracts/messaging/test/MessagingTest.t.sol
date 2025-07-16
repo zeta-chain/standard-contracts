@@ -75,7 +75,8 @@ contract MessagingTest is FoundrySetup {
 
         vm.prank(alice);
         ethMessaging.sendMessage{value: 1 ether}(
-            bnb_bnb.zrc20,
+            address(bnbMessaging),
+            address(bnb_bnb.zrc20),
             testData,
             gasLimit,
             revertOptions

@@ -25,14 +25,12 @@ contract UniversalRouter is UniversalContract, Ownable {
     event GasFeeAndOut(uint256 gasFee, uint256 out);
     event RevertEvent(string);
 
-    event Data(bytes);
+    event MessageRelayed();
 
     modifier onlyGateway() {
         if (msg.sender != address(gateway)) revert Unauthorized();
         _;
     }
-
-    event MessageRelayed(bytes);
 
     struct CallParams {
         bytes receiver;
@@ -145,7 +143,7 @@ contract UniversalRouter is UniversalContract, Ownable {
             asset
         );
 
-        emit MessageRelayed(asset);
+        emit MessageRelayed();
         gateway.withdrawAndCall(
             callParams.receiver,
             gasZRC20 == callParams.destination
