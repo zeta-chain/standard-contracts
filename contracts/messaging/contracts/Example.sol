@@ -21,7 +21,6 @@ contract Example is Messaging {
         uint256 amount,
         bytes memory asset
     ) internal override {
-        string memory msg = abi.decode(data, (string));
         emit OnMessageReceiveEvent(data);
     }
 
