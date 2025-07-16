@@ -5,6 +5,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@zetachain/protocol-contracts/contracts/evm/GatewayEVM.sol";
 import {RevertContext} from "@zetachain/protocol-contracts/contracts/Revert.sol";
 import {CallOptions} from "@zetachain/protocol-contracts/contracts/zevm/interfaces/IGatewayZEVM.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 contract Messaging is Ownable {
     GatewayEVM public immutable gateway;
@@ -12,6 +13,7 @@ contract Messaging is Ownable {
 
     event OnCallEvent(string);
     event OnRevertEvent(string, RevertContext);
+    event AssetTransferred(bytes);
 
     error Unauthorized();
     error TransferFailed();
@@ -56,6 +58,16 @@ contract Messaging is Ownable {
             context.sender != router ||
             keccak256(sender) != keccak256(connected[zrc20])
         ) revert Unauthorized();
+        if (asset.length > 0) {
+            address assetAddress = address(uint160(bytes20(asset)));
+            bool success = IERC20(assetAddress).transferFrom(
+                address(gateway),
+                address(this),
+                amount
+            );
+            if (!success) revert TransferFailed();
+        }
+
         if (isCall) {
             onMessageReceive(data, sender, amount, asset);
         } else {
