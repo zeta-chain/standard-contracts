@@ -80,7 +80,7 @@ contract Messaging is Ownable {
     function onRevert(
         RevertContext calldata context
     ) external payable virtual onlyGateway {
-        if (context.sender != router) revert("Unauthorized");
+        if (context.sender != router) revert Unauthorized();
         emit OnRevertEvent("Event from onRevert()", context);
     }
 

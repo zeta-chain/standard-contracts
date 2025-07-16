@@ -37,7 +37,7 @@ contract Example is Messaging {
     function onRevert(
         RevertContext calldata context
     ) external payable override onlyGateway {
-        if (context.sender != router) revert("Unauthorized");
+        if (context.sender != router) revert Unauthorized();
         emit OnRevertEventEVM();
         // Revert from ZetaChain
     }
