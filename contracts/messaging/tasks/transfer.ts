@@ -1,6 +1,7 @@
 import { task, types } from "hardhat/config";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 import ZRC20ABI from "@zetachain/protocol-contracts/abi/ZRC20.sol/ZRC20.json";
+import { Example } from "../typechain-types";
 
 const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
   const { ethers } = hre;
@@ -58,14 +59,17 @@ const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
 
   let tx;
 
-  const contract = await ethers.getContractAt("Example", args.from);
+  const contract = (await ethers.getContractAt(
+    "Example",
+    args.from
+  )) as Example;
 
   if (args.erc20) {
     const erc20 = await ethers.getContractAt("IERC20", args.erc20);
     const amount = ethers.utils.parseUnits(args.gasAmount, 18);
     const approveTx = await erc20.approve(args.from, amount);
     await approveTx.wait();
-    tx = await (contract as any).functions[
+    tx = await contract.functions[
       "sendMessage(bytes,address,uint256,address,bytes,uint256,(address,bool,address,bytes,uint256))"
     ](
       args.to,
@@ -78,7 +82,7 @@ const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
     );
   } else {
     const gasAmount = ethers.utils.parseUnits(args.gasAmount, 18);
-    tx = await (contract as any).functions[
+    tx = await contract.functions[
       "sendMessage(bytes,address,bytes,uint256,(address,bool,address,bytes,uint256))"
     ](
       args.to,
