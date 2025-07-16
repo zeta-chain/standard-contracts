@@ -13,8 +13,7 @@ contract UniversalRouter is UniversalContract, Ownable {
     GatewayZEVM public immutable gateway;
     address public immutable uniswapRouter;
     bool public constant isUniversal = true;
-    address public constant CORE_REGISTRY =
-        0x610178dA211FEF7D417bC0e6FeD39F05609AD788;
+    address public immutable contractRegistry;
 
     error TransferFailed();
     error InsufficientOutAmount(uint256 out, uint256 gasFee);
@@ -43,15 +42,18 @@ contract UniversalRouter is UniversalContract, Ownable {
     constructor(
         address payable gatewayAddress,
         address owner,
-        address uniswapRouterAddress
+        address uniswapRouterAddress,
+        address contractRegistryAddress
     ) Ownable(owner) {
         if (
             gatewayAddress == address(0) ||
             owner == address(0) ||
-            uniswapRouterAddress == address(0)
+            uniswapRouterAddress == address(0) ||
+            contractRegistryAddress == address(0)
         ) revert InvalidAddress();
         gateway = GatewayZEVM(gatewayAddress);
         uniswapRouter = uniswapRouterAddress;
+        contractRegistry = contractRegistryAddress;
     }
 
     function onCall(
@@ -118,9 +120,8 @@ contract UniversalRouter is UniversalContract, Ownable {
 
         bytes memory asset;
         if (gasZRC20 != callParams.destination) {
-            (, , , asset, , ) = IBaseRegistry(CORE_REGISTRY).getZRC20TokenInfo(
-                callParams.destination
-            );
+            (, , , asset, , ) = IBaseRegistry(contractRegistry)
+                .getZRC20TokenInfo(callParams.destination);
         }
 
         RevertOptions memory revertOptionsUniversal = RevertOptions(

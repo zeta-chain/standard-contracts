@@ -18,9 +18,10 @@ GATEWAY_ETHEREUM=$(jq -r '.addresses[] | select(.type=="gateway" and .chain=="et
 GATEWAY_ZETACHAIN=$(jq -r '.addresses[] | select(.type=="gateway" and .chain=="zetachain") | .address' localnet.json)
 GATEWAY_BNB=$(jq -r '.addresses[] | select(.type=="gateway" and .chain=="bnb") | .address' localnet.json)
 UNISWAP_ROUTER=$(jq -r '.addresses[] | select(.type=="uniswapRouterInstance" and .chain=="zetachain") | .address' localnet.json)
+CONTRACT_REGISTRY=$(jq -r '.addresses[] | select(.type=="coreRegistry" and .chain=="zetachain") | .address' localnet.json)
 SENDER=0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
 
-CONTRACT_ZETACHAIN=$(npx hardhat deploy --name UniversalRouter --network localhost --uniswap-router "$UNISWAP_ROUTER" --gateway "$GATEWAY_ZETACHAIN" --json | jq -r '.contractAddress')
+CONTRACT_ZETACHAIN=$(npx hardhat deploy --name UniversalRouter --network localhost --uniswap-router "$UNISWAP_ROUTER" --gateway "$GATEWAY_ZETACHAIN" --contract-registry "$CONTRACT_REGISTRY" --json | jq -r '.contractAddress')
 echo -e "\n🚀 Deployed contract on ZetaChain: $CONTRACT_ZETACHAIN"
 
 CONTRACT_ETHEREUM=$(npx hardhat deploy --name Example --json --network localhost --gateway "$GATEWAY_ETHEREUM" --router "$CONTRACT_ZETACHAIN" | jq -r '.contractAddress')
