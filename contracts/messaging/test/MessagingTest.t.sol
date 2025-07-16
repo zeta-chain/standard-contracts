@@ -19,6 +19,7 @@ contract MessagingTest is FoundrySetup {
     address owner = makeAddr("Owner");
     address alice = makeAddr("Alice");
     address bob = makeAddr("Bob");
+    address contractRegistry = makeAddr("registry");
 
     function setUp() public override {
         super.setUp();
@@ -31,7 +32,8 @@ contract MessagingTest is FoundrySetup {
         router = new UniversalRouter(
             payable(address(zetaSetup.wrapGatewayZEVM())),
             owner,
-            address(zetaSetup.uniswapV2Router())
+            address(zetaSetup.uniswapV2Router()),
+            contractRegistry
         );
 
         ethMessaging = new Example(
