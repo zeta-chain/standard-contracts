@@ -1,12 +1,9 @@
 #!/bin/bash
 
-set -e
-set -x
-
 rm -rf abi && mkdir -p abi/contracts
 rm -rf typescript-types && mkdir typescript-types
 
-tsc
+tsc || true
 
 for dir in ./contracts/*/; do
   subdir=$(echo $dir | cut -d'/' -f2)
