@@ -47,14 +47,8 @@ contract MessagingTest is FoundrySetup {
             owner,
             address(router)
         );
-        ethMessaging.setConnected(
-            98, // BNB Chain ID
-            abi.encodePacked(address(bnbMessaging))
-        );
-        bnbMessaging.setConnected(
-            11155112, // Ethereum Sepolia Chain ID
-            abi.encodePacked(address(ethMessaging))
-        );
+        ethMessaging.setConnected(97, abi.encodePacked(address(bnbMessaging)));
+        bnbMessaging.setConnected(5, abi.encodePacked(address(ethMessaging)));
         vm.stopPrank();
     }
 
