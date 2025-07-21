@@ -48,11 +48,11 @@ contract MessagingTest is FoundrySetup {
             address(router)
         );
         ethMessaging.setConnected(
-            bnb_bnb.zrc20,
+            98, // BNB Chain ID
             abi.encodePacked(address(bnbMessaging))
         );
         bnbMessaging.setConnected(
-            eth_eth.zrc20,
+            11155112, // Ethereum Sepolia Chain ID
             abi.encodePacked(address(ethMessaging))
         );
         vm.stopPrank();
