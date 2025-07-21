@@ -1,5 +1,8 @@
 #!/bin/bash
 
+set -e
+set -x
+
 rm -rf abi && mkdir -p abi/contracts
 rm -rf typescript-types && mkdir typescript-types
 
