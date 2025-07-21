@@ -43,7 +43,7 @@ task("deploy", "Deploy the contract", main)
   .addOptionalParam(
     "gateway",
     "Gateway address (default: ZetaChain Gateway)",
-    "0x5FC8d32690cc91D4c39d9d3abcBD16989F875707"
+    "0x6c533f7fe93fae114d0954697069df33c9b74fd7"
   )
   .addOptionalParam("contractRegistry", "Contract Registry address")
   .addOptionalParam("uniswapRouter", "Uniswap v2 Router address")
