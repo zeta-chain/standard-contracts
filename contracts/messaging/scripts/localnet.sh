@@ -33,8 +33,8 @@ echo -e "🚀 Deployed contract on BNB chain: $CONTRACT_BNB"
 echo -e "\n📮 User Address: $SENDER"
 
 echo -e "\n🔗 Setting counterparty contracts..."
-npx hardhat connected-set-connected --network localhost --contract "$CONTRACT_ETHEREUM" --zrc20 "$ZRC20_BNB" --connected "$CONTRACT_BNB" --json
-npx hardhat connected-set-connected --network localhost --contract "$CONTRACT_BNB"  --zrc20 "$ZRC20_ETHEREUM" --connected "$CONTRACT_ETHEREUM" --json
+npx hardhat connect --network localhost --contract "$CONTRACT_ETHEREUM" --target-chain-id 98 --target-contract "$CONTRACT_BNB" --json
+npx hardhat connect --network localhost --contract "$CONTRACT_BNB"  --target-chain-id 11155112 --target-contract "$CONTRACT_ETHEREUM" --json
 
 # Gas
 npx hardhat transfer --network localhost --json --from "$CONTRACT_ETHEREUM" --to "$CONTRACT_BNB" --gas-amount 1 --call-on-revert --revert-address "$CONTRACT_ETHEREUM" --revert-message "hello" --types '["string"]' alice --target-token "$ZRC20_BNB"

@@ -1,6 +1,6 @@
 import "./tasks/deploy";
 import "./tasks/transfer";
-import "./tasks/connectedSetConnected";
+import "./tasks/connect";
 import "@zetachain/localnet/tasks";
 import "@nomicfoundation/hardhat-toolbox";
 import "@zetachain/toolkit/tasks";

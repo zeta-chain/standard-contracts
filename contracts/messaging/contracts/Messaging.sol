@@ -24,13 +24,13 @@ contract Messaging is Ownable {
         _;
     }
 
-    mapping(address => bytes) public connected;
+    mapping(uint256 => bytes) public connected;
 
     function setConnected(
-        address zrc20,
+        uint256 chainID,
         bytes memory contractAddress
     ) external onlyOwner {
-        connected[zrc20] = contractAddress;
+        connected[chainID] = contractAddress;
     }
 
     constructor(
@@ -51,12 +51,12 @@ contract Messaging is Ownable {
             bytes memory sender,
             uint256 amount,
             bool isCall,
-            address zrc20,
+            uint256 sourceChainID,
             bytes memory asset
-        ) = abi.decode(message, (bytes, bytes, uint256, bool, address, bytes));
+        ) = abi.decode(message, (bytes, bytes, uint256, bool, uint256, bytes));
         if (
             context.sender != router ||
-            keccak256(sender) != keccak256(connected[zrc20])
+            keccak256(sender) != keccak256(connected[sourceChainID])
         ) revert Unauthorized();
         if (asset.length > 0) {
             address assetAddress = address(uint160(bytes20(asset)));

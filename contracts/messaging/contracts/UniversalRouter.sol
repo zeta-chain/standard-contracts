@@ -144,7 +144,7 @@ contract UniversalRouter is UniversalContract, Ownable {
             context.sender,
             outputAmount,
             true,
-            sourceGasZRC20,
+            context.chainID,
             asset
         );
 

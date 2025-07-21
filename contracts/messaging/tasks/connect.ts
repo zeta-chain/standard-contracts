@@ -17,8 +17,8 @@ const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
   );
 
   const tx = await contract.setConnected(
-    args.zrc20,
-    ethers.utils.arrayify(args.connected)
+    args.targetChainId,
+    ethers.utils.arrayify(args.targetContract)
   );
 
   await tx.wait();
@@ -26,8 +26,8 @@ const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
   console.log("Successfully set the connected contract.");
 };
 
-task("connected-set-connected", "Sets connected contract", main)
+task("connect", "Sets connected contract", main)
   .addParam("contract", "The address of the deployed contract")
-  .addParam("connected", "The address of the connected contract to set")
-  .addParam("zrc20", "ZRC-20 address of the gas token of destination chain")
+  .addParam("targetChainId", "Chain ID of the destination chain")
+  .addParam("targetContract", "The address of the connected contract to set")
   .addFlag("json", "Output the result in JSON format");
