@@ -60,10 +60,10 @@ abstract contract Messaging is Ownable {
             uint256 sourceChainID,
             bytes memory asset
         ) = abi.decode(message, (bytes, bytes, uint256, bool, uint256, bytes));
-        // if (
-        //     context.sender != router ||
-        //     keccak256(sender) != keccak256(connected[sourceChainID])
-        // ) revert Unauthorized();
+        if (
+            context.sender != router ||
+            keccak256(sender) != keccak256(connected[sourceChainID])
+        ) revert Unauthorized();
         if (asset.length > 0) {
             address assetAddress = address(uint160(bytes20(asset)));
             IERC20(assetAddress).safeTransferFrom(
