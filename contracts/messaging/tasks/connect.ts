@@ -1,7 +1,8 @@
+import { ethers } from "ethers";
 import { task } from "hardhat/config";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
+
 import { Example } from "../typechain-types";
-import { ethers } from "ethers";
 
 const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
   const [signer] = await hre.ethers.getSigners();

@@ -1,14 +1,15 @@
+import ZRC20ABI from "@zetachain/protocol-contracts/abi/ZRC20.sol/ZRC20.json";
 import { task, types } from "hardhat/config";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
-import ZRC20ABI from "@zetachain/protocol-contracts/abi/ZRC20.sol/ZRC20.json";
+
 import { Example } from "../typechain-types";
 
 const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
   const { ethers } = hre;
 
   const txOptions = {
-    gasPrice: args.txOptionsGasPrice,
     gasLimit: args.txOptionsGasLimit,
+    gasPrice: args.txOptionsGasPrice,
   };
 
   if (args.callOptionsIsArbitraryCall && !args.function) {

@@ -13,7 +13,6 @@ const config: HardhatUserConfig = {
     ...getHardhatConfigNetworks(),
   },
   solidity: {
-    version: "0.8.26",
     settings: {
       optimizer: {
         enabled: true,
@@ -21,6 +20,7 @@ const config: HardhatUserConfig = {
       },
       viaIR: true,
     },
+    version: "0.8.26",
   },
 };
 

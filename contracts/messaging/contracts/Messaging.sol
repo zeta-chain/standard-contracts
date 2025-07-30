@@ -11,6 +11,8 @@ contract Messaging is Ownable {
     GatewayEVM public immutable gateway;
     address public immutable router;
 
+    mapping(uint256 => bytes) public connected;
+
     event OnCallEvent(string);
     event OnRevertEvent(string, RevertContext);
     event AssetTransferred(bytes);
@@ -23,8 +25,6 @@ contract Messaging is Ownable {
         if (msg.sender != address(gateway)) revert Unauthorized();
         _;
     }
-
-    mapping(uint256 => bytes) public connected;
 
     constructor(
         address payable gatewayAddress,
