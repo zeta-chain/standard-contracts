@@ -83,7 +83,7 @@ contract Example is Messaging {
             revertOptions
         );
         IERC20(asset).safeTransferFrom(msg.sender, address(this), amount);
-        IERC20(asset).safeIncreaseAllowance(address(gateway), amount);
+        IERC20(asset).forceApprove(address(gateway), amount);
 
         gateway.depositAndCall(router, amount, asset, message, revertOptions);
     }
