@@ -26,13 +26,6 @@ contract Messaging is Ownable {
 
     mapping(uint256 => bytes) public connected;
 
-    function setConnected(
-        uint256 chainID,
-        bytes memory contractAddress
-    ) external onlyOwner {
-        connected[chainID] = contractAddress;
-    }
-
     constructor(
         address payable gatewayAddress,
         address ownerAddress,
@@ -40,6 +33,13 @@ contract Messaging is Ownable {
     ) Ownable(ownerAddress) {
         gateway = GatewayEVM(gatewayAddress);
         router = routerAddress;
+    }
+
+    function setConnected(
+        uint256 chainID,
+        bytes memory contractAddress
+    ) external onlyOwner {
+        connected[chainID] = contractAddress;
     }
 
     function onCall(
