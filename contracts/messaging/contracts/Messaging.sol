@@ -27,7 +27,7 @@ contract Messaging is Ownable {
     }
 
     constructor(
-        address payable gatewayAddress,
+        address gatewayAddress,
         address ownerAddress,
         address routerAddress
     ) Ownable(ownerAddress) {

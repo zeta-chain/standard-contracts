@@ -10,7 +10,7 @@ contract Example is Messaging {
     event OnRevertEventEVM();
 
     constructor(
-        address payable _gateway,
+        address _gateway,
         address owner,
         address _router
     ) Messaging(_gateway, owner, _router) {}
