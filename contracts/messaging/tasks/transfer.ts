@@ -125,7 +125,7 @@ task("transfer", "Make a cross-chain call", main)
   .addOptionalParam(
     "onRevertGasLimit",
     "The gas limit for the revert transaction",
-    300000,
+    1000000,
     types.int
   )
   .addFlag("json", "Output the result in JSON format")

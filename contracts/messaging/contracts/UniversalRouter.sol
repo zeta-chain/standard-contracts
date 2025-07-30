@@ -71,11 +71,8 @@ contract UniversalRouter is UniversalContract, Ownable {
 
         uint256 inputForGas;
         uint256 swapAmount;
-        address sourceGasZRC20;
         address gasZRC20;
         uint256 gasFee;
-
-        (sourceGasZRC20, ) = IZRC20(zrc20).withdrawGasFee();
 
         (gasZRC20, gasFee) = IZRC20(callParams.targetToken)
             .withdrawGasFeeWithGasLimit(callParams.gasLimit);
@@ -182,19 +179,10 @@ contract UniversalRouter is UniversalContract, Ownable {
             );
         (address gasZRC20, uint256 gasFee) = IZRC20(destination)
             .withdrawGasFeeWithGasLimit(onRevertGasLimit);
-        uint256 out;
-        if (gasZRC20 == destination) {
-            out = SwapHelperLib.swapExactTokensForTokens(
-                uniswapRouter,
-                context.asset,
-                context.amount,
-                destination,
-                0
-            );
-            if (!IZRC20(destination).approve(address(gateway), out)) {
-                revert ApproveFailed();
-            }
-        } else {
+
+        uint256 amountToSwap = context.amount;
+
+        if (gasZRC20 != destination) {
             uint256 inputForGas = SwapHelperLib.swapTokensForExactTokens(
                 uniswapRouter,
                 context.asset,
@@ -202,19 +190,21 @@ contract UniversalRouter is UniversalContract, Ownable {
                 gasZRC20,
                 context.amount
             );
-            out = SwapHelperLib.swapExactTokensForTokens(
-                uniswapRouter,
-                context.asset,
-                context.amount - inputForGas,
-                destination,
-                0
-            );
+            amountToSwap = context.amount - inputForGas;
             if (!IZRC20(gasZRC20).approve(address(gateway), gasFee)) {
                 revert ApproveFailed();
             }
-            if (!IZRC20(destination).approve(address(gateway), out)) {
-                revert ApproveFailed();
-            }
+        }
+
+        uint256 out = SwapHelperLib.swapExactTokensForTokens(
+            uniswapRouter,
+            context.asset,
+            amountToSwap,
+            destination,
+            0
+        );
+        if (!IZRC20(destination).approve(address(gateway), out)) {
+            revert ApproveFailed();
         }
 
         if (out < gasFee) revert InsufficientOutAmount(out, gasFee);
