@@ -6,8 +6,11 @@ import "@zetachain/protocol-contracts/contracts/evm/GatewayEVM.sol";
 import {RevertContext} from "@zetachain/protocol-contracts/contracts/Revert.sol";
 import {CallOptions} from "@zetachain/protocol-contracts/contracts/zevm/interfaces/IGatewayZEVM.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 abstract contract Messaging is Ownable {
+    using SafeERC20 for IERC20;
+
     GatewayEVM public immutable gateway;
     address public immutable router;
 
@@ -66,12 +69,11 @@ abstract contract Messaging is Ownable {
         ) revert Unauthorized();
         if (asset.length > 0) {
             address assetAddress = address(uint160(bytes20(asset)));
-            bool success = IERC20(assetAddress).transferFrom(
+            IERC20(assetAddress).safeTransferFrom(
                 msg.sender,
                 address(this),
                 amount
             );
-            if (!success) revert TransferFailed();
         }
 
         if (isCall) {
