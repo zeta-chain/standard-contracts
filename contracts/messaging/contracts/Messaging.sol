@@ -20,6 +20,7 @@ contract Messaging is Ownable {
     error Unauthorized();
     error TransferFailed();
     error ApprovalFailed();
+    error InvalidAddress();
 
     modifier onlyGateway() {
         if (msg.sender != address(gateway)) revert Unauthorized();
@@ -31,6 +32,11 @@ contract Messaging is Ownable {
         address ownerAddress,
         address routerAddress
     ) Ownable(ownerAddress) {
+        if (
+            gatewayAddress == address(0) ||
+            ownerAddress == address(0) ||
+            routerAddress == address(0)
+        ) revert InvalidAddress();
         gateway = GatewayEVM(gatewayAddress);
         router = routerAddress;
     }
