@@ -16,6 +16,11 @@
       "import": "./dist/token/tasks/index.js",
       "require": "./dist/token/tasks/index.js",
       "types": "./dist/token/tasks/index.d.ts"
+    },
+    "./tasks/messaging": {
+      "import": "./dist/messaging/tasks/index.js",
+      "require": "./dist/messaging/tasks/index.js",
+      "types": "./dist/messaging/tasks/index.d.ts"
     }
   },
   "files": [
@@ -26,7 +31,10 @@
     "contracts/nft/scripts",
     "contracts/token/contracts",
     "contracts/token/typechain-types",
-    "contracts/token/scripts"
+    "contracts/token/scripts",
+    "contracts/messaging/contracts",
+    "contracts/messaging/typechain-types",
+    "contracts/messaging/scripts"
   ],
   "packageManager": "yarn@1.22.21",
   "devDependencies": {
