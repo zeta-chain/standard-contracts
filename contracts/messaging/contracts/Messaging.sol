@@ -103,6 +103,4 @@ abstract contract Messaging is Ownable {
     /// @notice Executed on the source chain when the router's onCall
     ///         reverts.
     function onRevert(RevertContext calldata context) external payable virtual;
-
-    receive() external payable {}
 }
