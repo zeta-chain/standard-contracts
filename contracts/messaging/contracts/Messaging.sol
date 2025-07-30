@@ -7,7 +7,7 @@ import {RevertContext} from "@zetachain/protocol-contracts/contracts/Revert.sol"
 import {CallOptions} from "@zetachain/protocol-contracts/contracts/zevm/interfaces/IGatewayZEVM.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-contract Messaging is Ownable {
+abstract contract Messaging is Ownable {
     GatewayEVM public immutable gateway;
     address public immutable router;
 
@@ -82,35 +82,27 @@ contract Messaging is Ownable {
         return "";
     }
 
-    // onRevert is executed when router's onCall reverts
-    function onRevert(
-        RevertContext calldata context
-    ) external payable virtual onlyGateway {
-        if (context.sender != router) revert Unauthorized();
-        emit OnRevertEvent("Event from onRevert()", context);
-    }
-
-    /// @dev This function is intended to be overridden by child contracts.
-    /// slither-disable-next-line dead-code
+    /// @notice Executed on the destination chain when the cross-chain call
+    ///         succeeds.
     function onMessageReceive(
         bytes memory data,
         bytes memory sender,
         uint256 amount,
         bytes memory asset
-    ) internal virtual {
-        // To be overridden in the child contract
-    }
+    ) internal virtual;
 
-    /// @dev This function is intended to be overridden by child contracts.
-    /// slither-disable-next-line dead-code
+    /// @notice Executed on the source chain when the destination execution
+    ///         reverts.
     function onMessageRevert(
         bytes memory data,
         bytes memory sender,
         uint256 amount,
         bytes memory asset
-    ) internal virtual {
-        // To be overridden in the child contract
-    }
+    ) internal virtual;
+
+    /// @notice Executed on the source chain when the router's onCall
+    ///         reverts.
+    function onRevert(RevertContext calldata context) external payable virtual;
 
     receive() external payable {}
 }
