@@ -20,6 +20,12 @@ contract UniversalRouter is UniversalContract, Ownable {
     error Unauthorized();
     error InvalidAddress();
     error ApproveFailed();
+    event OnRevertEvent(
+        address asset,
+        uint256 amount,
+        address gasZRC20,
+        uint256 gasFee
+    );
 
     event GasFeeAndOut(uint256 gasFee, uint256 out);
     event RevertEvent(string);
@@ -174,24 +180,47 @@ contract UniversalRouter is UniversalContract, Ownable {
                 context.revertMessage,
                 (RevertOptions, address, uint256, bytes, bytes, address)
             );
-        uint256 out = SwapHelperLib.swapExactTokensForTokens(
-            uniswapRouter,
-            context.asset,
-            context.amount,
-            destination,
-            0
-        );
-        (, uint256 gasFee) = IZRC20(destination).withdrawGasFeeWithGasLimit(
-            onRevertGasLimit
-        );
-        if (out < gasFee) revert InsufficientOutAmount(out, gasFee);
-
-        if (!IZRC20(destination).approve(address(gateway), out)) {
-            revert ApproveFailed();
+        (address gasZRC20, uint256 gasFee) = IZRC20(destination)
+            .withdrawGasFeeWithGasLimit(onRevertGasLimit);
+        uint256 out;
+        if (gasZRC20 == destination) {
+            out = SwapHelperLib.swapExactTokensForTokens(
+                uniswapRouter,
+                context.asset,
+                context.amount,
+                destination,
+                0
+            );
+            if (!IZRC20(destination).approve(address(gateway), out)) {
+                revert ApproveFailed();
+            }
+        } else {
+            uint256 inputForGas = SwapHelperLib.swapTokensForExactTokens(
+                uniswapRouter,
+                context.asset,
+                gasFee,
+                gasZRC20,
+                context.amount
+            );
+            out = SwapHelperLib.swapExactTokensForTokens(
+                uniswapRouter,
+                context.asset,
+                context.amount - inputForGas,
+                destination,
+                0
+            );
+            if (!IZRC20(gasZRC20).approve(address(gateway), gasFee)) {
+                revert ApproveFailed();
+            }
+            if (!IZRC20(destination).approve(address(gateway), out)) {
+                revert ApproveFailed();
+            }
         }
+
+        if (out < gasFee) revert InsufficientOutAmount(out, gasFee);
         gateway.withdrawAndCall(
             abi.encodePacked(revertOptions.revertAddress),
-            out - gasFee,
+            gasZRC20 == destination ? out - gasFee : out,
             destination,
             abi.encode(data, receiver, out - gasFee, false, targetChainZRC20),
             CallOptions(onRevertGasLimit, false),
