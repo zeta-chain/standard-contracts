@@ -97,27 +97,16 @@ contract UniversalRouter is UniversalContract, Ownable {
             0
         );
 
-        if (gasZRC20 == callParams.targetToken) {
-            if (
-                !IZRC20(gasZRC20).approve(
-                    address(gateway),
-                    outputAmount + gasFee
-                )
-            ) {
-                revert ApproveFailed();
-            }
-        } else {
-            if (!IZRC20(gasZRC20).approve(address(gateway), gasFee)) {
-                revert ApproveFailed();
-            }
-            if (
-                !IZRC20(callParams.targetToken).approve(
-                    address(gateway),
-                    outputAmount
-                )
-            ) {
-                revert ApproveFailed();
-            }
+        if (!IZRC20(gasZRC20).approve(address(gateway), gasFee)) {
+            revert ApproveFailed();
+        }
+        if (
+            !IZRC20(callParams.targetToken).approve(
+                address(gateway),
+                outputAmount
+            )
+        ) {
+            revert ApproveFailed();
         }
 
         bytes memory asset = "";
