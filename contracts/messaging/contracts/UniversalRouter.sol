@@ -47,7 +47,6 @@ contract UniversalRouter is UniversalContract, Ownable {
     ) Ownable(owner) {
         if (
             gatewayAddress == address(0) ||
-            owner == address(0) ||
             uniswapRouterAddress == address(0) ||
             contractRegistryAddress == address(0)
         ) revert InvalidAddress();
