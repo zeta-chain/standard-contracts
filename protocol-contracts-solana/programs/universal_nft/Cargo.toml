@@ -17,7 +17,7 @@ default = []
 anchor-lang = "0.30.1"
 anchor-spl = { version = "0.30.1", features = ["token", "associated_token"] }
 solana-program = "1.18"
-mpl-token-metadata = "1.13.3"
+mpl-token-metadata = "5.0.0-beta.0"
 sha2 = "0.10"
 
 [dev-dependencies]

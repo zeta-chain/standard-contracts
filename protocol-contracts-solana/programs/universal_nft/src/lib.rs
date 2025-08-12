@@ -1,12 +1,12 @@
-use anchor_lang::prelude::*;
+﻿use anchor_lang::prelude::*;
 
 pub mod instructions;
 pub mod state;
 pub mod utils;
 
-use instructions::{mint, burn, handle_incoming};
+use instructions::*;
 
-declare_id!("UNv1NFTRK111111111111111111111111111111111");
+declare_id!("Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zP9LnUZ");
 
 #[program]
 pub mod universal_nft {

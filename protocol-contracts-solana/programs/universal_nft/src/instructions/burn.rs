@@ -1,5 +1,5 @@
 ﻿use anchor_lang::prelude::*;
-use anchor_spl::token::{self, Burn, Mint, Token, TokenAccount};
+use anchor_spl::token::{Mint, Token, TokenAccount};
 use crate::state::nft_origin::{NftOrigin, CrossChainNftPayload};
 use crate::state::replay::ReplayMarker;
 
