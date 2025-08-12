@@ -3,7 +3,7 @@ seeds = false
 skip-lint = false
 
 [programs.localnet]
-universal_nft = "UNv1NFTRK111111111111111111111111111111111"
+universal_nft = "B5o6iRGvxvC8hL5tUTjV8dmu4GwFpnfH5ZssAedNt2Yp"
 
 [registry]
 url = "https://anchor.projectserum.com"
@@ -13,4 +13,4 @@ cluster = "localnet"
 wallet = "~/.config/solana/id.json"
 
 [scripts]
-test = "node ./tests/universal_nft.js"
+test = "ts-node --transpile-only ./tests/universal_nft.ts"

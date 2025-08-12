@@ -1,0 +1,19 @@
+# Build artifacts
+/target/
+**/target/
+/dist/
+/build/
+/out/
+
+# Node
+node_modules/
+*.log
+
+# TypeScript
+coverage/
+
+# OS/IDE
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

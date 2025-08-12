@@ -4,6 +4,33 @@ import { UniversalNft } from "../target/types/universal_nft";
 import { PublicKey, Keypair, SystemProgram, SYSVAR_RENT_PUBKEY } from "@solana/web3.js";
 import { TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID, getAssociatedTokenAddress } from "@solana/spl-token";
 import { PROGRAM_ID as METADATA_PROGRAM_ID } from "@metaplex-foundation/mpl-token-metadata";
+import { serialize, Schema } from "borsh";
+
+class CrossChainNftPayloadCLS {
+  version: number;
+  tokenId: Uint8Array;
+  originChainId: number;
+  originMint: Uint8Array;
+  metadataUri: string;
+  recipient: Uint8Array;
+  nonce: bigint;
+  constructor(fields: any) { Object.assign(this, fields); }
+}
+
+const CCN_SCHEMA: Schema = new Map([
+  [CrossChainNftPayloadCLS, {
+    kind: "struct",
+    fields: [
+      ["version", "u8"],
+      ["tokenId", [32]],
+      ["originChainId", "u16"],
+      ["originMint", [32]],
+      ["metadataUri", "string"],
+      ["recipient", [32]],
+      ["nonce", "u64"],
+    ],
+  }],
+]);
 
 describe("universal-nft", () => {
   const provider = anchor.AnchorProvider.env();
@@ -25,11 +52,9 @@ describe("universal-nft", () => {
   const metadataUri = "https://example.com/nft/metadata/1";
 
   beforeAll(async () => {
-    // Airdrop SOL to payer
     const signature = await provider.connection.requestAirdrop(payer.publicKey, 2 * anchor.web3.LAMPORTS_PER_SOL);
     await provider.connection.confirmTransaction(signature);
     
-    // Derive PDAs
     [metadataPda] = PublicKey.findProgramAddressSync(
       [Buffer.from("metadata"), METADATA_PROGRAM_ID.toBuffer(), mint.publicKey.toBuffer()],
       METADATA_PROGRAM_ID
@@ -41,7 +66,7 @@ describe("universal-nft", () => {
     );
     
     [nftOriginPda] = PublicKey.findProgramAddressSync(
-      [Buffer.from("nft_origin"), Buffer.alloc(32)], // Placeholder, will be set in mint
+      [Buffer.from("nft_origin"), Buffer.alloc(32)],
       program.programId
     );
     
@@ -146,7 +171,6 @@ describe("universal-nft", () => {
   describe("Handle Incoming Cross-chain Message", () => {
     it("Should mint NFT from cross-chain message", async () => {
       try {
-        // Create new mint for incoming NFT
         const newMint = Keypair.generate();
         const newMetadataPda = PublicKey.findProgramAddressSync(
           [Buffer.from("metadata"), METADATA_PROGRAM_ID.toBuffer(), newMint.publicKey.toBuffer()],
@@ -157,7 +181,7 @@ describe("universal-nft", () => {
           METADATA_PROGRAM_ID
         )[0];
         const newNftOriginPda = PublicKey.findProgramAddressSync(
-          [Buffer.from("nft_origin"), Buffer.alloc(32)], // Placeholder
+          [Buffer.from("nft_origin"), Buffer.alloc(32)],
           program.programId
         )[0];
         const newRecipientTokenAccount = await getAssociatedTokenAddress(
@@ -168,20 +192,17 @@ describe("universal-nft", () => {
           ASSOCIATED_TOKEN_PROGRAM_ID
         );
         
-        // Mock cross-chain payload
-        const payload = {
+        // Build real payload
+        const payloadObj = new CrossChainNftPayloadCLS({
           version: 1,
-          tokenId: Buffer.alloc(32, 1), // Mock token ID
-          originChainId: 1, // Ethereum
-          originMint: mint.publicKey,
+          tokenId: Buffer.alloc(32, 1),
+          originChainId: 1,
+          originMint: mint.publicKey.toBytes(),
           metadataUri: "https://example.com/nft/metadata/2",
-          recipient: recipient.publicKey,
-          nonce: Date.now(),
-        };
-        
-        // Serialize payload
-        const serializedPayload = Buffer.alloc(0);
-        // In real implementation, this would serialize the payload properly
+          recipient: recipient.publicKey.toBytes(),
+          nonce: BigInt(Date.now()),
+        });
+        const serializedPayload = Buffer.from(serialize(CCN_SCHEMA, payloadObj));
         
         const tx = await program.methods
           .handleIncoming(Array.from(serializedPayload))
@@ -193,7 +214,7 @@ describe("universal-nft", () => {
             masterEdition: newMasterEditionPda,
             recipientTokenAccount: newRecipientTokenAccount,
             nftOrigin: newNftOriginPda,
-            gatewaySigner: payer.publicKey, // Mock gateway signer
+            gatewaySigner: payer.publicKey,
             tokenProgram: TOKEN_PROGRAM_ID,
             associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
             rent: SYSVAR_RENT_PUBKEY,
@@ -202,11 +223,8 @@ describe("universal-nft", () => {
           .rpc();
         
         console.log("✅ Handle incoming transaction:", tx);
-        
-        // Verify the new NFT was minted
         const newTokenAccount = await provider.connection.getTokenAccountBalance(newRecipientTokenAccount);
         expect(newTokenAccount.value.amount).toBe("1");
-        
       } catch (error) {
         console.error("Handle incoming failed:", error);
         throw error;
