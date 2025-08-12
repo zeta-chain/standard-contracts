@@ -57,6 +57,11 @@ pub fn handler(ctx: Context<BurnForTransfer>, nonce: u64) -> Result<()> {
             ],
             &[&[ReplayMarker::SEED, &ctx.accounts.nft_origin.origin_token_id, &nonce.to_le_bytes(), &[bump]]],
         )?;
+
+        // Write marker
+        let marker = ReplayMarker { token_id: ctx.accounts.nft_origin.origin_token_id, nonce, created_at: clock.unix_timestamp, bump };
+        let mut data = ctx.accounts.replay_marker.try_borrow_mut_data()?;
+        marker.try_serialize(&mut &mut data[..])?;
     } else {
         return Err(ErrorCode::ReplayAttempt.into());
     }

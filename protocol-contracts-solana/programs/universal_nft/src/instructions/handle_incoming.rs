@@ -164,9 +164,6 @@ pub fn handler(ctx: Context<HandleIncoming>, payload: Vec<u8>) -> Result<()> {
 
     // Create/Update nft_origin PDA (create if missing)
     let (nft_origin_pda, bump) = derive_nft_origin_pda(&p.token_id);
-    if ctx.accounts.metadata.owner != &mpl_token_metadata::ID {
-        // Simplified: ensure metadata was just created
-    }
     let space = 8 + NftOrigin::LEN;
     let lamports = Rent::get()?.minimum_balance(space);
     anchor_lang::solana_program::program::invoke_signed(
@@ -184,6 +181,19 @@ pub fn handler(ctx: Context<HandleIncoming>, payload: Vec<u8>) -> Result<()> {
         ],
         &[&[NftOrigin::SEED, &p.token_id, &[bump]]],
     )?;
+
+    // Serialize NftOrigin
+    let origin = NftOrigin {
+        origin_chain: p.origin_chain_id,
+        origin_token_id: p.token_id,
+        origin_mint: p.origin_mint,
+        metadata_uri: p.metadata_uri,
+        created_at: clock.unix_timestamp,
+        bump,
+    };
+    let mut ai = AccountInfo::new(&nft_origin_pda, false, true, &mut [], &crate::ID, false, 0);
+    let mut data = ai.try_borrow_mut_data()?;
+    origin.try_serialize(&mut &mut data[..])?;
 
     emit!(CrossChainMintEvent {
         token_id: p.token_id,

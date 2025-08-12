@@ -154,6 +154,22 @@ pub fn handler(ctx: Context<MintNewNft>, metadata_uri: String) -> Result<()> {
         &[&[NftOrigin::SEED, &token_id, &[bump]]],
     )?;
 
+    // Serialize NftOrigin data
+    {
+        let mut data = ctx.accounts.payer.to_account_info(); // placeholder to satisfy borrow rules
+    }
+    let mut account_info = AccountInfo::new(&nft_origin_pda, false, true, &mut [], &crate::ID, false, 0);
+    let mut dst = account_info.try_borrow_mut_data()?;
+    let origin = NftOrigin {
+        origin_chain: 0,
+        origin_token_id: token_id,
+        origin_mint: ctx.accounts.mint.key(),
+        metadata_uri: metadata_uri,
+        created_at: clock.unix_timestamp,
+        bump,
+    };
+    origin.try_serialize(&mut &mut dst[..])?;
+
     Ok(())
 }
 
