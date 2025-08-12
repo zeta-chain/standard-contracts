@@ -1,0 +1,23 @@
+﻿{
+  "name": "protocol-contracts-solana",
+  "private": true,
+  "version": "0.1.0",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "build": "echo 'use anchor build from CLI'",
+    "test": "mocha -r ts-node/register tests/**/*.ts",
+    "lint": "echo 'no lint configured'"
+  },
+  "dependencies": {
+    "@coral-xyz/anchor": "^0.30.1",
+    "@solana/spl-token": "^0.4.6",
+    "@solana/web3.js": "^1.95.3"
+  },
+  "devDependencies": {
+    "mocha": "^10.7.3",
+    "chai": "^4.5.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.5.4"
+  }
+}
