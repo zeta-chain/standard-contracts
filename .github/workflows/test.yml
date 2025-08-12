@@ -1,0 +1,37 @@
+﻿name: Test (Anchor + Node)
+
+on:
+  pull_request:
+  push:
+    branches: [ feat/universal-nft-solana ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+          override: true
+      - name: Install anchor via avm
+        run: |
+          sudo apt-get update && sudo apt-get install -y pkg-config libssl-dev nodejs npm
+          cargo install --git https://github.com/coral-xyz/anchor avm --locked
+          echo "C:\Users\ashut/.cargo/bin" >> 
+          avm install latest
+          avm use latest
+      - name: Install Node deps
+        working-directory: protocol-contracts-solana
+        run: |
+          npm ci || npm i
+      - name: Run TS tests
+        working-directory: protocol-contracts-solana
+        run: |
+          npm test --silent
+      - name: Anchor build (no validator)
+        working-directory: protocol-contracts-solana
+        run: |
+          anchor build
