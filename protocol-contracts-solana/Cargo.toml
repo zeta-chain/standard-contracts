@@ -1,0 +1,9 @@
+﻿[workspace]
+resolver = "2"
+
+members = [
+    "programs/universal_nft"
+]
+
+[profile.release]
+opt-level = "s"
