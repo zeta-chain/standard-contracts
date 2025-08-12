@@ -3,7 +3,7 @@ use anchor_spl::associated_token::AssociatedToken;
 use anchor_spl::token::{Mint, Token, TokenAccount};
 use mpl_token_metadata::{
     instruction as mpl_instruction,
-    state::{Creator, Data, DataV2, Collection, CollectionDetails, Uses},
+    state::{Creator, DataV2},
 };
 use sha2::{Digest, Sha256};
 
@@ -14,22 +14,28 @@ use crate::utils::*;
 pub struct MintNewNft<'info> {
     #[account(mut)]
     pub payer: Signer<'info>,
-    /// CHECK: recipient may be any account; ATA will be derived
-    pub recipient: UncheckedAccount<'info>,
-    #[account(mut)]
-    pub mint: Signer<'info>,
-    /// CHECK: metadata PDA created via CPI to mpl-token-metadata
+    pub recipient: SystemAccount<'info>,
+    #[account(
+        init,
+        payer = payer,
+        mint::decimals = 0,
+        mint::authority = payer,
+        mint::freeze_authority = payer,
+    )]
+    pub mint: Account<'info, Mint>,
+    #[account(
+        init,
+        payer = payer,
+        associated_token::mint = mint,
+        associated_token::authority = recipient
+    )]
+    pub recipient_token_account: Account<'info, TokenAccount>,
+    /// CHECK: Metaplex metadata PDA (derived off-chain)
     #[account(mut)]
     pub metadata: UncheckedAccount<'info>,
-    /// CHECK: master edition PDA created via CPI
+    /// CHECK: Metaplex master edition PDA (derived off-chain)
     #[account(mut)]
     pub master_edition: UncheckedAccount<'info>,
-    /// CHECK: ATA will be derived and created via CPI
-    #[account(mut)]
-    pub recipient_token_account: UncheckedAccount<'info>,
-    /// CHECK: nft_origin PDA to store origin information
-    #[account(mut)]
-    pub nft_origin: UncheckedAccount<'info>,
     pub token_program: Program<'info, Token>,
     pub associated_token_program: Program<'info, AssociatedToken>,
     pub system_program: Program<'info, System>,
@@ -38,41 +44,83 @@ pub struct MintNewNft<'info> {
 
 pub fn handler(ctx: Context<MintNewNft>, metadata_uri: String) -> Result<()> {
     let clock = Clock::get()?;
-    
-    // Generate unique token ID: hash of mint pubkey + slot + nonce
+
+    require!(metadata_uri.len() <= NftOrigin::MAX_URI_LEN, ErrorCode::MetadataTooLong);
+
+    // Generate unique token ID: hash of mint pubkey + slot + timestamp
     let mut hasher = Sha256::new();
     hasher.update(ctx.accounts.mint.key().as_ref());
     hasher.update(&clock.slot.to_le_bytes());
     hasher.update(&clock.unix_timestamp.to_le_bytes());
-    let token_id = hasher.finalize().to_vec();
-    
-    // Create associated token account for recipient
-    let (ata, _) = Pubkey::find_program_address(
-        &[
-            ctx.accounts.recipient.key().as_ref(),
-            ctx.accounts.token_program.key().as_ref(),
-            ctx.accounts.mint.key().as_ref(),
-        ],
-        &ctx.accounts.associated_token_program.key(),
+    let token_id_hash = hasher.finalize();
+    let mut token_id: [u8; 32] = [0u8; 32];
+    token_id.copy_from_slice(&token_id_hash[..32]);
+
+    // Prepare metadata
+    let data_v2 = DataV2 {
+        name: format!("Universal NFT #{}", hex::encode(&token_id[..8])),
+        symbol: "UNFT".to_string(),
+        uri: metadata_uri.clone(),
+        seller_fee_basis_points: 0,
+        creators: Some(vec![Creator {
+            address: ctx.accounts.payer.key(),
+            verified: true,
+            share: 100,
+        }]),
+        collection: None,
+        uses: None,
+    };
+
+    // Create metadata
+    let ix_meta = mpl_instruction::create_metadata_accounts_v3(
+        mpl_token_metadata::ID,
+        ctx.accounts.metadata.key(),
+        ctx.accounts.mint.key(),
+        ctx.accounts.payer.key(),      // mint authority
+        ctx.accounts.payer.key(),      // payer
+        ctx.accounts.payer.key(),      // update authority
+        data_v2,
+        true,                          // is_mutable
+        None,                          // collection details
+        None,                          // uses
+        None,                          // collection
     );
-    
-    // Create the ATA
-    anchor_spl::associated_token::create(
-        CpiContext::new(
-            ctx.accounts.associated_token_program.to_account_info(),
-            anchor_spl::associated_token::Create {
-                payer: ctx.accounts.payer.to_account_info(),
-                associated_token: ctx.accounts.recipient_token_account.to_account_info(),
-                authority: ctx.accounts.recipient.to_account_info(),
-                mint: ctx.accounts.mint.to_account_info(),
-                system_program: ctx.accounts.system_program.to_account_info(),
-                token_program: ctx.accounts.token_program.to_account_info(),
-                rent: ctx.accounts.rent.to_account_info(),
-            },
-        ),
+    anchor_lang::solana_program::program::invoke(
+        &ix_meta,
+        &[
+            ctx.accounts.metadata.to_account_info(),
+            ctx.accounts.mint.to_account_info(),
+            ctx.accounts.payer.to_account_info(),
+            ctx.accounts.system_program.to_account_info(),
+            ctx.accounts.rent.to_account_info(),
+        ],
     )?;
-    
-    // Mint 1 token to the recipient
+
+    // Create master edition
+    let ix_edition = mpl_instruction::create_master_edition_v3(
+        mpl_token_metadata::ID,
+        ctx.accounts.master_edition.key(),
+        ctx.accounts.mint.key(),
+        ctx.accounts.payer.key(),      // update authority
+        ctx.accounts.payer.key(),      // mint authority
+        ctx.accounts.payer.key(),      // payer
+        ctx.accounts.metadata.key(),
+        Some(0),
+    );
+    anchor_lang::solana_program::program::invoke(
+        &ix_edition,
+        &[
+            ctx.accounts.master_edition.to_account_info(),
+            ctx.accounts.mint.to_account_info(),
+            ctx.accounts.payer.to_account_info(),
+            ctx.accounts.metadata.to_account_info(),
+            ctx.accounts.token_program.to_account_info(),
+            ctx.accounts.system_program.to_account_info(),
+            ctx.accounts.rent.to_account_info(),
+        ],
+    )?;
+
+    // Mint 1 token to recipient
     anchor_spl::token::mint_to(
         CpiContext::new(
             ctx.accounts.token_program.to_account_info(),
@@ -84,120 +132,28 @@ pub fn handler(ctx: Context<MintNewNft>, metadata_uri: String) -> Result<()> {
         ),
         1,
     )?;
-    
-    // Create metadata account
-    let (metadata_pda, _) = derive_metadata_pda(&ctx.accounts.mint.key());
-    let (master_edition_pda, _) = derive_master_edition_pda(&ctx.accounts.mint.key());
-    
-    // Each new universal NFT creates a separate collection
-    let collection_mint = ctx.accounts.mint.key();
-    let collection_metadata = metadata_pda;
-    
-    let data_v2 = DataV2 {
-        name: format!("Universal NFT #{}", hex::encode(&token_id[..8])),
-        symbol: "UNFT",
-        uri: metadata_uri.clone(),
-        seller_fee_basis_points: 0,
-        creators: Some(vec![Creator {
-            address: ctx.accounts.payer.key(),
-            verified: true,
-            share: 100,
-        }]),
-        collection: Some(Collection {
-            verified: true,
-            key: collection_metadata,
-        }),
-        uses: None,
-    };
-    
-    let create_metadata_account_ix = mpl_instruction::create_metadata_accounts_v3(
-        ctx.accounts.metadata.to_account_info().key(),
-        ctx.accounts.mint.to_account_info().key(),
-        ctx.accounts.payer.to_account_info().key(),
-        ctx.accounts.payer.to_account_info().key(),
-        ctx.accounts.payer.to_account_info().key(),
-        metadata_uri,
-        Some(data_v2.name),
-        Some(data_v2.symbol),
-        Some(data_v2.uri),
-        Some(vec![Creator {
-            address: ctx.accounts.payer.key(),
-            verified: true,
-            share: 100,
-        }]),
-        data_v2.seller_fee_basis_points,
-        true,
-        true,
-        Some(CollectionDetails::V1 { __: [0u8; 0] }),
-        Some(Uses {
-            total: 1,
-            use_method: mpl_token_metadata::state::UseMethod::Single,
-            remaining: 1,
-        }),
-        None,
-    );
-    
-    // Execute the metadata creation
-    anchor_lang::solana_program::program::invoke(
-        &create_metadata_account_ix,
-        &[
-            ctx.accounts.metadata.to_account_info(),
-            ctx.accounts.mint.to_account_info(),
-            ctx.accounts.payer.to_account_info(),
-            ctx.accounts.payer.to_account_info(),
-            ctx.accounts.payer.to_account_info(),
-        ],
-    )?;
-    
-    // Create master edition
-    let create_master_edition_ix = mpl_instruction::create_master_edition_v3(
-        master_edition_pda,
-        ctx.accounts.metadata.to_account_info().key(),
-        ctx.accounts.mint.to_account_info().key(),
-        ctx.accounts.payer.to_account_info().key(),
-        ctx.accounts.payer.to_account_info().key(),
-        ctx.accounts.payer.to_account_info().key(),
-        Some(0), // Max supply: 0 means unlimited
-    );
-    
-    // Execute the master edition creation
-    anchor_lang::solana_program::program::invoke(
-        &create_master_edition_ix,
-        &[
-            ctx.accounts.master_edition.to_account_info(),
-            ctx.accounts.metadata.to_account_info(),
-            ctx.accounts.mint.to_account_info(),
-            ctx.accounts.payer.to_account_info(),
-            ctx.accounts.payer.to_account_info(),
-            ctx.accounts.payer.to_account_info(),
-        ],
-    )?;
-    
-    // Store origin information in PDA
-    let nft_origin = &mut ctx.accounts.nft_origin;
-    let nft_origin_data = NftOrigin {
-        origin_chain: 0, // 0 for Solana
-        origin_token_id: token_id.clone(),
-        origin_mint: ctx.accounts.mint.key(),
-        metadata_uri,
-        created_at: clock.unix_timestamp,
-        bump: 0, // Will be set by the account creation
-    };
-    
-    // Initialize the nft_origin account
+
+    // Create nft_origin PDA (account creation only; serialization handled in follow-up)
     let (nft_origin_pda, bump) = derive_nft_origin_pda(&token_id);
-    nft_origin.assign(&nft_origin_pda);
-    nft_origin.set_inner(nft_origin_data);
-    
-    // Set the bump
-    let mut nft_origin_data = nft_origin.try_borrow_mut_data()?;
-    nft_origin_data[0] = bump;
-    
-    msg!("✅ Universal NFT minted successfully!");
-    msg!("Token ID: {}", hex::encode(&token_id));
-    msg!("Mint: {}", ctx.accounts.mint.key());
-    msg!("Collection: {}", collection_mint);
-    
+    let space = 8 + NftOrigin::LEN;
+    let rent = Rent::get()?;
+    let lamports = rent.minimum_balance(space);
+    anchor_lang::solana_program::program::invoke_signed(
+        &anchor_lang::solana_program::system_instruction::create_account(
+            &ctx.accounts.payer.key(),
+            &nft_origin_pda,
+            lamports,
+            space as u64,
+            &crate::ID,
+        ),
+        &[
+            ctx.accounts.payer.to_account_info(),
+            AccountInfo::new_readonly(&nft_origin_pda, false),
+            ctx.accounts.system_program.to_account_info(),
+        ],
+        &[&[NftOrigin::SEED, &token_id, &[bump]]],
+    )?;
+
     Ok(())
 }
 
@@ -209,4 +165,6 @@ pub enum ErrorCode {
     MetadataCreationFailed,
     #[msg("Failed to create master edition")]
     MasterEditionCreationFailed,
+    #[msg("Metadata URI too long")]
+    MetadataTooLong,
 }
