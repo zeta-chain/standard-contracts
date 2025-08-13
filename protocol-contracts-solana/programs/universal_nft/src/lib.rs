@@ -4,7 +4,7 @@ pub mod instructions;
 pub mod state;
 pub mod utils;
 
-use instructions::{mint, burn, handle_incoming, setup_gateway};
+use instructions::{mint, burn, handle_incoming, setup_gateway, on_call, send_to_zeta};
 
 declare_id!("B5o6iRGvxvC8hL5tUTjV8dmu4GwFpnfH5ZssAedNt2Yp");
 
@@ -26,5 +26,13 @@ pub mod universal_nft {
 
     pub fn initialize_gateway(ctx: Context<setup_gateway::InitializeGateway>, gateway_program: Pubkey) -> Result<()> {
         setup_gateway::handler(ctx, gateway_program)
+    }
+
+    pub fn on_call(ctx: Context<on_call::OnCall>, payload: Vec<u8>) -> Result<()> {
+        on_call::handler(ctx, payload)
+    }
+
+    pub fn send_to_zeta(ctx: Context<send_to_zeta::SendToZeta>, payload: state::nft_origin::CrossChainNftPayload) -> Result<()> {
+        send_to_zeta::handler(ctx, payload)
     }
 }
