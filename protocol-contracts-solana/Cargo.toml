@@ -7,3 +7,4 @@ members = [
 
 [profile.release]
 opt-level = "s"
+overflow-checks = true
