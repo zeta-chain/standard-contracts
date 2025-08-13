@@ -43,8 +43,8 @@ jobs:
           avm use 0.31.1
           anchor --version
           echo "${HOME}/.avm/bin" >> "$GITHUB_PATH"
+          export PATH="$HOME/.avm/bin:$PATH"
           which anchor
-          cargo install cargo-build-sbf --locked --force
       - name: Build program
         working-directory: protocol-contracts-solana
         run: |

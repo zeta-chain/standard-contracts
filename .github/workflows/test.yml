@@ -53,7 +53,8 @@ jobs:
           avm install 0.31.1 --force
           avm use 0.31.1
           anchor --version
-          cargo install cargo-build-sbf --locked --force
+          export PATH="$HOME/.avm/bin:$PATH"
+          which anchor
       - uses: actions/setup-node@v4
         with:
           node-version: 20
