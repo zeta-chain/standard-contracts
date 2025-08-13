@@ -59,4 +59,5 @@ jobs:
           rm -f Cargo.lock || true
           anchor clean || true
           rustup override set stable
+          cargo generate-lockfile
           RUSTUP_TOOLCHAIN=stable anchor build
