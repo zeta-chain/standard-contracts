@@ -23,6 +23,7 @@ jobs:
           ver=v1.18.26
           curl -sSfL https://github.com/solana-labs/solana/releases/download/${ver}/solana-release-x86_64-unknown-linux-gnu.tar.bz2 -o solana.tar.bz2
           tar -xjf solana.tar.bz2
+          export PATH="$PWD/solana-release/bin:$PATH"
           echo "$PWD/solana-release/bin" >> "$GITHUB_PATH"
           solana --version
       - name: Install anchor via avm (0.30.1) and cargo-build-sbf
