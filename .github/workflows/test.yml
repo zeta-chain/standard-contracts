@@ -14,7 +14,6 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
-          targets: bpfel-unknown-unknown
       - name: Install system dependencies
         run: |
           set -euo pipefail
@@ -54,6 +53,7 @@ jobs:
           avm install 0.31.1 --force
           avm use 0.31.1
           anchor --version
+          cargo install cargo-build-sbf --locked --force
       - uses: actions/setup-node@v4
         with:
           node-version: 20
