@@ -73,7 +73,7 @@ jobs:
           git rm -f --cached Cargo.lock || true
           rm -f Cargo.lock || true
           anchor clean || true
-          cargo generate-lockfile
+          cargo generate-lockfile -Znext-lockfile-bump
           anchor build
 
       # Run TypeScript tests
