@@ -11,9 +11,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Setup Rust
-      - name: Setup Rust (nightly for edition2024 support)
-        uses: dtolnay/rust-toolchain@nightly
+      # Setup Rust with fallback strategy
+      - name: Setup Rust (stable first, nightly fallback)
+        uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
 
@@ -66,15 +66,25 @@ jobs:
           npm ci || npm i
           jq -r .dependencies < package.json || true
 
-      # Anchor build (no validator)
+      # Anchor build with lockfile strategy
       - name: Anchor build
         working-directory: protocol-contracts-solana
         run: |
           git rm -f --cached Cargo.lock || true
           rm -f Cargo.lock || true
           anchor clean || true
-          cargo generate-lockfile -Znext-lockfile-bump
-          anchor build
+          
+          # Try stable Rust first
+          echo "Attempting build with stable Rust..."
+          if cargo generate-lockfile && anchor build; then
+            echo "Build successful with stable Rust"
+          else
+            echo "Stable Rust failed, trying nightly with lockfile v4 support..."
+            rustup install nightly
+            rustup override set nightly
+            cargo generate-lockfile -Znext-lockfile-bump
+            anchor build
+          fi
 
       # Run TypeScript tests
       - name: Run TS tests
