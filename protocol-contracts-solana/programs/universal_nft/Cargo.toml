@@ -14,8 +14,8 @@ cpi = []
 default = []
 
 [dependencies]
-anchor-lang = "0.30.1"
-anchor-spl = { version = "0.30.1", features = ["token", "associated_token"] }
+anchor-lang = "0.31.1"
+anchor-spl = { version = "0.31.1", features = ["token", "associated_token"] }
 # Use anchor_lang::solana_program to avoid version conflicts
 # solana-program dependency removed per Anchor warning
 mpl-token-metadata = "5.1.0"

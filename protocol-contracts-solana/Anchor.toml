@@ -13,7 +13,7 @@ cluster = "localnet"
 wallet = "~/.config/solana/id.json"
 
 [toolchain]
-anchor_version = "0.30.1"
+anchor_version = "0.31.1"
 
 [scripts]
 test = "ts-node --transpile-only ./tests/universal_nft.ts"
