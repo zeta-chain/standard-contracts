@@ -14,6 +14,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
+          targets: bpfel-unknown-unknown
       - name: Install system dependencies
         run: |
           set -euo pipefail
@@ -35,7 +36,8 @@ jobs:
           solana-keygen new --no-bip39-passphrase -f -s
           solana config set --url http://127.0.0.1:8899
           nohup solana-test-validator --reset --quiet >/dev/null 2>&1 &
-          sleep 5
+          sleep 15
+          solana cluster-version
       - name: Install anchor via avm (0.31.1)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -52,6 +54,9 @@ jobs:
           avm install 0.31.1 --force
           avm use 0.31.1
           anchor --version
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
       - name: Install Node deps
         working-directory: protocol-contracts-solana
         run: |
@@ -59,6 +64,7 @@ jobs:
       - name: Anchor build (no validator)
         working-directory: protocol-contracts-solana
         run: |
+          anchor clean || true
           anchor build
       - name: Run TS tests
         working-directory: protocol-contracts-solana

@@ -12,6 +12,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: bpfel-unknown-unknown
       - name: Install system dependencies
         run: |
           set -euo pipefail
@@ -42,7 +44,10 @@ jobs:
           avm install 0.31.1 --force
           avm use 0.31.1
           anchor --version
+          echo "${HOME}/.avm/bin" >> "$GITHUB_PATH"
+          which anchor
       - name: Build program
         working-directory: protocol-contracts-solana
         run: |
+          anchor clean || true
           anchor build
