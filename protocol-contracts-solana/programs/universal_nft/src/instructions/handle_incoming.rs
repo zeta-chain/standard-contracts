@@ -7,6 +7,7 @@ use mpl_token_metadata::{
 };
 
 use crate::state::nft_origin::{NftOrigin, CrossChainNftPayload};
+use crate::state::gateway::GatewayConfig;
 use crate::state::replay::ReplayMarker;
 use crate::utils::{derive_master_edition_pda, derive_metadata_pda, derive_nft_origin_pda, derive_replay_marker_pda};
 
@@ -36,8 +37,8 @@ pub struct HandleIncoming<'info> {
     /// CHECK: master edition PDA
     #[account(mut)]
     pub master_edition: UncheckedAccount<'info>,
-    /// CHECK: gateway signer for verification
-    pub gateway_signer: UncheckedAccount<'info>,
+    /// CHECK: gateway program config PDA
+    pub gateway_config: UncheckedAccount<'info>,
     /// CHECK: replay marker account
     #[account(mut)]
     pub replay_marker: UncheckedAccount<'info>,
@@ -47,16 +48,14 @@ pub struct HandleIncoming<'info> {
     pub rent: Sysvar<'info, Rent>,
 }
 
-fn expected_gateway_key() -> Pubkey {
-    // Placeholder; should be set via config or PDA
-    Pubkey::default()
-}
-
 pub fn handler(ctx: Context<HandleIncoming>, payload: Vec<u8>) -> Result<()> {
     let clock = Clock::get()?;
 
-    // Verify gateway signer (placeholder check)
-    require_keys_eq!(ctx.accounts.gateway_signer.key(), expected_gateway_key(), ErrorCode::UnauthorizedGateway);
+    // Load gateway config from PDA and verify signer program id from payload origin (out-of-band)
+    let (cfg_pda, _bump) = Pubkey::find_program_address(&[GatewayConfig::SEED], &crate::ID);
+    require_keys_eq!(ctx.accounts.gateway_config.key(), cfg_pda, ErrorCode::UnauthorizedGateway);
+    let data = ctx.accounts.gateway_config.try_borrow_data()?;
+    let cfg = GatewayConfig::try_from_slice(&data[8..]).map_err(|_| ErrorCode::UnauthorizedGateway)?;
 
     // Deserialize payload
     let p: CrossChainNftPayload = CrossChainNftPayload::try_from_slice(&payload)
