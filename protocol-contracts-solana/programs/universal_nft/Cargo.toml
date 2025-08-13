@@ -18,7 +18,7 @@ anchor-lang = "0.31.1"
 anchor-spl = { version = "0.31.1", features = ["token", "associated_token"] }
 # Use anchor_lang::solana_program to avoid version conflicts
 # solana-program dependency removed per Anchor warning
-mpl-token-metadata = "5.1.0"
+mpl-token-metadata = "3.4.0"
 sha2 = "0.10"
 hex = "0.4"
 
