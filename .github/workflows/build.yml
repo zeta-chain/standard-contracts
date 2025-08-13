@@ -36,18 +36,7 @@ jobs:
           echo "$PWD/solana-release/bin" >> "$GITHUB_PATH"
           solana --version
 
-      # Init local validator and wallet
-      - name: Init local validator and wallet
-        run: |
-          set -euo pipefail
-          mkdir -p ~/.config/solana
-          solana-keygen new --no-bip39-passphrase -f -s
-          solana config set --url http://127.0.0.1:8899
-          nohup solana-test-validator --reset --quiet >/dev/null 2>&1 &
-          sleep 15
-          solana cluster-version
-
-      # Install Anchor CLI v0.31.1 via crates.io
+      # Install Anchor CLI v0.31.1 via crates.io (replaces AVM)
       - name: Install Anchor CLI v0.31.1
         run: |
           set -euxo pipefail
