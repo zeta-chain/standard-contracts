@@ -47,8 +47,8 @@ jobs:
           sleep 15
           solana cluster-version
 
-      # Install Anchor via AVM pre-built binary
-      - name: Install Anchor via AVM (0.31.1)
+      # Install Anchor via AVM (pre-built binary from GitHub release)
+      - name: Install Anchor via AVM
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
