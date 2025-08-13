@@ -11,27 +11,32 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Setup Rust
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: stable
-          profile: minimal
-          override: true
+          components: rustfmt, clippy
+      - name: Install Solana CLI (with retry)
+        run: |
+          set -euo pipefail
+          curl --retry 5 --retry-delay 2 -sSfL https://release.solana.com/stable/install | sh -s -
+          echo "$HOME/.local/share/solana/install/active_release/bin" >> "$GITHUB_PATH"
+          solana --version
       - name: Install anchor via avm
         run: |
-          sudo apt-get update && sudo apt-get install -y pkg-config libssl-dev nodejs npm
-          cargo install --git https://github.com/coral-xyz/anchor avm --locked
-          echo "C:\Users\ashut/.cargo/bin" >> 
+          sudo apt-get update && sudo apt-get install -y pkg-config libssl-dev nodejs npm curl
+          cargo install --git https://github.com/coral-xyz/anchor avm --locked --force
+          echo "${HOME}/.cargo/bin" >> "$GITHUB_PATH"
           avm install latest
           avm use latest
+          anchor --version
       - name: Install Node deps
         working-directory: protocol-contracts-solana
         run: |
           npm ci || npm i
-      - name: Run TS tests
-        working-directory: protocol-contracts-solana
-        run: |
-          npm test --silent
       - name: Anchor build (no validator)
         working-directory: protocol-contracts-solana
         run: |
           anchor build
+      - name: Run TS tests
+        working-directory: protocol-contracts-solana
+        run: |
+          npm test --silent
