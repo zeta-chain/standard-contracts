@@ -26,7 +26,7 @@ jobs:
           export PATH="$PWD/solana-release/bin:$PATH"
           echo "$PWD/solana-release/bin" >> "$GITHUB_PATH"
           solana --version
-      - name: Install anchor via avm (0.31.1) and cargo-build-sbf
+      - name: Install anchor via avm (0.31.1)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -42,7 +42,6 @@ jobs:
           avm install 0.31.1 --force
           avm use 0.31.1
           anchor --version
-          cargo install cargo-build-sbf --locked --force
       - name: Build program
         working-directory: protocol-contracts-solana
         run: |

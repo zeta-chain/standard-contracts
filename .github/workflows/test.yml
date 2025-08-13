@@ -36,7 +36,7 @@ jobs:
           solana config set --url http://127.0.0.1:8899
           nohup solana-test-validator --reset --quiet >/dev/null 2>&1 &
           sleep 5
-      - name: Install anchor via avm (0.31.1) and cargo-build-sbf
+      - name: Install anchor via avm (0.31.1)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -52,7 +52,6 @@ jobs:
           avm install 0.31.1 --force
           avm use 0.31.1
           anchor --version
-          cargo install cargo-build-sbf --locked --force
       - name: Install Node deps
         working-directory: protocol-contracts-solana
         run: |
