@@ -58,4 +58,5 @@ jobs:
           git rm -f --cached Cargo.lock || true
           rm -f Cargo.lock || true
           anchor clean || true
-          anchor build
+          rustup override set stable
+          RUSTUP_TOOLCHAIN=stable anchor build
