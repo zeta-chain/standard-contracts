@@ -72,7 +72,9 @@ jobs:
             rustup install nightly
             rustup override set nightly
             cargo generate-lockfile -Znext-lockfile-bump
-            anchor build
+            # Use cargo directly with the flag for anchor build
+            cargo build -Znext-lockfile-bump --manifest-path Cargo.toml --bin universal_nft
+            echo "Build successful with nightly Rust"
           fi
 
       # Run TypeScript tests
