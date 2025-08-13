@@ -66,6 +66,7 @@ jobs:
       - name: Anchor build (no validator)
         working-directory: protocol-contracts-solana
         run: |
+          git rm -f --cached Cargo.lock || true
           rm -f Cargo.lock || true
           anchor clean || true
           anchor build
