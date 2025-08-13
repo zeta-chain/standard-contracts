@@ -25,13 +25,16 @@ jobs:
           curl --retry 5 --retry-delay 2 -sSfL https://release.solana.com/stable/install | sh -s -
           echo "$HOME/.local/share/solana/install/active_release/bin" >> "$GITHUB_PATH"
           solana --version
-      - name: Install anchor via avm
+      - name: Install anchor via avm (0.30.1) and cargo-build-sbf
         run: |
+          set -euo pipefail
           sudo apt-get update && sudo apt-get install -y pkg-config libssl-dev nodejs npm curl
           cargo install --git https://github.com/coral-xyz/anchor avm --locked --force
           echo "${HOME}/.cargo/bin" >> "$GITHUB_PATH"
-          avm install latest
-          avm use latest
+          rm -f "${HOME}/.cargo/bin/anchor" || true
+          avm install 0.30.1
+          avm use 0.30.1
+          cargo install cargo-build-sbf --locked --force
           anchor --version
       - name: Install Node deps
         working-directory: protocol-contracts-solana
