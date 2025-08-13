@@ -1,0 +1,13 @@
+
+[programs.localnet]
+zetamint = "NFTBridge11111111111111111111111111111111111"
+
+[registry]
+url = "https://anchor.projectserum.com"
+
+[provider]
+cluster = "localnet"
+wallet = "~/.config/solana/id.json"
+
+[scripts]
+test = "mocha -t 1000000 tests/"
