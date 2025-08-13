@@ -48,5 +48,6 @@ jobs:
       - name: Build program
         working-directory: protocol-contracts-solana
         run: |
+          rm -f Cargo.lock || true
           anchor clean || true
           anchor build

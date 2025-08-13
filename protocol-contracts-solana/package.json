@@ -11,7 +11,7 @@
     "fmt": "cargo fmt --all"
   },
   "dependencies": {
-    "@coral-xyz/anchor": "^0.30.1",
+    "@coral-xyz/anchor": "^0.31.1",
     "@solana/spl-token": "^0.4.0",
     "@solana/web3.js": "^1.90.0",
     "@metaplex-foundation/mpl-token-metadata": "^5.1.0",

@@ -62,9 +62,11 @@ jobs:
         working-directory: protocol-contracts-solana
         run: |
           npm ci || npm i
+          jq -r .dependencies < package.json || true
       - name: Anchor build (no validator)
         working-directory: protocol-contracts-solana
         run: |
+          rm -f Cargo.lock || true
           anchor clean || true
           anchor build
       - name: Run TS tests
