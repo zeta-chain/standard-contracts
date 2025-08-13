@@ -10,15 +10,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - name: Setup Rust (1.69.0 for lockfile v3)
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: "1.69.0"
+
       - name: Install system dependencies
         run: |
           set -euo pipefail
           sudo apt-get update
-          sudo apt-get install -y pkg-config libssl-dev libudev-dev libusb-1.0-0-dev curl
+          sudo apt-get install -y pkg-config libssl-dev libudev-dev libusb-1.0-0-dev curl nodejs npm
+
       - name: Install Solana CLI (GitHub fallback)
         run: |
           set -euo pipefail
@@ -28,26 +31,19 @@ jobs:
           export PATH="$PWD/solana-release/bin:$PATH"
           echo "$PWD/solana-release/bin" >> "$GITHUB_PATH"
           solana --version
-      - name: Install anchor via avm (0.31.1)
+
+      - name: Install Anchor via AVM (0.31.1 pre-built binary)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euxo pipefail
-          sudo apt-get update && sudo apt-get install -y pkg-config libssl-dev curl
-          cargo install avm --version 0.31.1 --locked --force
-          echo "${HOME}/.cargo/bin" >> "$GITHUB_PATH"
-          echo "${HOME}/.avm/bin" >> "$GITHUB_PATH"
-          which anchor || true
-          if command -v anchor >/dev/null 2>&1; then rm -f "$(command -v anchor)" || true; fi
-          rm -f "${HOME}/.cargo/bin/anchor" || true
-          avm --version
-          avm install 0.31.1 --force
+          mkdir -p ~/.avm/bin
+          curl -sSfL https://github.com/coral-xyz/anchor/releases/download/v0.31.1/avm-linux-x86_64.tar.gz | tar -xz -C ~/.avm/bin
+          export PATH="$HOME/.avm/bin:$PATH"
+          echo "$HOME/.avm/bin" >> "$GITHUB_PATH"
           avm use 0.31.1
           anchor --version
-          echo "${HOME}/.avm/bin" >> "$GITHUB_PATH"
-          export PATH="$HOME/.avm/bin:$PATH"
-          which anchor
-      # Using Rust 1.69.0 from the setup step above
+
       - name: Build program
         working-directory: protocol-contracts-solana
         run: |

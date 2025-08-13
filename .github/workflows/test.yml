@@ -1,4 +1,4 @@
-﻿name: Test (Anchor + Node)
+﻿name: Build & Test (Anchor + Node)
 
 on:
   pull_request:
@@ -6,23 +6,26 @@ on:
     branches: [ feat/universal-nft-solana ]
 
 jobs:
-  test:
+  build-and-test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
+      # Setup Rust
       - name: Setup Rust (1.69.0 for lockfile v3)
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: "1.69.0"
           components: rustfmt, clippy
 
+      # Install system dependencies
       - name: Install system dependencies
         run: |
           set -euo pipefail
           sudo apt-get update
           sudo apt-get install -y pkg-config libssl-dev libudev-dev libusb-1.0-0-dev curl nodejs npm
 
+      # Install Solana CLI
       - name: Install Solana CLI (GitHub fallback)
         run: |
           set -euo pipefail
@@ -33,6 +36,7 @@ jobs:
           echo "$PWD/solana-release/bin" >> "$GITHUB_PATH"
           solana --version
 
+      # Init local validator and wallet
       - name: Init local validator and wallet
         run: |
           set -euo pipefail
@@ -43,7 +47,8 @@ jobs:
           sleep 15
           solana cluster-version
 
-      - name: Install Anchor via AVM (0.31.1 pre-built binary)
+      # Install Anchor via AVM pre-built binary
+      - name: Install Anchor via AVM (0.31.1)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -55,17 +60,20 @@ jobs:
           avm use 0.31.1
           anchor --version
 
+      # Setup Node
       - uses: actions/setup-node@v4
         with:
           node-version: 20
 
+      # Install Node dependencies
       - name: Install Node deps
         working-directory: protocol-contracts-solana
         run: |
           npm ci || npm i
           jq -r .dependencies < package.json || true
 
-      - name: Anchor build (no validator)
+      # Anchor build (no validator)
+      - name: Anchor build
         working-directory: protocol-contracts-solana
         run: |
           git rm -f --cached Cargo.lock || true
@@ -75,6 +83,7 @@ jobs:
           cargo generate-lockfile
           RUSTUP_TOOLCHAIN=1.69.0 anchor build
 
+      # Run TypeScript tests
       - name: Run TS tests
         working-directory: protocol-contracts-solana
         run: |
