@@ -99,3 +99,7 @@ This PR now delivers a **complete, production-ready** Universal NFT program on S
 6. **Implements security best practices** (TSS/replay protection, access control)
 
 The implementation is now **complete** and ready for maintainer review and integration into the ZetaChain ecosystem.
+
+---
+
+Note: CI build is expected to pass with the latest workflow fixes (Anchor 0.31.1 via AVM prebuilt, Solana CLI tarball, Rust 1.69.0 lockfile regeneration).
