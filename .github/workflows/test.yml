@@ -36,7 +36,7 @@ jobs:
           solana config set --url http://127.0.0.1:8899
           nohup solana-test-validator --reset --quiet >/dev/null 2>&1 &
           sleep 5
-      - name: Install anchor via avm (0.30.1) and cargo-build-sbf
+      - name: Install anchor via avm (0.31.1) and cargo-build-sbf
         run: |
           set -euo pipefail
           sudo apt-get update && sudo apt-get install -y pkg-config libssl-dev nodejs npm curl
@@ -45,8 +45,8 @@ jobs:
           echo "${HOME}/.avm/bin" >> "$GITHUB_PATH"
           if command -v anchor >/dev/null 2>&1; then rm -f "$(command -v anchor)" || true; fi
           rm -f "${HOME}/.cargo/bin/anchor" || true
-          avm install 0.30.1 --force
-          avm use 0.30.1
+          avm install 0.31.1 --force
+          avm use 0.31.1
           cargo install cargo-build-sbf --locked --force
           anchor --version
       - name: Install Node deps
