@@ -47,15 +47,11 @@ jobs:
           sleep 15
           solana cluster-version
 
-      # Install Anchor via pre-built AVM binary
-      - name: Install Anchor via AVM
+      # Install Anchor CLI v0.31.1 using Cargo
+      - name: Install Anchor CLI v0.31.1
         run: |
           set -euxo pipefail
-          mkdir -p ~/.avm/bin
-          curl -sSfL https://github.com/coral-xyz/anchor/releases/download/v0.31.1/avm-linux-x86_64.tar.gz | tar -xz -C ~/.avm/bin
-          export PATH="$HOME/.avm/bin:$PATH"
-          echo "$HOME/.avm/bin" >> "$GITHUB_PATH"
-          avm use 0.31.1
+          cargo install --git https://github.com/coral-xyz/anchor --tag v0.31.1 --locked --force
           anchor --version
 
       # Setup Node
