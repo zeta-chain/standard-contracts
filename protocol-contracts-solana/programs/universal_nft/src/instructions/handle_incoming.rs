@@ -1,15 +1,11 @@
 ﻿use anchor_lang::prelude::*;
 use anchor_spl::associated_token::AssociatedToken;
 use anchor_spl::token::{Mint, Token, TokenAccount};
-use mpl_token_metadata::{
-    instruction as mpl_instruction,
-    state::{Creator, DataV2},
-};
 
 use crate::state::nft_origin::{NftOrigin, CrossChainNftPayload};
 use crate::state::gateway::GatewayConfig;
 use crate::state::replay::ReplayMarker;
-use crate::utils::{derive_master_edition_pda, derive_metadata_pda, derive_nft_origin_pda, derive_replay_marker_pda};
+use crate::utils::{derive_nft_origin_pda, derive_replay_marker_pda};
 
 #[derive(Accounts)]
 pub struct HandleIncoming<'info> {
@@ -31,12 +27,6 @@ pub struct HandleIncoming<'info> {
         associated_token::authority = recipient
     )]
     pub recipient_token_account: Account<'info, TokenAccount>,
-    /// CHECK: metadata PDA
-    #[account(mut)]
-    pub metadata: UncheckedAccount<'info>,
-    /// CHECK: master edition PDA
-    #[account(mut)]
-    pub master_edition: UncheckedAccount<'info>,
     /// CHECK: gateway program config PDA
     pub gateway_config: UncheckedAccount<'info>,
     /// CHECK: replay marker account
@@ -85,70 +75,17 @@ pub fn handler(ctx: Context<HandleIncoming>, payload: Vec<u8>) -> Result<()> {
         &[&[ReplayMarker::SEED, &p.token_id, &p.nonce.to_le_bytes(), &[bump]]],
     )?;
 
-    // Derive metadata PDAs
-    let (metadata_pda, _) = derive_metadata_pda(&ctx.accounts.mint.key());
-    let (master_edition_pda, _) = derive_master_edition_pda(&ctx.accounts.mint.key());
-
-    let data_v2 = DataV2 {
-        name: format!("Universal NFT #{}", hex::encode(&p.token_id[..8])),
-        symbol: "UNFT".to_string(),
-        uri: p.metadata_uri.clone(),
-        seller_fee_basis_points: 0,
-        creators: Some(vec![Creator { address: ctx.accounts.payer.key(), verified: true, share: 100 }]),
-        collection: None,
-        uses: None,
+    // Write replay marker
+    let marker = ReplayMarker {
+        token_id: p.token_id,
+        nonce: p.nonce,
+        created_at: clock.unix_timestamp,
+        bump,
     };
+    let mut data = ctx.accounts.replay_marker.try_borrow_mut_data()?;
+    marker.try_serialize(&mut &mut data[..])?;
 
-    // Create metadata
-    let ix_meta = mpl_instruction::create_metadata_accounts_v3(
-        mpl_token_metadata::ID,
-        metadata_pda,
-        ctx.accounts.mint.key(),
-        ctx.accounts.payer.key(),
-        ctx.accounts.payer.key(),
-        ctx.accounts.payer.key(),
-        data_v2,
-        true,
-        None,
-        None,
-        None,
-    );
-    anchor_lang::solana_program::program::invoke(
-        &ix_meta,
-        &[
-            ctx.accounts.metadata.to_account_info(),
-            ctx.accounts.mint.to_account_info(),
-            ctx.accounts.payer.to_account_info(),
-            ctx.accounts.system_program.to_account_info(),
-            ctx.accounts.rent.to_account_info(),
-        ],
-    )?;
-
-    // Create master edition
-    let ix_edition = mpl_instruction::create_master_edition_v3(
-        mpl_token_metadata::ID,
-        master_edition_pda,
-        ctx.accounts.mint.key(),
-        ctx.accounts.payer.key(),
-        ctx.accounts.payer.key(),
-        ctx.accounts.payer.key(),
-        metadata_pda,
-        Some(0),
-    );
-    anchor_lang::solana_program::program::invoke(
-        &ix_edition,
-        &[
-            ctx.accounts.master_edition.to_account_info(),
-            ctx.accounts.mint.to_account_info(),
-            ctx.accounts.payer.to_account_info(),
-            ctx.accounts.metadata.to_account_info(),
-            ctx.accounts.token_program.to_account_info(),
-            ctx.accounts.system_program.to_account_info(),
-            ctx.accounts.rent.to_account_info(),
-        ],
-    )?;
-
-    // Mint 1 token to the recipient
+    // Mint 1 token to recipient
     anchor_spl::token::mint_to(
         CpiContext::new(
             ctx.accounts.token_program.to_account_info(),
@@ -161,63 +98,75 @@ pub fn handler(ctx: Context<HandleIncoming>, payload: Vec<u8>) -> Result<()> {
         1,
     )?;
 
-    // Create/Update nft_origin PDA (create if missing)
-    let (nft_origin_pda, bump) = derive_nft_origin_pda(&p.token_id);
-    let space = 8 + NftOrigin::LEN;
-    let lamports = Rent::get()?.minimum_balance(space);
-    anchor_lang::solana_program::program::invoke_signed(
-        &anchor_lang::solana_program::system_instruction::create_account(
-            &ctx.accounts.payer.key(),
-            &nft_origin_pda,
-            lamports,
-            space as u64,
-            &crate::ID,
-        ),
-        &[
-            ctx.accounts.payer.to_account_info(),
-            AccountInfo::new_readonly(&nft_origin_pda, false),
-            ctx.accounts.system_program.to_account_info(),
-        ],
-        &[&[NftOrigin::SEED, &p.token_id, &[bump]]],
-    )?;
-
-    // Serialize NftOrigin
-    let origin = NftOrigin {
+    // Create or update nft_origin PDA
+    let (nft_origin_pda, nft_origin_bump) = derive_nft_origin_pda(&p.token_id);
+    
+    let nft_origin = NftOrigin {
         origin_chain: p.origin_chain_id,
         origin_token_id: p.token_id,
         origin_mint: p.origin_mint,
         metadata_uri: p.metadata_uri,
         created_at: clock.unix_timestamp,
-        bump,
+        bump: nft_origin_bump,
     };
-    let mut ai = AccountInfo::new(&nft_origin_pda, false, true, &mut [], &crate::ID, false, 0);
-    let mut data = ai.try_borrow_mut_data()?;
-    origin.try_serialize(&mut &mut data[..])?;
 
+    // Create the nft_origin account if it doesn't exist
+    if ctx.accounts.payer.key() != &nft_origin_pda {
+        anchor_lang::solana_program::program::invoke_signed(
+            &anchor_lang::solana_program::system_instruction::create_account(
+                &ctx.accounts.payer.key(),
+                &nft_origin_pda,
+                Rent::get()?.minimum_balance(NftOrigin::LEN),
+                NftOrigin::LEN as u64,
+                &crate::ID,
+            ),
+            &[
+                ctx.accounts.payer.to_account_info(),
+                ctx.accounts.system_program.to_account_info(),
+            ],
+            &[&[NftOrigin::SEED, &p.token_id, &[nft_origin_bump]]],
+        )?;
+    }
+
+    // Initialize the nft_origin account with data
+    let mut nft_origin_account = anchor_lang::solana_program::account_info::AccountInfo::try_from(&nft_origin_pda)?;
+    let mut data = nft_origin_account.try_borrow_mut_data()?;
+    nft_origin.try_serialize(&mut &mut data[..])?;
+
+    // Emit cross-chain mint event
     emit!(CrossChainMintEvent {
         token_id: p.token_id,
         origin_chain: p.origin_chain_id,
-        new_mint: ctx.accounts.mint.key(),
         recipient: p.recipient,
+        nonce: p.nonce,
         timestamp: clock.unix_timestamp,
     });
+
+    msg!("Minted Universal NFT from cross-chain transfer");
+    msg!("Token ID: {}", hex::encode(&p.token_id[..8]));
+    msg!("Origin Chain: {}", p.origin_chain_id);
+    msg!("Recipient: {}", p.recipient);
 
     Ok(())
 }
 
-#[event]
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug, PartialEq, Eq)]
 pub struct CrossChainMintEvent {
     pub token_id: [u8; 32],
     pub origin_chain: u16,
-    pub new_mint: Pubkey,
     pub recipient: Pubkey,
+    pub nonce: u64,
     pub timestamp: i64,
 }
 
 #[error_code]
 pub enum ErrorCode {
-    #[msg("Invalid payload format")] InvalidPayload,
-    #[msg("Unauthorized gateway")] UnauthorizedGateway,
-    #[msg("Replay attack")] ReplayAttack,
-    #[msg("Replay PDA mismatch")] ReplayPdaMismatch,
+    #[msg("Unauthorized gateway")]
+    UnauthorizedGateway,
+    #[msg("Invalid payload")]
+    InvalidPayload,
+    #[msg("Replay attack detected")]
+    ReplayAttack,
+    #[msg("Replay PDA mismatch")]
+    ReplayPdaMismatch,
 }
