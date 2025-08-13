@@ -17,6 +17,14 @@ jobs:
           set -euo pipefail
           sudo apt-get update
           sudo apt-get install -y pkg-config libssl-dev libudev-dev libusb-1.0-0-dev curl
+      - name: Install Solana CLI (GitHub fallback)
+        run: |
+          set -euo pipefail
+          ver=v1.18.26
+          curl -sSfL https://github.com/solana-labs/solana/releases/download/${ver}/solana-release-x86_64-unknown-linux-gnu.tar.bz2 -o solana.tar.bz2
+          tar -xjf solana.tar.bz2
+          echo "$PWD/solana-release/bin" >> "$GITHUB_PATH"
+          solana --version
       - name: Install anchor via avm (0.30.1) and cargo-build-sbf
         run: |
           set -euo pipefail
