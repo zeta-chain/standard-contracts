@@ -11,17 +11,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Setup Rust 1.69.0
       - name: Setup Rust (1.69.0 for lockfile v3)
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: "1.69.0"
 
+      # Install system dependencies
       - name: Install system dependencies
         run: |
           set -euo pipefail
           sudo apt-get update
           sudo apt-get install -y pkg-config libssl-dev libudev-dev libusb-1.0-0-dev curl nodejs npm
 
+      # Install Solana CLI
       - name: Install Solana CLI (GitHub fallback)
         run: |
           set -euo pipefail
@@ -32,18 +35,22 @@ jobs:
           echo "$PWD/solana-release/bin" >> "$GITHUB_PATH"
           solana --version
 
-      - name: Install Anchor via AVM (0.31.1 pre-built binary)
+      # Install Anchor via AVM from GitHub
+      - name: Install Anchor via AVM
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euxo pipefail
-          mkdir -p ~/.avm/bin
-          curl -sSfL https://github.com/coral-xyz/anchor/releases/download/v0.31.1/avm-linux-x86_64.tar.gz | tar -xz -C ~/.avm/bin
-          export PATH="$HOME/.avm/bin:$PATH"
-          echo "$HOME/.avm/bin" >> "$GITHUB_PATH"
+          sudo apt-get update && sudo apt-get install -y pkg-config libssl-dev curl
+          cargo install --git https://github.com/coral-xyz/anchor avm --locked --force
+          echo "${HOME}/.cargo/bin" >> "$GITHUB_PATH"
+          export PATH="$HOME/.cargo/bin:$PATH"
+          avm --version
+          avm install 0.31.1 --force
           avm use 0.31.1
           anchor --version
 
+      # Build Anchor program
       - name: Build program
         working-directory: protocol-contracts-solana
         run: |
