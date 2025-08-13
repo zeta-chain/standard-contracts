@@ -47,14 +47,11 @@ jobs:
           sleep 15
           solana cluster-version
 
-      # Build Anchor CLI locally (v0.31.1)
-      - name: Build Anchor CLI locally
+      # Install Anchor CLI v0.31.1 via crates.io
+      - name: Install Anchor CLI v0.31.1
         run: |
           set -euxo pipefail
-          git clone --branch v0.31.1 https://github.com/coral-xyz/anchor.git
-          cd anchor
-          cargo build --release -p anchor-cli
-          export PATH="$PWD/target/release:$PATH"
+          cargo install anchor-cli --version 0.31.1 --force
           anchor --version
 
       # Setup Node
