@@ -10,9 +10,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Setup Rust
+      - name: Setup Rust (1.69.0 for lockfile v3)
         uses: dtolnay/rust-toolchain@stable
         with:
+          toolchain: "1.69.0"
           components: rustfmt, clippy
       - name: Install system dependencies
         run: |
@@ -55,13 +56,7 @@ jobs:
           anchor --version
           export PATH="$HOME/.avm/bin:$PATH"
           which anchor
-      - name: Ensure stable Rust toolchain
-        run: |
-          set -euxo pipefail
-          rustup update stable
-          rustup default stable
-          rustc --version
-          cargo --version
+      # Using Rust 1.69.0 from the setup step above
       - uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -76,9 +71,9 @@ jobs:
           git rm -f --cached Cargo.lock || true
           rm -f Cargo.lock || true
           anchor clean || true
-          rustup override set stable
+          rustup override set 1.69.0
           cargo generate-lockfile
-          RUSTUP_TOOLCHAIN=stable anchor build
+          RUSTUP_TOOLCHAIN=1.69.0 anchor build
       - name: Run TS tests
         working-directory: protocol-contracts-solana
         run: |
