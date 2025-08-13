@@ -45,6 +45,13 @@ jobs:
           echo "${HOME}/.avm/bin" >> "$GITHUB_PATH"
           export PATH="$HOME/.avm/bin:$PATH"
           which anchor
+      - name: Ensure stable Rust toolchain
+        run: |
+          set -euxo pipefail
+          rustup update stable
+          rustup default stable
+          rustc --version
+          cargo --version
       - name: Build program
         working-directory: protocol-contracts-solana
         run: |

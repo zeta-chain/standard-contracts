@@ -55,6 +55,13 @@ jobs:
           anchor --version
           export PATH="$HOME/.avm/bin:$PATH"
           which anchor
+      - name: Ensure stable Rust toolchain
+        run: |
+          set -euxo pipefail
+          rustup update stable
+          rustup default stable
+          rustc --version
+          cargo --version
       - uses: actions/setup-node@v4
         with:
           node-version: 20
