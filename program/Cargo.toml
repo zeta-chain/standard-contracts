@@ -1,7 +1,6 @@
 [package]
 name = "zetamint"
 version = "0.1.0"
-description = "ZetaMint Solana Program"
 edition = "2021"
 
 [lib]
@@ -9,7 +8,16 @@ crate-type = ["cdylib", "lib"]
 name = "zetamint"
 
 [dependencies]
-anchor-lang = "0.30.0"
+anchor-lang = "0.29.0"
+anchor-spl = "0.29.0"
+mpl-token-metadata = { version = "1.10.1", features = ["no-entrypoint"] }
+solana-program = "1.18.8"
 
-[features]
-no-entrypoint = []
+[profile.release]
+# Recommended for Solana programs
+opt-level = "s"
+lto = "fat"
+codegen-units = 1
+panic = "abort"
+strip = "symbols"
+overflow-checks = true
