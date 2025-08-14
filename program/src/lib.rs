@@ -4,7 +4,7 @@ use anchor_spl::token::{self, Mint, Token, TokenAccount, MintTo, Burn};
 use mpl_token_metadata::instruction::{create_metadata_accounts_v3};
 use anchor_lang::solana_program::program::invoke_signed;
 
-declare_id!("NFTBridge11111111111111111111111111111111111");
+declare_id!("EteYkYdk3kTpHYqzc6Exrx9JqZDF2n2jw53sF318oKiU");
 
 #[program]
 pub mod zetamint {
