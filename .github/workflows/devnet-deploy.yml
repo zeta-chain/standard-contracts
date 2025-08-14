@@ -1,0 +1,102 @@
+name: Solana Devnet Build & Deploy
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feat/universal-nft-solana
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    env:
+      ANCHOR_PROVIDER_URL: https://api.devnet.solana.com
+      ANCHOR_WALLET: ${{ github.workspace }}/id.json
+      PATH: ${{ github.workspace }}/.local/share/solana/install/active_release/solana-release/bin:$PATH
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Write Solana wallet from secret
+        shell: bash
+        run: |
+          echo '${{ secrets.SOLANA_WALLET_KEY }}' > $ANCHOR_WALLET
+          chmod 600 $ANCHOR_WALLET
+
+      - name: Install Rust 1.79
+        shell: bash
+        run: |
+          rustup install 1.79.0
+          rustup override set 1.79.0
+          rustc --version
+          cargo --version
+
+      - name: Download Solana 1.18.26
+        shell: bash
+        run: |
+          mkdir -p ~/.local/share/solana/install/releases/1.18.26
+          curl -L https://github.com/solana-labs/solana/releases/download/v1.18.26/solana-release_x86_64-unknown-linux-gnu.tar.bz2 \
+            -o /tmp/solana-release.tar.bz2 || \
+          curl -L https://github.com/solana-labs/solana/releases/download/v1.18.26/solana-release-x86_64-unknown-linux-gnu.tar.bz2 \
+            -o /tmp/solana-release.tar.bz2
+          tar -xjf /tmp/solana-release.tar.bz2 -C ~/.local/share/solana/install/releases/1.18.26
+          ln -sfn ~/.local/share/solana/install/releases/1.18.26 ~/.local/share/solana/install/active_release
+          solana --version || true
+          cargo-build-sbf --version || true
+
+      - name: Create wallet if secret not provided
+        shell: bash
+        run: |
+          if [ ! -s "$ANCHOR_WALLET" ]; then
+            echo "No SOLANA_WALLET_KEY secret provided; generating ephemeral devnet keypair"
+            solana-keygen new --no-bip39-passphrase --outfile "$ANCHOR_WALLET" --force
+            chmod 600 "$ANCHOR_WALLET"
+          fi
+          solana config set --url https://api.devnet.solana.com >/dev/null 2>&1 || true
+          solana address -k "$ANCHOR_WALLET"
+
+      - name: Install Anchor CLI
+        shell: bash
+        run: |
+          cargo install --git https://github.com/coral-xyz/anchor anchor-cli --locked
+          anchor --version
+
+      - name: Clean previous builds
+        working-directory: standard-contracts/protocol-contracts-solana
+        shell: bash
+        run: anchor clean
+
+      - name: Build Solana program (Rust 1.79)
+        working-directory: standard-contracts/protocol-contracts-solana
+        shell: bash
+        run: |
+          cargo-build-sbf --version
+          cargo +1.79.0 --version
+          cargo-build-sbf --manifest-path programs/universal_nft/Cargo.toml --sbf-out-dir target/deploy
+
+      - name: List deploy artifacts
+        working-directory: standard-contracts/protocol-contracts-solana
+        shell: bash
+        run: ls -l target/deploy || true
+
+      - name: Deploy to Devnet
+        working-directory: standard-contracts/protocol-contracts-solana
+        shell: bash
+        run: anchor deploy --provider.cluster devnet
+
+      - name: Print deployed program address
+        working-directory: standard-contracts/protocol-contracts-solana
+        shell: bash
+        run: solana address -k target/deploy/universal_nft-keypair.json
+
+      - name: Upload program artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: universal_nft_artifacts
+          path: |
+            standard-contracts/protocol-contracts-solana/target/deploy/universal_nft.so
+            standard-contracts/protocol-contracts-solana/target/deploy/universal_nft-keypair.json
+          if-no-files-found: warn
+
+
