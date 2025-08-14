@@ -1,4 +1,4 @@
-
+# Anchor configuration
 [programs.localnet]
 zetamint = "EteYkYdk3kTpHYqzc6Exrx9JqZDF2n2jw53sF318oKiU"
 
@@ -10,4 +10,6 @@ cluster = "localnet"
 wallet = "~/.config/solana/id.json"
 
 [scripts]
-test = "mocha -t 1000000 tests/"
+# If you have mocha JS tests at repo root: tests/*.ts
+# Otherwise, adjust to `anchor test` or remove this section.
+test = "yarn run mocha"
