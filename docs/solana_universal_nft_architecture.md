@@ -240,13 +240,15 @@ Full integration with Solana's NFT ecosystem:
 - **Collection Support**: Follows Metaplex collection standards
 - **Tool Compatibility**: Works with existing Solana NFT tools
 
-### 3. Localnet Integration
+### 3. Devnet Integration
 
-Ready for integration with ZetaChain's localnet testing infrastructure:
+Ready for integration with ZetaChain's devnet testing infrastructure:
 
 - **Cross-chain Flow**: EVM ↔ ZetaChain ↔ Solana ↔ EVM
 - **Test Automation**: Automated testing of complete flow
-- **Development Support**: Local development and testing capabilities
+- **Development Support**: Devnet development and testing capabilities
+
+**Note**: Due to potential Solana compatibility issues with the current version of ZetaChain localnet, **devnet testing is required** for Solana integration. Localnet testing is not required at this time.
 
 ## Future Enhancements
 

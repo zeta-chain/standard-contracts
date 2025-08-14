@@ -3,3 +3,4 @@ export { nftMint } from "./mint";
 export { nftTransfer } from "./transfer";
 export { nftSetConnected } from "./setConnected";
 export { nftDeploy } from "./deploy";
+export { printNet } from "./print";

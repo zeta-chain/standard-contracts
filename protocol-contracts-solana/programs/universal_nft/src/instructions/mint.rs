@@ -26,6 +26,14 @@ pub struct MintNewNft<'info> {
         associated_token::authority = recipient
     )]
     pub recipient_token_account: Account<'info, TokenAccount>,
+    #[account(
+        init,
+        payer = payer,
+        space = NftOrigin::LEN,
+        seeds = [b"nft_origin", &mint.key().to_bytes()[..8]], // Use first 8 bytes of mint key
+        bump
+    )]
+    pub nft_origin: Account<'info, NftOrigin>,
     pub token_program: Program<'info, Token>,
     pub associated_token_program: Program<'info, AssociatedToken>,
     pub system_program: Program<'info, System>,
@@ -71,26 +79,9 @@ pub fn handler(ctx: Context<MintNewNft>, metadata_uri: String) -> Result<()> {
         bump: nft_origin_bump,
     };
 
-    // Create the nft_origin account
-    anchor_lang::solana_program::program::invoke_signed(
-        &anchor_lang::solana_program::system_instruction::create_account(
-            &ctx.accounts.payer.key(),
-            &nft_origin_pda,
-            Rent::get()?.minimum_balance(NftOrigin::LEN),
-            NftOrigin::LEN as u64,
-            &crate::ID,
-        ),
-        &[
-            ctx.accounts.payer.to_account_info(),
-            ctx.accounts.system_program.to_account_info(),
-        ],
-        &[&[NftOrigin::SEED, &token_id, &[nft_origin_bump]]],
-    )?;
-
-    // Initialize the nft_origin account with data
-    let mut nft_origin_account = anchor_lang::solana_program::account_info::AccountInfo::try_from(&nft_origin_pda)?;
-    let mut data = nft_origin_account.try_borrow_mut_data()?;
-    nft_origin.try_serialize(&mut &mut data[..])?;
+    // Create the nft_origin account using Anchor's account initialization
+    let nft_origin_account = &mut ctx.accounts.nft_origin;
+    **nft_origin_account = nft_origin.clone();
 
     msg!("Minted Universal NFT with token ID: {}", hex::encode(&token_id[..8]));
     msg!("Metadata URI: {}", nft_origin.metadata_uri);

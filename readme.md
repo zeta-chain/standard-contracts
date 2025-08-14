@@ -1,5 +1,7 @@
 # ZetaChain Standard Contracts 🚀
 
+> **⚠️ Important**: For Solana integration, please read [DEVNET_TESTING_NOTICE.md](../DEVNET_TESTING_NOTICE.md) - the current version of ZetaChain localnet may be buggy with Solana.
+
 ZetaChain Standard Contracts enable cross-chain-ready ERC-721 (NFT) and ERC-20
 (Token) deployments. By using ZetaChain as a hub, your tokens and NFTs can move
 seamlessly between multiple EVM chains.

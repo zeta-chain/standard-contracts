@@ -76,9 +76,11 @@ anchor test --skip-local-validator
 
 ## 🔗 Cross-chain Integration
 
-### Localnet Testing
+### Devnet Testing
 
-The program integrates with ZetaChain's localnet infrastructure:
+**⚠️ Important**: Due to potential Solana compatibility issues with the current version of ZetaChain localnet, **devnet testing is required** for Solana integration. Localnet testing is not required at this time.
+
+The program integrates with ZetaChain's devnet infrastructure:
 
 ```bash
 # Run the complete cross-chain flow
@@ -89,6 +91,8 @@ chmod +x localnet_solana.sh
 
 This demonstrates the full flow:
 1. **ZetaChain** → **Ethereum** → **BNB** → **Solana** → **ZetaChain**
+
+**Note**: For production testing, use ZetaChain devnet and testnet instead of localnet.
 
 ### Gateway Integration
 

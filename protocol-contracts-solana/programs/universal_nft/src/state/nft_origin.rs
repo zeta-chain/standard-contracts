@@ -1,7 +1,6 @@
 ﻿use anchor_lang::prelude::*;
 
 #[account]
-#[derive(AnchorSerialize, AnchorDeserialize)]
 pub struct NftOrigin {
     pub origin_chain: u16,
     pub origin_token_id: [u8; 32],

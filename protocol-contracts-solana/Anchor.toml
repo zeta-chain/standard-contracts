@@ -1,20 +1,20 @@
-﻿[features]
-seeds = false
+[toolchain]
+anchor_version = "0.31.1"
+solana_version = "1.18.26"
+
+[features]
+resolution = true
 skip-lint = false
 
-[programs.localnet]
-universal_nft = "B5o6iRGvxvC8hL5tUTjV8dmu4GwFpnfH5ZssAedNt2Yp"
+[programs.devnet]
+universal_nft = "FXFjiHkZLqR9TWdGRcYAZPvFZLSXNrfKD3rwPTPoB8Xe"
 
 [registry]
 url = "https://anchor.projectserum.com"
 
 [provider]
-cluster = "localnet"
+cluster = "devnet"
 wallet = "~/.config/solana/id.json"
-
-[toolchain]
-anchor_version = "0.31.1"
-solana_version = "1.18.26"
 
 [scripts]
 test = "ts-node --transpile-only ./tests/universal_nft.ts"

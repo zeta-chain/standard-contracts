@@ -6,7 +6,7 @@ pub mod utils;
 
 use instructions::{mint, burn, handle_incoming, setup_gateway, on_call, send_to_zeta};
 
-declare_id!("B5o6iRGvxvC8hL5tUTjV8dmu4GwFpnfH5ZssAedNt2Yp");
+declare_id!("FXFjiHkZLqR9TWdGRcYAZPvFZLSXNrfKD3rwPTPoB8Xe");
 
 #[program]
 pub mod universal_nft {

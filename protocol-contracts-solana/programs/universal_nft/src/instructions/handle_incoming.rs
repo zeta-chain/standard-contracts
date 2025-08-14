@@ -27,6 +27,14 @@ pub struct HandleIncoming<'info> {
         associated_token::authority = recipient
     )]
     pub recipient_token_account: Account<'info, TokenAccount>,
+    #[account(
+        init,
+        payer = payer,
+        space = NftOrigin::LEN,
+        seeds = [b"nft_origin", &payload[..32]], // Use first 32 bytes of payload as token_id
+        bump
+    )]
+    pub nft_origin: Account<'info, NftOrigin>,
     /// CHECK: gateway program config PDA
     pub gateway_config: UncheckedAccount<'info>,
     /// CHECK: replay marker account
@@ -110,28 +118,9 @@ pub fn handler(ctx: Context<HandleIncoming>, payload: Vec<u8>) -> Result<()> {
         bump: nft_origin_bump,
     };
 
-    // Create the nft_origin account if it doesn't exist
-    if ctx.accounts.payer.key() != &nft_origin_pda {
-        anchor_lang::solana_program::program::invoke_signed(
-            &anchor_lang::solana_program::system_instruction::create_account(
-                &ctx.accounts.payer.key(),
-                &nft_origin_pda,
-                Rent::get()?.minimum_balance(NftOrigin::LEN),
-                NftOrigin::LEN as u64,
-                &crate::ID,
-            ),
-            &[
-                ctx.accounts.payer.to_account_info(),
-                ctx.accounts.system_program.to_account_info(),
-            ],
-            &[&[NftOrigin::SEED, &p.token_id, &[nft_origin_bump]]],
-        )?;
-    }
-
-    // Initialize the nft_origin account with data
-    let mut nft_origin_account = anchor_lang::solana_program::account_info::AccountInfo::try_from(&nft_origin_pda)?;
-    let mut data = nft_origin_account.try_borrow_mut_data()?;
-    nft_origin.try_serialize(&mut &mut data[..])?;
+    // Initialize the nft_origin account using Anchor's account initialization
+    let nft_origin_account = &mut ctx.accounts.nft_origin;
+    **nft_origin_account = nft_origin;
 
     // Emit cross-chain mint event
     emit!(CrossChainMintEvent {
@@ -150,7 +139,7 @@ pub fn handler(ctx: Context<HandleIncoming>, payload: Vec<u8>) -> Result<()> {
     Ok(())
 }
 
-#[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug, PartialEq, Eq)]
+#[event]
 pub struct CrossChainMintEvent {
     pub token_id: [u8; 32],
     pub origin_chain: u16,

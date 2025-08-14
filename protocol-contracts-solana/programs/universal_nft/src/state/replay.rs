@@ -1,7 +1,6 @@
 ﻿use anchor_lang::prelude::*;
 
 #[account]
-#[derive(AnchorSerialize, AnchorDeserialize)]
 pub struct ReplayMarker {
     pub token_id: [u8; 32],
     pub nonce: u64,

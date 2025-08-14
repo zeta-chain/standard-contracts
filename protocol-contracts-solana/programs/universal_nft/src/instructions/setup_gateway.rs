@@ -36,7 +36,7 @@ pub fn handler(ctx: Context<InitializeGateway>, gateway_program: Pubkey) -> Resu
     }
 
     let mut data = ctx.accounts.gateway_config.try_borrow_mut_data()?;
-    let cfg = GatewayConfig { gateway_program, authority: ctx.accounts.authority.key(), bump };
+    let cfg = GatewayConfig { gateway_program, bump };
     cfg.try_serialize(&mut &mut data[..])?;
     Ok(())
 }
