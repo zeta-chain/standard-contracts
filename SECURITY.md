@@ -71,8 +71,16 @@ ZetaMint is built with security as a top priority, especially considering its cr
 
 ## Reporting Security Issues
 
-If you discover a vulnerability, please contact the maintainer directly via GitHub or email before disclosing it publicly.
+If you discover a vulnerability, please email **security@your-project.example** (replace with your real contact).  
+Please do **not** open a public GitHub issue.
 
----
+- We aim to acknowledge reports within **48 hours**.
+- We target an initial remediation plan within **7 days**.
+- If required, we can coordinate an embargo and credit in the changelog.
 
-Stay secure. Build decentralized. 
+## Future Improvements (roadmap)
+- On-chain allowlist/rotation policy for gateway signer keys (TSS)
+- Source-chain finality policy (e.g., min confirmations)
+- Versioned message schema with domain separation to prevent collisions
+- Rate limiting and compute budget ceilings for untrusted inputs
+

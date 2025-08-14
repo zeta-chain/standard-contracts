@@ -1,102 +1,60 @@
-# ZetaMint – Solana ↔ ZetaChain Universal NFT Program
+# ZetaChain Standard Contracts 🚀
 
-> **Mint once, roam everywhere – NFTs without borders.**
+ZetaChain Standard Contracts enable cross-chain-ready ERC-721 (NFT) and ERC-20
+(Token) deployments. By using ZetaChain as a hub, your tokens and NFTs can move
+seamlessly between multiple EVM chains.
 
-ZetaMint is a **cross-chain NFT program** built on **Solana** that enables seamless minting, burning, and transferring of NFTs across multiple blockchains using **ZetaChain's universal messaging gateway**.
+## Contents 📦
 
----
+- [Universal NFT
+  Documentation](https://www.zetachain.com/docs/developers/standards/nft/)
+- [Universal Token
+  Documentation](https://www.zetachain.com/docs/developers/standards/token/)
 
-## 🚀 Features
-- **Mint NFTs** on Solana with complete metadata (URI, title, symbol)
-- **Burn NFTs** to trigger cross-chain migration
-- Prepare **ZetaChain gateway-compatible messages**
-- Scalable, modular, and developer-friendly architecture
-- Security-first design with **replay protection** and **signer validation**
+## Installation ⚙️
 
----
-
-## 🛠 Installation
-
-### 1. Install Prerequisites
 ```bash
-anchor --version           # Requires Anchor 0.29 or higher
-solana --version           # Solana CLI
+npm install @zetachain/standard-contracts@v1.0.0-rc2
+# or
+yarn add @zetachain/standard-contracts@v1.0.0-rc2
 ```
 
-### 2. Clone and Build
-```bash
-git clone https://github.com/YOUR_USERNAME/ZetaMint.git
-cd ZetaMint
-anchor build
+## OpenZeppelin Integration 🏗️
+
+Quickly add cross-chain functionality to an existing OpenZeppelin upgradeable
+contract:
+
+### For Universal NFT:
+
+```solidity
+import "@zetachain/standard-contracts/contracts/nft/contracts/zetachain/UniversalNFTCore.sol";
 ```
 
----
+### For Universal Token:
 
-## 🧪 Local Testing
-
-### 1. Start Local Validator
-```bash
-solana-test-validator
+```solidity
+import "@zetachain/standard-contracts/contracts/token/contracts/zetachain/UniversalTokenCore.sol";
 ```
 
-### 2. Deploy the Program
-```bash
-anchor deploy
-```
+Then inherit from these in your ERC-721 or ERC-20 contract to enable cross-chain
+transfers.
 
-### 3. Run Tests (Optional)
-```bash
-anchor test
-```
+## Using ThirdWeb 🌐
 
----
+You can also deploy Universal NFTs and Tokens using
+[ThirdWeb](https://thirdweb.com/), a powerful web3 development platform. This
+allows for easy deployment and interaction with smart contracts across
+EVM-compatible blockchains.
 
-## 📂 Project Structure
-```
-ZetaMint/
-├── program/      # Anchor smart contract
-├── client/       # JavaScript client for CLI testing
-├── zetachain/    # Message decoding utilities for ZetaChain
-├── docs/         # Architecture diagrams, security notes, tutorials
-├── demo/         # Video & screenshot placeholders
-└── README.md     # Project documentation
-```
+- [Deploy Universal NFT on
+  ZetaChain](https://thirdweb.com/docs.zetachain.com/ZetaChainUniversalNFT)
+- [Deploy Universal NFT on
+  EVM](https://thirdweb.com/docs.zetachain.com/EVMUniversalNFT)
+- [Deploy Universal Token on
+  ZetaChain](https://thirdweb.com/docs.zetachain.com/ZetaChainUniversalToken)
+- [Deploy Universal Token on
+  EVM](https://thirdweb.com/docs.zetachain.com/EVMUniversalToken)
 
----
-
-## 🔒 Security
-See [`SECURITY.md`](./SECURITY.md) for full threat model, including:
-- Replay attack prevention
-- Signer verification
-- Planned metadata integrity checks
-
----
-
-## 🌉 Cross-Chain Workflow
-1. **Mint NFT** on Solana with metadata
-2. **Burn NFT** on Solana to initiate transfer
-3. Emit cross-chain message → ZetaChain Gateway receives it
-4. On the destination chain → Mint an equivalent NFT with the same metadata
-
----
-
-## 🎥 Demo
-Demo video coming soon: `demo/demo.mp4`
-
----
-
-## 📜 License
-Licensed under the **MIT License**.
-
----
-
-## 🤝 Contributing
-We welcome contributions!  
-Open an issue, submit a PR, or join our developer community.
-
----
-
-## 🙏 Acknowledgments
-- [ZetaChain](https://www.zetachain.com/) – Universal chain messaging
-- [Metaplex](https://www.metaplex.com/) – Token metadata standard
-- [Solana Foundation](https://solana.org/) – High-performance blockchain infrastructure
+For examples and more details, check out the [NFT
+Docs](https://www.zetachain.com/docs/developers/standards/nft/) and [Token
+Docs](https://www.zetachain.com/docs/developers/standards/token/).

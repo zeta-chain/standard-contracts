@@ -1,14 +1,9 @@
-
-//! ZetaChain payload decoder (temporary scaffold).
-//!
-//! Adds basic input validation so empty payloads do not silently pass.
-
 use anchor_lang::prelude::*;
+use solana_program::program_error::ProgramError;
 use anchor_lang::solana_program::pubkey::Pubkey;
 
-// If this struct is defined elsewhere in your crate, remove this duplicate
-// and import it instead. It is included here to make the file self-contained.
-#[derive(Clone, Debug)]
+/// Minimal NFT message structure expected from ZetaChain.
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug, Default)]
 pub struct NFTMessage {
     pub uri: String,
     pub title: String,
@@ -19,18 +14,15 @@ pub struct NFTMessage {
 
 /// Decode a ZetaChain payload into an `NFTMessage`.
 ///
-/// This is a placeholder decoder that returns dummy values for now,
-/// but it performs a minimal guard against empty payloads to avoid
-/// masking integration errors.
+/// By default (without feature flags), this function fails closed so we don't
+/// accept arbitrary payloads in production. Enable `insecure-placeholder` for
+/// local testing to return a dummy message.
+#[cfg(feature = "insecure-placeholder")]
 pub fn decode_zeta_payload(payload: &[u8]) -> Result<NFTMessage> {
     msg!("Decoding payload... [placeholder]");
-
-    // Minimal guard: avoid accepting empty payloads.
     if payload.is_empty() {
-        return Err(ProgramError::InvalidInstructionData);
+        return Err(ProgramError::InvalidInstructionData.into());
     }
-
-    // TODO: Parse the actual bytes in `payload` into your message format.
     Ok(NFTMessage {
         uri: "ipfs://dummy_uri".to_string(),
         title: "ZetaNFT".to_string(),
@@ -38,4 +30,13 @@ pub fn decode_zeta_payload(payload: &[u8]) -> Result<NFTMessage> {
         recipient: Pubkey::default(),
         nonce: 0,
     })
+}
+
+#[cfg(not(feature = "insecure-placeholder"))]
+pub fn decode_zeta_payload(payload: &[u8]) -> Result<NFTMessage> {
+    // Until a real decoder is implemented, fail closed.
+    if payload.is_empty() {
+        return Err(ProgramError::InvalidInstructionData.into());
+    }
+    Err(ProgramError::InvalidInstructionData.into())
 }
