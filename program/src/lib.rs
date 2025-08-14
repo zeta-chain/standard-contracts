@@ -3,6 +3,7 @@ use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Mint, Token, TokenAccount, MintTo, Burn};
 use mpl_token_metadata::instruction::{create_metadata_accounts_v3};
 use anchor_lang::solana_program::program::invoke_signed;
+use anchor_spl::associated_token::AssociatedToken;
 
 declare_id!("EteYkYdk3kTpHYqzc6Exrx9JqZDF2n2jw53sF318oKiU");
 
@@ -93,6 +94,7 @@ pub struct MintNFT<'info> {
     pub metadata: UncheckedAccount<'info>,
     /// CHECK: Metaplex
     pub token_metadata_program: UncheckedAccount<'info>,
+    pub associated_token_program: Program<'info, AssociatedToken>,
     pub token_program: Program<'info, Token>,
     pub system_program: Program<'info, System>,
     pub rent: Sysvar<'info, Rent>,
@@ -106,5 +108,15 @@ pub struct BurnNFT<'info> {
     pub mint: Account<'info, Mint>,
     #[account(mut)]
     pub token_account: Account<'info, TokenAccount>,
+    pub associated_token_program: Program<'info, AssociatedToken>,
     pub token_program: Program<'info, Token>,
+}
+
+
+#[error_code]
+pub enum ErrorCode {
+    #[msg("Unauthorized: token account owner mismatch")]
+    Unauthorized,
+    #[msg("Invalid mint for the provided token account")]
+    InvalidMint,
 }
