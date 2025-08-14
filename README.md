@@ -1,4 +1,3 @@
-
 # ZetaMint – Solana ↔ ZetaChain Universal NFT Program
 
 > **Mint once, roam everywhere – NFTs without borders.**
@@ -69,7 +68,7 @@ ZetaMint/
 
 ## Security
 
-See [`docs/SECURITY.md`](./docs/SECURITY.md) for full threat model:
+See [`SECURITY.md`](./SECURITY.md) for full threat model:
 - Replay attack protection
 - Signer verification
 - Metadata integrity checks (planned)
@@ -87,7 +86,7 @@ See [`docs/SECURITY.md`](./docs/SECURITY.md) for full threat model:
 
 ## Demo
 
-See [`demo/demo.mp4`](./demo/demo.mp4) for a full walkthrough (placeholder)
+See demo/demo.mp4 *(coming soon)*
 
 ---
 
@@ -108,4 +107,3 @@ Want to help expand multi-chain NFT tooling? Open issues, submit PRs, or join ou
 - [ZetaChain](https://www.zetachain.com/) for their groundbreaking universal chain messaging
 - [Metaplex](https://www.metaplex.com/) for the token metadata standard
 - [Solana Foundation](https://solana.org/) for high-performance blockchain infra
-
