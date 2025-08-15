@@ -17,3 +17,8 @@ pub fn verify_zeta_signature(_message: &[u8], _signature: &[u8]) -> Result<()> {
     // TODO: replace with real verification using on-chain sysvars or ed25519/secp256k1 programs.
     Err(ProgramError::MissingRequiredSignature.into())
 }
+#[error_code]
+pub enum ZetaErrorCode {
+    #[msg("Missing required gateway signature")]
+    MissingGatewaySignature,
+}
