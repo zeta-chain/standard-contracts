@@ -31,14 +31,8 @@ async function mintNFT() {
     try {
         console.log("Minting NFT...");
         const tx = await program.methods
-            .mintNft("Example NFT", "https://example.com/metadata.json")
-            .accounts({
-                // Specify accounts required by your program
-                // These should match your Rust program's context struct
-                payer: provider.wallet.publicKey,
-                systemProgram: anchor.web3.SystemProgram.programId,
-            })
-            .rpc();
++            .initialize()
++            .rpc();
 
         console.log("Transaction successful, signature:", tx);
     } catch (error) {
