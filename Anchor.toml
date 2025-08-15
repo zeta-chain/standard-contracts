@@ -8,7 +8,6 @@ url = "https://anchor.projectserum.com"
 [provider]
 cluster = "localnet"
 wallet = "~/.config/solana/id.json"
-
 [scripts]
 # If you have mocha JS tests at repo root: tests/*.ts
 # Otherwise, adjust to `anchor test` or remove this section.
