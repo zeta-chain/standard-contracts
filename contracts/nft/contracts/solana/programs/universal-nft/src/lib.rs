@@ -180,8 +180,8 @@ pub mod universal_nft {
     Ok(())
     }
 
-    /// Transfer NFT to ZetaChain via deposit_and_call
-    /// Burns the NFT on Solana and deposits to universal contract on ZetaChain
+    /// Transfer NFT intent to ZetaChain via gateway call (no SOL deposit)
+    /// Burns the NFT on Solana and triggers the universal contract on ZetaChain
     pub fn transfer_to_zetachain(
         ctx: Context<TransferToZetachain>,
         token_id: [u8; 32],
@@ -231,65 +231,52 @@ pub mod universal_nft {
             message
         };
         
-        // Call ZetaChain gateway deposit_and_call via CPI
+        // Call ZetaChain gateway `call` via CPI (no SOL deposit)
         //
-        // According to ZetaChain documentation (https://www.zetachain.com/docs/developers/chains/solana/)
-        // "For universal apps (contracts that can be called from other chains), the application must use
-        // ZetaChain's gateway contract to initiate cross-chain calls. The gateway ensures proper message
-        // routing and delivers the call to the onCall handler on the destination universal contract."
-        //
-        // The deposit_and_call function specifically:
-        // 1. Deposits SOL to the gateway PDA 
-        // 2. Encodes the cross-chain message with NFT data
-        // 3. Triggers ZetaChain's cross-chain infrastructure to deliver the message
-        // 4. Results in the onCall handler being executed on the destination chain
-        //
-        // Without this gateway call, there would be no cross-chain transfer mechanism.
-        msg!("Initiating cross-chain NFT transfer via ZetaChain gateway");
+        // According to ZetaChain docs (https://www.zetachain.com/docs/developers/chains/solana/):
+        // - Use `call` when you need to invoke logic on ZetaChain and no asset movement is required.
+        // - `deposit_and_call` is only for depositing SOL and calling; it also incurs a deposit fee.
+        // Our NFT transfer burns on Solana and sends only a message → use `call`.
+        msg!("Initiating cross-chain NFT call via ZetaChain gateway");
         // This makes a cross-program invocation to the ZetaChain gateway program
-        // which handles depositing SOL and calling the universal contract on ZetaChain
+        // which handles calling the universal contract on ZetaChain
         let gateway_pda_info = ctx.accounts.gateway_pda.to_account_info();
         let owner_info = ctx.accounts.owner.to_account_info();
         let system_program_info = ctx.accounts.system_program.to_account_info();
         
-        // Encode the receiver (ZetaChain universal contract) as bytes
-        let receiver_bytes = zetachain_universal_contract.to_vec();
+        // Encode the receiver (ZetaChain universal contract) as fixed 20 bytes
+        let receiver_bytes: [u8; 20] = zetachain_universal_contract;
         
-        // Create CPI instruction to ZetaChain gateway
-        let deposit_and_call_ix = anchor_lang::solana_program::instruction::Instruction {
-            program_id: ctx.accounts.config.gateway_program,
+        // Create CPI instruction to ZetaChain gateway: call(receiver, message, revert_options=None)
+        let call_ix = anchor_lang::solana_program::instruction::Instruction {
+            program_id: ctx.accounts.config.gateway_program, // validated in accounts
             accounts: vec![
-                AccountMeta::new(gateway_pda_info.key(), false), // Gateway PDA
-                AccountMeta::new(owner_info.key(), true),       // Signer (owner)
+                AccountMeta::new(gateway_pda_info.key(), false), // Gateway PDA (as required by gateway)
+                AccountMeta::new(owner_info.key(), true),        // Signer (owner)
                 AccountMeta::new_readonly(system_program_info.key(), false), // System Program
             ],
             data: {
-                // Instruction data format for gateway depositAndCall:
-                // [instruction_discriminator(8)] + [amount(8)] + [receiver_len(4)] + [receiver] + [message_len(4)] + [message]
-                let mut instruction_data = Vec::new();
-                
-                // Instruction discriminator for depositAndCall (SHA256("global:deposit_and_call")[:8])
-                // This matches the gateway program's deposit_and_call method exactly
-                instruction_data.extend_from_slice(&[65, 33, 186, 198, 114, 223, 133, 57]);
-                
-                // Amount (0 SOL for NFT transfer, just paying for gas)
-                instruction_data.extend_from_slice(&0u64.to_le_bytes());
-                
-                // Receiver length and data
-                instruction_data.extend_from_slice(&(receiver_bytes.len() as u32).to_le_bytes());
-                instruction_data.extend_from_slice(&receiver_bytes);
-                
-                // Message length and data
-                instruction_data.extend_from_slice(&(cross_chain_message.len() as u32).to_le_bytes());
-                instruction_data.extend_from_slice(&cross_chain_message);
-                
-                instruction_data
+                // Anchor instruction data for `call` is:
+                // [discriminator(8)] + [receiver([u8;20])] + [message(Vec<u8>)] + [revert_options(Option<RevertOptions>)]
+                // Note: Borsh uses little-endian for lengths; Option::None is encoded as a single 0u8.
+                let mut data = Vec::new();
+                // Discriminator = sha256("global:call")[..8]
+                let disc = anchor_lang::solana_program::hash::hash(b"global:call").to_bytes();
+                data.extend_from_slice(&disc[..8]);
+                // receiver as fixed 20 bytes (no length prefix)
+                data.extend_from_slice(&receiver_bytes);
+                // message Vec<u8>: len (u32 LE) + bytes
+                data.extend_from_slice(&(cross_chain_message.len() as u32).to_le_bytes());
+                data.extend_from_slice(&cross_chain_message);
+                // revert_options: None → 0u8
+                data.push(0u8);
+                data
             },
         };
         
         // Execute CPI call to ZetaChain gateway
         anchor_lang::solana_program::program::invoke(
-            &deposit_and_call_ix,
+            &call_ix,
             &[
                 gateway_pda_info,
                 owner_info,
