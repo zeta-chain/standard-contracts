@@ -30,7 +30,9 @@ const program = new anchor.Program(idl, programID, provider);
 async function mintNFT() {
     try {
         console.log("Minting NFT...");
-              const tx = await program.methods.initialize().rpc();
+              const tx = await program.methods
+                  .initialize()
+                  .rpc();
 
         console.log("Transaction successful, signature:", tx);
     } catch (error) {
