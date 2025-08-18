@@ -53,12 +53,6 @@ pub mod universal_nft {
 
     /// Mint a new Universal NFT on Solana
     /// Creates NFT, metadata, master edition, and origin tracking
-    /// 
-    /// This function is used for:
-    /// 1. Minting brand new NFTs on Solana (original minting)
-    /// 2. Minting NFTs from connected chains (when no origin PDA exists)
-    /// 
-    /// For returning Solana NFTs (when origin PDA exists), use restore_returning_nft() instead
     pub fn mint_nft(
         ctx: Context<MintNft>,
         name: String,
@@ -99,7 +93,6 @@ pub mod universal_nft {
             &ctx.accounts.rent.to_account_info(),
             None,
         )?;
-        
 
         // Mint NFT to recipient
         mint_nft_to_recipient(
@@ -441,6 +434,7 @@ pub mod universal_nft {
             let rent = Rent::get()?;
             let space = NftOrigin::LEN as u64;
             let lamports = rent.minimum_balance(space as usize);
+            
             // Sign as both payer PDA and the new nft_origin PDA
             let config_seeds_raw: &[&[u8]] = &[UNIVERSAL_NFT_CONFIG_SEED, &[ctx.accounts.pda.bump]];
             let nft_origin_seeds: &[&[u8]] = &[
@@ -449,6 +443,7 @@ pub mod universal_nft {
                 &[origin_bump],
             ];
             let create_signers: &[&[&[u8]]] = &[&config_seeds_raw[..], nft_origin_seeds];
+
             anchor_lang::system_program::create_account(
                 CpiContext::new_with_signer(
                     ctx.accounts.system_program.to_account_info(),
@@ -462,7 +457,9 @@ pub mod universal_nft {
                 space,
                 &crate::id(),
             )?;
+            
             let mut data_ref = ctx.accounts.nft_origin.try_borrow_mut_data()?;
+            
             // Write discriminator + serialized data
             let disc = <NftOrigin as anchor_lang::Discriminator>::DISCRIMINATOR;
             let mut tmp = Vec::with_capacity(8 + NftOrigin::LEN);
