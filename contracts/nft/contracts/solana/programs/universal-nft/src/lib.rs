@@ -18,6 +18,7 @@ use util::mint_helpers::mint_nft_to_recipient;
 use state::*;
 use event::*;
 use context::*;
+// use std::io::Seek;
 
 #[program]
 pub mod universal_nft {
@@ -68,7 +69,7 @@ pub mod universal_nft {
         require!(name.len() <= MAX_NAME_LENGTH, UniversalNftError::NameTooLong);
         require!(symbol.len() <= MAX_SYMBOL_LENGTH, UniversalNftError::SymbolTooLong);
         require!(uri.len() <= MAX_URI_LENGTH, UniversalNftError::UriTooLong);
-        require!(!ctx.accounts.config.is_paused, UniversalNftError::OperationNotAllowed);
+    require!(!ctx.accounts.config.is_paused, UniversalNftError::OperationNotAllowed);
         
         let clock = Clock::get()?;
         
@@ -83,6 +84,7 @@ pub mod universal_nft {
             &name,
             &symbol,
             &uri,
+            None,
         )?;
         
         // Create master edition account
@@ -95,18 +97,18 @@ pub mod universal_nft {
             &ctx.accounts.metadata_program.to_account_info(),
             &ctx.accounts.system_program.to_account_info(),
             &ctx.accounts.rent.to_account_info(),
+            None,
         )?;
         
+
         // Mint NFT to recipient
-        let mint_to_ctx = CpiContext::new(
-            ctx.accounts.token_program.to_account_info(),
-            MintTo {
-                mint: ctx.accounts.mint.to_account_info(),
-                to: ctx.accounts.token_account.to_account_info(),
-                authority: ctx.accounts.authority.to_account_info(),
-            },
-        );
-        token::mint_to(mint_to_ctx, 1)?;
+        mint_nft_to_recipient(
+            &ctx.accounts.mint,
+            &ctx.accounts.token_account,
+            &ctx.accounts.authority,
+            &ctx.accounts.token_program,
+            None, // No authority signer needed for minting
+        )?;
         
         // Set up origin tracking
         let nft_origin = &mut ctx.accounts.nft_origin;
@@ -208,7 +210,6 @@ pub mod universal_nft {
         msg!("Initiating cross-chain NFT transfer via ZetaChain gateway");
         // This makes a cross-program invocation to the ZetaChain gateway program
         // which handles depositing SOL and calling the universal contract on ZetaChain
-        let gateway_program_info = ctx.accounts.gateway_program.to_account_info();
         let gateway_pda_info = ctx.accounts.gateway_pda.to_account_info();
         let owner_info = ctx.accounts.owner.to_account_info();
         let system_program_info = ctx.accounts.system_program.to_account_info();
@@ -291,152 +292,169 @@ pub mod universal_nft {
         sender: [u8; 20], // ZetaChain universal contract address that initiated the call
         data: Vec<u8>, // Encoded NFT data (token_id, recipient, metadata_uri, name, symbol, etc.)
     ) -> Result<()> {
-        require!(!ctx.accounts.config.is_paused, UniversalNftError::OperationNotAllowed);
+        require!(!ctx.accounts.pda.is_paused, UniversalNftError::OperationNotAllowed);
+
+        // Verify call originates from the Gateway using instruction sysvar
+        let ix_sysvar = anchor_lang::solana_program::sysvar::instructions::id();
         
-        // Verify that the call is coming from ZetaChain gateway
+        // The instruction sysvar must be passed in remaining accounts by the gateway CPI
+        let ix_account = ctx
+            .remaining_accounts
+            .iter()
+            .find(|ai| ai.key() == ix_sysvar)
+            .ok_or(UniversalNftError::InvalidCaller)?;
+        
         let current_ix = anchor_lang::solana_program::sysvar::instructions::get_instruction_relative(
             0,
-            &ctx.accounts.instruction_sysvar_account.to_account_info(),
+            ix_account,
         ).map_err(|_| UniversalNftError::InvalidCaller)?;
         
         require!(
-            current_ix.program_id == ctx.accounts.config.gateway_program,
+            current_ix.program_id == ctx.accounts.pda.gateway_program,
             UniversalNftError::InvalidCaller
         );
-        
-        // Decode the cross-chain message data to get token_id and other info
-        let (token_id, source_chain, recipient_bytes, metadata_uri, name, symbol) = decode_nft_data_with_recipient(&data)?;
-        
-        // Convert recipient bytes to Pubkey
-        let recipient = Pubkey::try_from(recipient_bytes)
-            .map_err(|_| UniversalNftError::InvalidRecipientAddress)?;
-        
-        msg!(
-            "Cross-chain NFT received from chain {} with token_id: {:?}, recipient: {}, metadata: {}", 
-            source_chain, 
-            token_id, 
-            recipient,
-            metadata_uri
-        );
-        
-        Ok(())
-    }
 
-    /// Restore a returning Solana NFT (when NFT origin PDA exists)
-    /// Called by client when they detect that the NFT origin PDA already exists
-    /// 
-    /// This means the NFT was originally minted on Solana, transferred to another chain,
-    /// and is now returning. The PDA contains:
-    /// - original_mint: The first mint account ever created for this NFT on Solana
-    /// - original_metadata: The first metadata account ever created for this NFT on Solana  
-    /// - original_uri: The original metadata URI
-    /// 
-    /// We create NEW mint and metadata accounts (since originals were burned) but maintain
-    /// the historical link to the original accounts as specified in GitHub issue #72
-    pub fn restore_returning_nft(
-        ctx: Context<RestoreReturningNft>,
-        token_id: [u8; 32],
-        updated_name: String,
-        updated_symbol: String,
-    ) -> Result<()> {
-        require!(!ctx.accounts.config.is_paused, UniversalNftError::OperationNotAllowed);
-        
+        // Optionally assert gateway PDA owner
+        require!(
+            *ctx.accounts.gateway_pda.owner == ctx.accounts.pda.gateway_program,
+            UniversalNftError::InvalidCaller
+        );
+
+        // Decode message
+        let (token_id, origin_chain, _recipient_bytes, metadata_uri, name, symbol) = decode_nft_data_with_recipient(&data)?;
+
+        // Derive origin PDA expected address from token_id + origin_chain
+        let origin_seed_chain = origin_chain.to_be_bytes();
+        let (expected_origin_key, origin_bump) = Pubkey::find_program_address(
+            &[NFT_ORIGIN_SEED, &origin_seed_chain, &token_id],
+            &crate::id(),
+        );
+        require_keys_eq!(
+            expected_origin_key,
+            ctx.accounts.nft_origin.key(),
+            UniversalNftError::InvalidDataFormat
+        );
+
         let clock = Clock::get()?;
-        
-        let nft_origin = &mut ctx.accounts.nft_origin;
-        
-        msg!("Restoring returning Solana NFT with original URI: {}", nft_origin.original_uri);
-        
-        // The original mint key and metadata are already stored in nft_origin:
-        // - nft_origin.original_mint: The very first mint account created on Solana
-        // - nft_origin.original_metadata: The very first metadata account created on Solana
-        // - nft_origin.original_uri: The original metadata URI
-        // 
-        // We use these to maintain the link to the original token while creating
-        // a new mint/metadata for the current restoration (since the original was burned)
-        msg!(
-            "Found original mint: {}, original metadata: {}", 
-            nft_origin.original_mint, 
-            nft_origin.original_metadata
-        );
-        
-        // Create authority signer seeds for PDA-based operations
-        let authority_bump = ctx.accounts.config.bump;
-        let authority_seeds = &[
-            UNIVERSAL_NFT_CONFIG_SEED,
-            &[authority_bump],
-        ];
-        let authority_signer = &[&authority_seeds[..]];
-        
-        // 1. Create metadata account using original URI but updated name/symbol
-        create_metadata_account(
-            &ctx.accounts.metadata.to_account_info(),
-            &ctx.accounts.mint.to_account_info(),
-            &ctx.accounts.config.to_account_info(),
-            &ctx.accounts.payer.to_account_info(),
-            &ctx.accounts.system_program.to_account_info(),
-            &ctx.accounts.rent.to_account_info(),
-            &updated_name,
-            &updated_symbol,
-            &nft_origin.original_uri,
-        )?;
-        
-        // 2. Create master edition account
-        create_master_edition_account(
-            &ctx.accounts.master_edition.to_account_info(),
-            &ctx.accounts.mint.to_account_info(),
-            &ctx.accounts.config.to_account_info(),
-            &ctx.accounts.payer.to_account_info(),
-            &ctx.accounts.metadata.to_account_info(),
-            &ctx.accounts.metadata_program.to_account_info(),
-            &ctx.accounts.system_program.to_account_info(),
-            &ctx.accounts.rent.to_account_info(),
-        )?;
-        
-        // 3. Mint NFT to recipient
+
+        // Sanity checks for token accounts
+        require_keys_eq!(ctx.accounts.pda_ata.owner, ctx.accounts.pda.key(), UniversalNftError::InvalidProgram);
+        require_keys_eq!(ctx.accounts.pda_ata.mint, ctx.accounts.mint_account.key(), UniversalNftError::InvalidProgram);
+
+        // Prepare signer seeds once
+        let signer_seeds_raw = &[UNIVERSAL_NFT_CONFIG_SEED, &[ctx.accounts.pda.bump]];
+        let signer_seeds: &[&[&[u8]]] = &[&signer_seeds_raw[..]];
+
+        // 1) Ensure metadata + master edition exist first. This uses the program PDA as authority.
+        // Doing this up front guarantees deterministic state and avoids partially-initialized origin records.
+        if ctx.accounts.metadata.data_is_empty() {
+            create_metadata_account(
+                &ctx.accounts.metadata.to_account_info(),
+                &ctx.accounts.mint_account.to_account_info(),
+                &ctx.accounts.pda.to_account_info(),
+                &ctx.accounts.pda.to_account_info(),
+                &ctx.accounts.system_program.to_account_info(),
+                &ctx.accounts.rent.to_account_info(),
+                &name,
+                &symbol,
+                &metadata_uri,
+                Some(signer_seeds),
+            )?;
+        }
+        if ctx.accounts.master_edition.data_is_empty() {
+            create_master_edition_account(
+                &ctx.accounts.master_edition.to_account_info(),
+                &ctx.accounts.mint_account.to_account_info(),
+                &ctx.accounts.pda.to_account_info(),
+                &ctx.accounts.pda.to_account_info(),
+                &ctx.accounts.metadata.to_account_info(),
+                &ctx.accounts.metadata_program.to_account_info(),
+                &ctx.accounts.system_program.to_account_info(),
+                &ctx.accounts.rent.to_account_info(),
+                Some(signer_seeds),
+            )?;
+        }
+
+        // 2) Load or create origin account backed by these accounts and the provided URI.
+        let mut origin_data: NftOrigin;
+        if ctx.accounts.nft_origin.to_account_info().owner == &crate::id() && !ctx.accounts.nft_origin.data_is_empty() {
+            // Manually deserialize existing origin account to avoid lifetime issues
+            let data_ref = ctx.accounts.nft_origin.try_borrow_data()?;
+            require!(data_ref.len() >= 8, UniversalNftError::InvalidDataFormat);
+            let mut bytes: &[u8] = &data_ref[8..]; // skip discriminator
+            origin_data = NftOrigin::try_deserialize(&mut bytes)
+                .map_err(|_| UniversalNftError::InvalidDataFormat)?;
+        } else {
+            origin_data = NftOrigin::new(
+                token_id,
+                ctx.accounts.mint_account.key(),
+                ctx.accounts.metadata.key(),
+                metadata_uri.clone(),
+                clock.unix_timestamp,
+                origin_bump,
+            );
+
+            let rent = Rent::get()?;
+            let space = NftOrigin::LEN as u64;
+            let lamports = rent.minimum_balance(space as usize);
+            anchor_lang::system_program::create_account(
+                CpiContext::new_with_signer(
+                    ctx.accounts.system_program.to_account_info(),
+                    anchor_lang::system_program::CreateAccount {
+                        from: ctx.accounts.pda.to_account_info(),
+                        to: ctx.accounts.nft_origin.to_account_info(),
+                    },
+                    signer_seeds,
+                ),
+                lamports,
+                space,
+                &crate::id(),
+            )?;
+            let mut data_ref = ctx.accounts.nft_origin.try_borrow_mut_data()?;
+            // Write discriminator + serialized data
+            let disc = <NftOrigin as anchor_lang::Discriminator>::DISCRIMINATOR;
+            let mut tmp = Vec::with_capacity(8 + NftOrigin::LEN);
+            tmp.extend_from_slice(&disc);
+            origin_data
+                .try_serialize(&mut tmp)
+                .map_err(|_| UniversalNftError::InvalidDataFormat)?;
+            let end = tmp.len();
+            data_ref[..end].copy_from_slice(&tmp);
+        }
+
+        // 3) Mint 1 to program_ata using config PDA as authority
         mint_nft_to_recipient(
-            &ctx.accounts.mint,
-            &ctx.accounts.token_account,
-            &ctx.accounts.config.to_account_info(),
+            &ctx.accounts.mint_account,
+            &ctx.accounts.pda_ata,
+            &ctx.accounts.pda.to_account_info(),
             &ctx.accounts.token_program,
-            Some(authority_signer),
+            Some(signer_seeds),
         )?;
-        
-        // 4. Update origin tracking - mark as returned to Solana
-        nft_origin.mark_returned_to_solana(clock.unix_timestamp);
-        
-        // NOTE: We DON'T update original_mint and original_metadata here!
-        // These should remain pointing to the very first mint/metadata on Solana
-        // to maintain the historical link
-        // The new mint/metadata are separate accounts for the current restoration.
-        
-        msg!(
-            "NFT restored - Original mint: {}, New mint: {}, Original metadata: {}, New metadata: {}", 
-            nft_origin.original_mint,
-            ctx.accounts.mint.key(),
-            nft_origin.original_metadata,
-            ctx.accounts.metadata.key()
-        );
-        
-        // Note: Anchor automatically serializes account changes, no manual serialization needed
-        
+
+        // Update origin flags (mark returned to Solana regardless of prior state)
+        origin_data.mark_returned_to_solana(clock.unix_timestamp);
+
+        // 4) Re-serialize origin_data (in-place update)
+        {
+            let mut data_ref = ctx.accounts.nft_origin.try_borrow_mut_data()?;
+            let mut tmp = Vec::with_capacity(NftOrigin::LEN);
+            origin_data
+                .try_serialize(&mut tmp)
+                .map_err(|_| UniversalNftError::InvalidDataFormat)?;
+            let pos = 8usize; // after discriminator
+            let end = pos + tmp.len();
+            let data_slice = &mut data_ref[pos..end];
+            data_slice.copy_from_slice(&tmp);
+        }
+
         emit!(NftMinted {
-            mint: ctx.accounts.mint.key(),
+            mint: ctx.accounts.mint_account.key(),
             token_id,
-            owner: ctx.accounts.recipient.key(),
-            uri: nft_origin.original_uri.clone(),
+            owner: ctx.accounts.pda.key(),
+            uri: origin_data.original_uri.clone(),
             timestamp: clock.unix_timestamp
         });
-        
-        emit!(OriginRestored {
-            token_id,
-            original_mint: nft_origin.original_mint, // This is the FIRST mint ever created on Solana
-            new_mint: ctx.accounts.mint.key(),       // This is the current restoration mint
-            owner: ctx.accounts.recipient.key(),
-            timestamp: clock.unix_timestamp,
-        });
-        
-        msg!("Returning Solana NFT successfully restored");
+
         Ok(())
     }
 
@@ -535,6 +553,7 @@ pub mod universal_nft {
                 &format!("Restored NFT"), // Name could be retrieved from origin if stored
                 &format!("RNFT"),          // Symbol
                 &nft_origin.original_uri,
+                Some(authority_signer),
             )?;
             
             // Create master edition account
@@ -547,6 +566,7 @@ pub mod universal_nft {
                 &ctx.accounts.metadata_program.to_account_info(),
                 &ctx.accounts.system_program.to_account_info(),
                 &ctx.accounts.rent.to_account_info(),
+                Some(authority_signer),
             )?;
             
             // Mint NFT back to the original owner

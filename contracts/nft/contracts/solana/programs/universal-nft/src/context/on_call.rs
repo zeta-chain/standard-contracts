@@ -1,9 +1,5 @@
 use anchor_lang::prelude::*;
-use anchor_lang::solana_program::sysvar;
-use anchor_spl::{
-    token::Token,
-    associated_token::AssociatedToken,
-};
+use anchor_spl::token::{Token, TokenAccount, Mint};
 use crate::state::UniversalNftConfig;
 use crate::util::constants::{UNIVERSAL_NFT_CONFIG_SEED, TOKEN_METADATA_PROGRAM_ID};
 
@@ -12,38 +8,67 @@ pub struct OnCall<'info> {
     /// Program configuration and authority
     #[account(
         seeds = [UNIVERSAL_NFT_CONFIG_SEED],
-        bump = config.bump
+        bump = pda.bump
     )]
-    pub config: Account<'info, UniversalNftConfig>,
+    pub pda: Account<'info, UniversalNftConfig>,
     
-    /// NFT origin account - may or may not exist depending on whether NFT was previously on Solana
-    /// CHECK: This is the NFT origin PDA, we check manually if it's initialized
+    /// NFT origin account (PDA) derived as [NFT_ORIGIN_SEED, origin_chain.to_be_bytes(), token_id]
+    /// CHECK: Passed PDA must match derived address; we (re)initialize if empty
     #[account(mut)]
     pub nft_origin: UncheckedAccount<'info>,
-    
-    /// Payer for account creation fees
+
+    /// Program ATA to receive minted token (authority = config, mint = mint)
+    /// We validate at runtime that owner == config and mint matches.
     #[account(mut)]
-    pub payer: Signer<'info>,
-    
-    /// Instruction sysvar for caller verification
-    /// CHECK: This is the instruction sysvar account for verifying the calling program
-    #[account(address = sysvar::instructions::id())]
-    pub instruction_sysvar_account: UncheckedAccount<'info>,
-    
+    pub pda_ata: Account<'info, TokenAccount>,
+
+    /// Mint account of the NFT (must have authority = config, decimals = 0)
+    #[account(mut)]
+    pub mint_account: Account<'info, Mint>,
+
+    /// Metadata account derived from mint - validated for security
+    /// CHECK: PDA derived via Metaplex seeds
+    #[account(
+        mut,
+        seeds = [
+            b"metadata",
+            TOKEN_METADATA_PROGRAM_ID.as_ref(),
+            mint_account.key().as_ref(),
+        ],
+        bump,
+        seeds::program = TOKEN_METADATA_PROGRAM_ID
+    )]
+    pub metadata: UncheckedAccount<'info>,
+
+    /// Master edition account derived from mint - validated for security
+    /// CHECK: PDA derived via Metaplex seeds
+    #[account(
+        mut,
+        seeds = [
+            b"metadata",
+            TOKEN_METADATA_PROGRAM_ID.as_ref(),
+            mint_account.key().as_ref(),
+            b"edition",
+        ],
+        bump,
+        seeds::program = TOKEN_METADATA_PROGRAM_ID
+    )]
+    pub master_edition: UncheckedAccount<'info>,
+
+    /// Gateway PDA, used for minimal caller verification
+    /// CHECK: Read-only; we assert owner matches config.gateway_program
+    pub gateway_pda: UncheckedAccount<'info>,
+
+    /// CHECK: Verified against constant ID
+    #[account(constraint = metadata_program.key() == TOKEN_METADATA_PROGRAM_ID @ anchor_lang::error::ErrorCode::ConstraintAddress)]
+    pub metadata_program: UncheckedAccount<'info>,
+
     /// System program for account creation
     pub system_program: Program<'info, System>,
-    
+
     /// Token program for NFT operations
     pub token_program: Program<'info, Token>,
-    
-    /// Associated token program for creating token accounts
-    pub associated_token_program: Program<'info, AssociatedToken>,
-    
-    /// Metaplex Token Metadata program
-    /// CHECK: This is the Metaplex Token Metadata program address
-    #[account(address = TOKEN_METADATA_PROGRAM_ID)]
-    pub metadata_program: UncheckedAccount<'info>,
-    
+
     /// Rent sysvar
     pub rent: Sysvar<'info, Rent>,
 }

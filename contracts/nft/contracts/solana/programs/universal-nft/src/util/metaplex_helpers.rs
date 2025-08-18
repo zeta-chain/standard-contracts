@@ -18,6 +18,7 @@ pub fn create_metadata_account<'a>(
     name: &str,
     symbol: &str,
     uri: &str,
+    authority_signer_seeds: Option<&[&[&[u8]]]>,
 ) -> Result<()> {
     // Create metadata account instruction data
     let create_metadata_account_v3_ix = Instruction {
@@ -61,17 +62,31 @@ pub fn create_metadata_account<'a>(
         },
     };
 
-    invoke(
-        &create_metadata_account_v3_ix,
-        &[
-            metadata.clone(),
-            mint.clone(),
-            authority.clone(),
-            payer.clone(),
-            system_program.clone(),
-            rent.clone(),
-        ],
-    ).map_err(|_| UniversalNftError::MetadataCreationFailed)?;
+    match authority_signer_seeds {
+        Some(seeds) => anchor_lang::solana_program::program::invoke_signed(
+            &create_metadata_account_v3_ix,
+            &[
+                metadata.clone(),
+                mint.clone(),
+                authority.clone(),
+                payer.clone(),
+                system_program.clone(),
+                rent.clone(),
+            ],
+            seeds,
+        ).map_err(|_| UniversalNftError::MetadataCreationFailed)?,
+        None => invoke(
+            &create_metadata_account_v3_ix,
+            &[
+                metadata.clone(),
+                mint.clone(),
+                authority.clone(),
+                payer.clone(),
+                system_program.clone(),
+                rent.clone(),
+            ],
+        ).map_err(|_| UniversalNftError::MetadataCreationFailed)?,
+    }
 
     Ok(())
 }
@@ -86,6 +101,7 @@ pub fn create_master_edition_account<'a>(
     metadata_program: &AccountInfo<'a>,
     system_program: &AccountInfo<'a>,
     rent: &AccountInfo<'a>,
+    authority_signer_seeds: Option<&[&[&[u8]]]>,
 ) -> Result<()> {
     let create_master_edition_v3_ix = Instruction {
         program_id: TOKEN_METADATA_PROGRAM_ID,
@@ -109,19 +125,35 @@ pub fn create_master_edition_account<'a>(
         },
     };
 
-    invoke(
-        &create_master_edition_v3_ix,
-        &[
-            master_edition.clone(),
-            mint.clone(),
-            authority.clone(),
-            payer.clone(),
-            metadata.clone(),
-            metadata_program.clone(),
-            system_program.clone(),
-            rent.clone(),
-        ],
-    ).map_err(|_| UniversalNftError::MasterEditionCreationFailed)?;
+    match authority_signer_seeds {
+        Some(seeds) => anchor_lang::solana_program::program::invoke_signed(
+            &create_master_edition_v3_ix,
+            &[
+                master_edition.clone(),
+                mint.clone(),
+                authority.clone(),
+                payer.clone(),
+                metadata.clone(),
+                metadata_program.clone(),
+                system_program.clone(),
+                rent.clone(),
+            ],
+            seeds,
+        ).map_err(|_| UniversalNftError::MasterEditionCreationFailed)?,
+        None => invoke(
+            &create_master_edition_v3_ix,
+            &[
+                master_edition.clone(),
+                mint.clone(),
+                authority.clone(),
+                payer.clone(),
+                metadata.clone(),
+                metadata_program.clone(),
+                system_program.clone(),
+                rent.clone(),
+            ],
+        ).map_err(|_| UniversalNftError::MasterEditionCreationFailed)?,
+    }
 
     Ok(())
 }
