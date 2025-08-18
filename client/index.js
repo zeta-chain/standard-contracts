@@ -1,6 +1,6 @@
 // index.js - Client script to interact with ZetaMint program
 
-const anchor = require('@project-serum/anchor');
+const anchor = require('@coral-xyz/anchor');
 const { Connection, PublicKey, clusterApiUrl } = require('@solana/web3.js');
 const fs = require('fs');
 
