@@ -3,27 +3,23 @@ use anchor_spl::{
     token::{Mint, Token, TokenAccount},
     associated_token::AssociatedToken,
 };
-use crate::state::{UniversalNftConfig, NftOrigin};
+use crate::state::UniversalNftConfig;
 use crate::util::constants::{*, TOKEN_METADATA_PROGRAM_ID};
 
 #[derive(Accounts)]
-#[instruction(token_id: [u8; 32], collection_name: Option<String>)]
 pub struct MintNft<'info> {
     #[account(
+        mut,
         seeds = [UNIVERSAL_NFT_CONFIG_SEED],
         bump = config.bump,
         has_one = authority
     )]
     pub config: Account<'info, UniversalNftConfig>,
     
-    #[account(
-        init,
-        payer = payer,
-        space = NftOrigin::LEN,
-        seeds = [NFT_ORIGIN_SEED, token_id.as_ref()],
-        bump
-    )]
-    pub nft_origin: Account<'info, NftOrigin>,
+    /// Origin PDA passed but initialized in the handler using program-generated token_id
+    /// CHECK: Derived and initialized in the instruction using [NFT_ORIGIN_SEED, token_id]
+    #[account(mut)]
+    pub nft_origin: UncheckedAccount<'info>,
     
     #[account(
         init,

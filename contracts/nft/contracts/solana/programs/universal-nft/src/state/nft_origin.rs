@@ -55,7 +55,7 @@ impl NftOrigin {
     }
     
     /// Mark NFT as returned to Solana
-    pub fn mark_returned_to_solana(&mut self, timestamp: i64) {
+    pub fn mark_to_solana(&mut self, timestamp: i64) {
         self.is_on_solana = true;
         self.updated_at = timestamp;
     }

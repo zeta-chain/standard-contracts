@@ -36,6 +36,7 @@ pub mod universal_nft {
         config.authority = ctx.accounts.authority.key();
         config.gateway_program = gateway_program;
         config.nonce = 0;
+        config.next_token_id = 0;
         config.is_paused = false;
         config.created_at = clock.unix_timestamp;
         config.bump = ctx.bumps.config;
@@ -60,7 +61,6 @@ pub mod universal_nft {
     /// For returning Solana NFTs (when origin PDA exists), use restore_returning_nft() instead
     pub fn mint_nft(
         ctx: Context<MintNft>,
-        token_id: [u8; 32],
         name: String,
         symbol: String,
         uri: String
@@ -69,7 +69,7 @@ pub mod universal_nft {
         require!(name.len() <= MAX_NAME_LENGTH, UniversalNftError::NameTooLong);
         require!(symbol.len() <= MAX_SYMBOL_LENGTH, UniversalNftError::SymbolTooLong);
         require!(uri.len() <= MAX_URI_LENGTH, UniversalNftError::UriTooLong);
-    require!(!ctx.accounts.config.is_paused, UniversalNftError::OperationNotAllowed);
+        require!(!ctx.accounts.config.is_paused, UniversalNftError::OperationNotAllowed);
         
         let clock = Clock::get()?;
         
@@ -110,16 +110,61 @@ pub mod universal_nft {
             None, // No authority signer needed for minting
         )?;
         
-        // Set up origin tracking
-        let nft_origin = &mut ctx.accounts.nft_origin;
-        **nft_origin = NftOrigin::new(
+        // Generate token_id inside the program: hash(mint + slot + next_token_id)
+        // This keeps it deterministic, unique, and avoids trusting client input.
+        let slot = Clock::get()?.slot;
+        let mut hasher = anchor_lang::solana_program::hash::Hasher::default();
+        hasher.hash(ctx.accounts.mint.key().as_ref());
+        hasher.hash(&slot.to_le_bytes());
+        hasher.hash(&ctx.accounts.config.next_token_id.to_le_bytes());
+        let token_hash = hasher.result();
+        let token_id: [u8; 32] = token_hash.to_bytes();
+
+        // Increment next_token_id after computing token_id
+        ctx.accounts.config.next_token_id = ctx.accounts.config
+            .next_token_id
+            .checked_add(1)
+            .ok_or(UniversalNftError::ArithmeticOverflow)?;
+
+        // Create and initialize origin PDA [NFT_ORIGIN_SEED, token_id]
+        let (expected_origin, origin_bump) = Pubkey::find_program_address(&[NFT_ORIGIN_SEED, &token_id], &crate::id());
+        require_keys_eq!(expected_origin, ctx.accounts.nft_origin.key(), UniversalNftError::InvalidProgram);
+
+        // Create account if needed using config PDA as payer
+        if ctx.accounts.nft_origin.data_is_empty() || *ctx.accounts.nft_origin.owner != crate::id() {
+            let rent = Rent::get()?;
+            let space = NftOrigin::LEN as u64;
+            let lamports = rent.minimum_balance(space as usize);
+            let config_seeds: &[&[u8]] = &[UNIVERSAL_NFT_CONFIG_SEED, &[ctx.accounts.config.bump]];
+            let origin_seeds: &[&[u8]] = &[NFT_ORIGIN_SEED, &token_id, &[origin_bump]];
+            let signers: &[&[&[u8]]] = &[config_seeds, origin_seeds];
+            anchor_lang::system_program::create_account(
+                CpiContext::new_with_signer(
+                    ctx.accounts.system_program.to_account_info(),
+                    anchor_lang::system_program::CreateAccount { from: ctx.accounts.config.to_account_info(), to: ctx.accounts.nft_origin.to_account_info() },
+                    signers,
+                ),
+                lamports,
+                space,
+                &crate::id(),
+            )?;
+        }
+
+        // Write discriminator + NftOrigin data
+        let mut data_ref = ctx.accounts.nft_origin.try_borrow_mut_data()?;
+        let disc = <NftOrigin as anchor_lang::Discriminator>::DISCRIMINATOR;
+        let mut tmp = Vec::with_capacity(8 + NftOrigin::LEN);
+        tmp.extend_from_slice(&disc);
+        let mut origin_data = NftOrigin::new(
             token_id,
             ctx.accounts.mint.key(),
             ctx.accounts.metadata.key(),
             uri.clone(),
             clock.unix_timestamp,
-            ctx.bumps.nft_origin,
+            origin_bump,
         );
+        origin_data.try_serialize(&mut tmp).map_err(|_| UniversalNftError::InvalidDataFormat)?;
+        data_ref[..tmp.len()].copy_from_slice(&tmp);
 
         emit!(NftMinted {
             mint: ctx.accounts.mint.key(),
@@ -139,7 +184,7 @@ pub mod universal_nft {
         });
         
         msg!("NFT minted successfully with token_id: {:?}", token_id);
-        Ok(())
+    Ok(())
     }
 
     /// Transfer NFT to ZetaChain via deposit_and_call
@@ -323,10 +368,9 @@ pub mod universal_nft {
         // Decode message
         let (token_id, origin_chain, _recipient_bytes, metadata_uri, name, symbol) = decode_nft_data_with_recipient(&data)?;
 
-        // Derive origin PDA expected address from token_id + origin_chain
-        let origin_seed_chain = origin_chain.to_be_bytes();
+        // Derive origin PDA expected address from token_id only
         let (expected_origin_key, origin_bump) = Pubkey::find_program_address(
-            &[NFT_ORIGIN_SEED, &origin_seed_chain, &token_id],
+            &[NFT_ORIGIN_SEED, &token_id],
             &crate::id(),
         );
         require_keys_eq!(
@@ -397,6 +441,14 @@ pub mod universal_nft {
             let rent = Rent::get()?;
             let space = NftOrigin::LEN as u64;
             let lamports = rent.minimum_balance(space as usize);
+            // Sign as both payer PDA and the new nft_origin PDA
+            let config_seeds_raw: &[&[u8]] = &[UNIVERSAL_NFT_CONFIG_SEED, &[ctx.accounts.pda.bump]];
+            let nft_origin_seeds: &[&[u8]] = &[
+                NFT_ORIGIN_SEED,
+                &token_id,
+                &[origin_bump],
+            ];
+            let create_signers: &[&[&[u8]]] = &[&config_seeds_raw[..], nft_origin_seeds];
             anchor_lang::system_program::create_account(
                 CpiContext::new_with_signer(
                     ctx.accounts.system_program.to_account_info(),
@@ -404,7 +456,7 @@ pub mod universal_nft {
                         from: ctx.accounts.pda.to_account_info(),
                         to: ctx.accounts.nft_origin.to_account_info(),
                     },
-                    signer_seeds,
+                    create_signers,
                 ),
                 lamports,
                 space,
@@ -432,7 +484,7 @@ pub mod universal_nft {
         )?;
 
         // Update origin flags (mark returned to Solana regardless of prior state)
-        origin_data.mark_returned_to_solana(clock.unix_timestamp);
+        origin_data.mark_to_solana(clock.unix_timestamp);
 
         // 4) Re-serialize origin_data (in-place update)
         {
@@ -582,8 +634,8 @@ pub mod universal_nft {
             token::mint_to(mint_to_ctx, 1)?;
             
             // Update origin tracking - mark as restored to Solana
-            nft_origin.mark_returned_to_solana(clock.unix_timestamp);
-            
+            nft_origin.mark_to_solana(clock.unix_timestamp);
+
             msg!("NFT restored to original owner due to failed cross-chain transfer");
         }
         

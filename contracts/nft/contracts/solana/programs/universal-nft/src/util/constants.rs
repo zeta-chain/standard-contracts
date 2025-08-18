@@ -17,10 +17,10 @@ pub const MAX_COLLECTION_NAME_LENGTH: usize = 50;
 /// 4 + MAX_URI_LENGTH (original_uri string) + 8 (created_at) + 8 (updated_at) + 1 (is_on_solana) + 1 (bump)
 pub const NFT_ORIGIN_SPACE: usize = 8 + 32 + 32 + 32 + 4 + MAX_URI_LENGTH + 8 + 8 + 1 + 1;
 
-/// Space for UniversalNftConfig account (simplified, removed default_gas_limit)
+/// Space for UniversalNftConfig account
 /// 8 (discriminator) + 32 (authority) + 32 (gateway_program) + 
-/// 8 (nonce) + 1 (is_paused) + 8 (created_at) + 1 (bump)
-pub const UNIVERSAL_NFT_CONFIG_SPACE: usize = 8 + 32 + 32 + 8 + 1 + 8 + 1;
+/// 8 (nonce) + 8 (next_token_id) + 1 (is_paused) + 8 (created_at) + 1 (bump)
+pub const UNIVERSAL_NFT_CONFIG_SPACE: usize = 8 + 32 + 32 + 8 + 8 + 1 + 8 + 1;
 
 // ========== PDA SEEDS ==========
 /// Seed for NFT origin PDA

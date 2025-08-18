@@ -12,6 +12,8 @@ pub struct UniversalNftConfig {
     pub gateway_program: Pubkey,
     /// Current nonce for replay protection
     pub nonce: u64,
+    /// Next token id counter for new mints
+    pub next_token_id: u64,
     /// Whether the program is paused
     pub is_paused: bool,
     /// Timestamp when created
