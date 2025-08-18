@@ -1,0 +1,35 @@
+[package]
+name = "zetamint"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "zetamint"
+
+[dependencies]
+anchor-lang = "0.29.0"
+anchor-spl  = "0.29.0"
+mpl-token-metadata = { version = "1.10.1", features = ["no-entrypoint"] }
+solana-program = "1.18.8"
+
+[profile.release]
+# Recommended for Solana programs
+opt-level = "s"
+lto = "fat"
+codegen-units = 1
+panic = "abort"
+strip = "symbols"
+overflow-checks = true
+
+solana-program-test = "1.18.8"
+solana-sdk = "1.18.8"
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+
+[profile.release]
+opt-level = "s"
+lto = "fat"
+codegen-units = 1
+panic = "abort"
+strip = "symbols"
+overflow-checks = true
