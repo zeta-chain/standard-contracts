@@ -457,7 +457,7 @@ pub mod universal_nft {
                 space,
                 &crate::id(),
             )?;
-            
+
             let mut data_ref = ctx.accounts.nft_origin.try_borrow_mut_data()?;
             
             // Write discriminator + serialized data
@@ -540,120 +540,6 @@ pub mod universal_nft {
         });
         
         msg!("Program configuration updated");
-        Ok(())
-    }
-
-    /// Implement on_revert for handling failed cross-chain transactions
-    /// Called by ZetaChain gateway when a cross-chain transaction fails
-    /// This function restores the NFT state and compensates the user
-    pub fn on_revert(
-        ctx: Context<OnRevert>,
-        amount: u64,    // Amount of SOL being reverted (if any)
-        sender: Pubkey, // The account that triggered the original deposit/call from Solana
-        data: Vec<u8>,  // Revert message data containing failure context
-    ) -> Result<()> {
-        require!(!ctx.accounts.config.is_paused, UniversalNftError::OperationNotAllowed);
-        
-        let clock = Clock::get()?;
-        
-        // Verify that the call is coming from ZetaChain gateway
-        let current_ix = anchor_lang::solana_program::sysvar::instructions::get_instruction_relative(
-            0,
-            &ctx.accounts.instruction_sysvar_account.to_account_info(),
-        ).map_err(|_| UniversalNftError::InvalidCaller)?;
-        
-        require!(
-            current_ix.program_id == ctx.accounts.config.gateway_program,
-            UniversalNftError::InvalidCaller
-        );
-        
-        // Parse revert data to understand what failed
-        let revert_reason = if data.is_empty() {
-            "Unknown failure".to_string()
-        } else {
-            // Try to decode the revert message as UTF-8 string
-            String::from_utf8(data.clone()).unwrap_or_else(|_| {
-                format!("Binary revert data: {:?}", &data[..std::cmp::min(32, data.len())])
-            })
-        };
-        
-        // Check if we need to restore an NFT that was burned during the failed transfer
-        let nft_origin = &mut ctx.accounts.nft_origin;
-        if nft_origin.original_mint != Pubkey::default() && !nft_origin.is_on_solana {
-            // This NFT was transferred off Solana but the transaction failed
-            // We need to re-mint it back to the original owner
-            
-            // Create authority signer seeds for CPI calls
-            let authority_bump = ctx.accounts.config.bump;
-            let authority_seeds = &[
-                UNIVERSAL_NFT_CONFIG_SEED,
-                &[authority_bump],
-            ];
-            let authority_signer = &[&authority_seeds[..]];
-            
-            // Create metadata account for the restored NFT
-            create_metadata_account(
-                &ctx.accounts.metadata.to_account_info(),
-                &ctx.accounts.mint.to_account_info(),
-                &ctx.accounts.config.to_account_info(), // Use config as authority
-                &ctx.accounts.payer.to_account_info(),
-                &ctx.accounts.system_program.to_account_info(),
-                &ctx.accounts.rent.to_account_info(),
-                &format!("Restored NFT"), // Name could be retrieved from origin if stored
-                &format!("RNFT"),          // Symbol
-                &nft_origin.original_uri,
-                Some(authority_signer),
-            )?;
-            
-            // Create master edition account
-            create_master_edition_account(
-                &ctx.accounts.master_edition.to_account_info(),
-                &ctx.accounts.mint.to_account_info(),
-                &ctx.accounts.config.to_account_info(), // Use config as authority
-                &ctx.accounts.payer.to_account_info(),
-                &ctx.accounts.metadata.to_account_info(),
-                &ctx.accounts.metadata_program.to_account_info(),
-                &ctx.accounts.system_program.to_account_info(),
-                &ctx.accounts.rent.to_account_info(),
-                Some(authority_signer),
-            )?;
-            
-            // Mint NFT back to the original owner
-            let mint_to_ctx = CpiContext::new_with_signer(
-                ctx.accounts.token_program.to_account_info(),
-                MintTo {
-                    mint: ctx.accounts.mint.to_account_info(),
-                    to: ctx.accounts.token_account.to_account_info(),
-                    authority: ctx.accounts.config.to_account_info(), // Use config as authority
-                },
-                authority_signer,
-            );
-            token::mint_to(mint_to_ctx, 1)?;
-            
-            // Update origin tracking - mark as restored to Solana
-            nft_origin.mark_to_solana(clock.unix_timestamp);
-
-            msg!("NFT restored to original owner due to failed cross-chain transfer");
-        }
-        
-        // If SOL was sent back, it's already handled by the gateway
-        // The amount parameter tells us how much was refunded
-        
-        emit!(CrossChainTransferReverted {
-            sender,
-            amount,
-            revert_reason: revert_reason.clone(),
-            timestamp: clock.unix_timestamp,
-            nft_restored: nft_origin.original_mint != Pubkey::default() && !nft_origin.is_on_solana,
-        });
-        
-        msg!(
-            "Cross-chain transaction reverted. Amount: {} lamports, Sender: {:?}, Reason: {}",
-            amount,
-            sender,
-            revert_reason
-        );
-        
         Ok(())
     }
 }
