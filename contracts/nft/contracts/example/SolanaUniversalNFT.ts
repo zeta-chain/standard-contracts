@@ -84,6 +84,13 @@ export class UniversalNftCLI {
     )[0];
   }
 
+  private deriveTicketPda(mint: PublicKey, authority: PublicKey): PublicKey {
+    return PublicKey.findProgramAddressSync(
+      [Buffer.from("mint_ticket"), mint.toBuffer(), authority.toBuffer()],
+      this.program.programId
+    )[0];
+  }
+
   async initialize(gatewayProgram: string): Promise<void> {
     const configPda = this.deriveConfigPda();
     const tx = await this.program.methods
@@ -100,29 +107,36 @@ export class UniversalNftCLI {
   }
 
   async mint(uri: string, name = "Universal NFT", symbol = "UNFT"): Promise<void> {
-    // Note: Program computes token_id = sha256(mint || slot_LE || next_token_id_LE)
-    // We approximate it client-side to derive the required nft_origin PDA.
+    // Two-step flow: reserve -> mint. Reservation yields token_id to derive nft_origin PDA.
     const mint = Keypair.generate();
     const configPda = this.deriveConfigPda();
     const metadataPda = this.deriveMetadataPda(mint.publicKey);
     const masterEditionPda = this.deriveMasterEditionPda(mint.publicKey);
     const ata = await getAssociatedTokenAddress(mint.publicKey, this.wallet.publicKey);
 
-    // Fetch next_token_id and a recent slot to compute expected token_id
-    const config = await this.program.account.universalNftConfig.fetch(configPda);
-    const nextTokenIdBn: BN = (config as any).nextTokenId as BN; // Anchor camelCases
-    const slot = await this.connection.getSlot("confirmed");
-    const tokenId = sha256(
-      mint.publicKey.toBuffer(),
-      toU64LE(BigInt(slot)),
-      toU64LE(BigInt(nextTokenIdBn.toString()))
-    );
+    // Reserve ticket
+    const ticketPda = this.deriveTicketPda(mint.publicKey, this.wallet.publicKey);
+    await this.program.methods
+      .reserveNextTokenId()
+      .accountsStrict({
+        config: configPda,
+        ticket: ticketPda,
+        mint: mint.publicKey,
+        authority: this.wallet.publicKey,
+        systemProgram: SystemProgram.programId,
+      })
+      .rpc();
+
+    // Read ticket for token_id
+    const ticket = await (this.program.account as any).mintTicket.fetch(ticketPda);
+    const tokenId: Buffer = Buffer.from(ticket.tokenId as number[]);
     const nftOriginPda = this.deriveNftOriginPda(tokenId);
 
     const tx = await this.program.methods
       .mintNft(name, symbol, uri)
       .accountsStrict({
         config: configPda,
+        ticket: ticketPda,
         nftOrigin: nftOriginPda,
         mint: mint.publicKey,
         metadata: metadataPda,

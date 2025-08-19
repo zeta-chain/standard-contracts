@@ -3,8 +3,8 @@ use anchor_spl::{
     token::{Mint, Token, TokenAccount},
     associated_token::AssociatedToken,
 };
-use crate::state::UniversalNftConfig;
-use crate::util::constants::{*, TOKEN_METADATA_PROGRAM_ID};
+use crate::state::{UniversalNftConfig, MintTicket};
+use crate::util::constants::{*, TOKEN_METADATA_PROGRAM_ID, MINT_TICKET_SEED};
 
 #[derive(Accounts)]
 pub struct MintNft<'info> {
@@ -16,8 +16,19 @@ pub struct MintNft<'info> {
     )]
     pub config: Account<'info, UniversalNftConfig>,
     
-    /// Origin PDA passed but initialized in the handler using program-generated token_id
-    /// CHECK: Derived and initialized in the instruction using [NFT_ORIGIN_SEED, token_id]
+    /// Reservation ticket created via ReserveNextTokenId; consumed here
+    #[account(
+        mut,
+        seeds = [MINT_TICKET_SEED, mint.key().as_ref(), authority.key().as_ref()],
+        bump = ticket.bump,
+        constraint = !ticket.used @ crate::error::UniversalNftError::OperationNotAllowed,
+        has_one = authority,
+    )]
+    pub ticket: Account<'info, MintTicket>,
+
+    /// Origin PDA passed but initialized in the handler using program-generated token_id.
+    /// The handler recomputes token_id from ticket.{slot,reserved_id} and requires PDA match.
+    /// CHECK: Verified in handler
     #[account(mut)]
     pub nft_origin: UncheckedAccount<'info>,
     

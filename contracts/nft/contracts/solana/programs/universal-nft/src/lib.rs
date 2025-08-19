@@ -51,6 +51,38 @@ pub mod universal_nft {
         Ok(())
     }
 
+    /// Reserve next token id for a specific mint and authority.
+    /// Outputs a MintTicket PDA: [MINT_TICKET_SEED, mint, authority]
+    pub fn reserve_next_token_id(ctx: Context<ReserveNextTokenId>) -> Result<()> {
+        let slot = Clock::get()?.slot;
+        let reserved_id = ctx.accounts.config.next_token_id;
+
+        // Compute token_id = sha256(mint || slot_LE || reserved_id_LE)
+        let mut hasher = anchor_lang::solana_program::hash::Hasher::default();
+        hasher.hash(ctx.accounts.mint.key().as_ref());
+        hasher.hash(&slot.to_le_bytes());
+        hasher.hash(&reserved_id.to_le_bytes());
+        let token_id = hasher.result().to_bytes();
+
+        let ticket = &mut ctx.accounts.ticket;
+        ticket.mint = ctx.accounts.mint.key();
+        ticket.authority = ctx.accounts.authority.key();
+        ticket.reserved_id = reserved_id;
+        ticket.slot = slot;
+        ticket.token_id = token_id;
+        ticket.used = false;
+        ticket.created_at = Clock::get()?.unix_timestamp;
+        ticket.bump = ctx.bumps.ticket;
+
+        // Increment global next_token_id
+        ctx.accounts.config.next_token_id = ctx.accounts.config
+            .next_token_id
+            .checked_add(1)
+            .ok_or(UniversalNftError::ArithmeticOverflow)?;
+
+        Ok(())
+    }
+
     /// Mint a new Universal NFT on Solana
     /// Creates NFT, metadata, master edition, and origin tracking
     pub fn mint_nft(
@@ -103,21 +135,18 @@ pub mod universal_nft {
             None, // No authority signer needed for minting
         )?;
         
-        // Generate token_id inside the program: hash(mint + slot + next_token_id)
-        // This keeps it deterministic, unique, and avoids trusting client input.
-        let slot = Clock::get()?.slot;
+        // Use reservation ticket to determine token_id and enforce determinism
+        require_keys_eq!(ctx.accounts.ticket.mint, ctx.accounts.mint.key(), UniversalNftError::InvalidProgram);
+        require_keys_eq!(ctx.accounts.ticket.authority, ctx.accounts.authority.key(), UniversalNftError::InvalidProgram);
+        require!(!ctx.accounts.ticket.used, UniversalNftError::OperationNotAllowed);
+
+        // Recompute token_id from ticket
         let mut hasher = anchor_lang::solana_program::hash::Hasher::default();
         hasher.hash(ctx.accounts.mint.key().as_ref());
-        hasher.hash(&slot.to_le_bytes());
-        hasher.hash(&ctx.accounts.config.next_token_id.to_le_bytes());
-        let token_hash = hasher.result();
-        let token_id: [u8; 32] = token_hash.to_bytes();
-
-        // Increment next_token_id after computing token_id
-        ctx.accounts.config.next_token_id = ctx.accounts.config
-            .next_token_id
-            .checked_add(1)
-            .ok_or(UniversalNftError::ArithmeticOverflow)?;
+        hasher.hash(&ctx.accounts.ticket.slot.to_le_bytes());
+        hasher.hash(&ctx.accounts.ticket.reserved_id.to_le_bytes());
+        let token_id = hasher.result().to_bytes();
+        require!(token_id == ctx.accounts.ticket.token_id, UniversalNftError::InvalidDataFormat);
 
         // Create and initialize origin PDA [NFT_ORIGIN_SEED, token_id]
         let (expected_origin, origin_bump) = Pubkey::find_program_address(&[NFT_ORIGIN_SEED, &token_id], &crate::id());
@@ -148,7 +177,8 @@ pub mod universal_nft {
         let disc = <NftOrigin as anchor_lang::Discriminator>::DISCRIMINATOR;
         let mut tmp = Vec::with_capacity(8 + NftOrigin::LEN);
         tmp.extend_from_slice(&disc);
-        let mut origin_data = NftOrigin::new(
+        
+        let origin_data = NftOrigin::new(
             token_id,
             ctx.accounts.mint.key(),
             ctx.accounts.metadata.key(),
@@ -176,8 +206,18 @@ pub mod universal_nft {
             timestamp: clock.unix_timestamp,
         });
         
+        // Mark ticket as used and close it to authority to reclaim rent
+        ctx.accounts.ticket.used = true;
+        let authority_lamports = ctx.accounts.authority.to_account_info().lamports();
+        **ctx.accounts.authority.to_account_info().lamports.borrow_mut() = authority_lamports
+            .checked_add(ctx.accounts.ticket.to_account_info().lamports())
+            .ok_or(UniversalNftError::ArithmeticOverflow)?;
+        **ctx.accounts.ticket.to_account_info().lamports.borrow_mut() = 0;
+        ctx.accounts.ticket.to_account_info().assign(&System::id());
+        ctx.accounts.ticket.to_account_info().resize(0)?;
+
         msg!("NFT minted successfully with token_id: {:?}", token_id);
-    Ok(())
+        Ok(())
     }
 
     /// Transfer NFT intent to ZetaChain via gateway call (no SOL deposit)

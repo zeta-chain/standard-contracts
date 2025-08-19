@@ -29,6 +29,9 @@ pub const NFT_ORIGIN_SEED: &[u8] = b"nft_origin";
 /// Seed for universal NFT config PDA
 pub const UNIVERSAL_NFT_CONFIG_SEED: &[u8] = b"universal_nft_config";
 
+/// Seed for mint reservation ticket PDA
+pub const MINT_TICKET_SEED: &[u8] = b"mint_ticket";
+
 /// Seed for NFT collection PDA (removed - no longer using collections)
 // pub const NFT_COLLECTION_SEED: &[u8] = b"nft_collection";
 
