@@ -1,0 +1,25 @@
+﻿[package]
+name = "universal_nft"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "universal_nft"
+
+[features]
+no-entrypoint = []
+no-idl = []
+cpi = []
+default = []
+
+[dependencies]
+anchor-lang = "0.29.0"
+anchor-spl = { version = "0.29.0", features = ["token", "associated_token"] }
+# Use anchor_lang::solana_program to avoid version conflicts
+# solana-program dependency removed per Anchor warning
+sha2 = "0.10"
+hex = "0.4"
+mpl-token-metadata = { version = "4.1.2", features = ["no-entrypoint"] }
+
+[dev-dependencies]

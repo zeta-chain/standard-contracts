@@ -1,0 +1,1 @@
+{"rustc":13408944290269909087,"features":"","target":0,"profile":0,"path":0,"deps":[[5487915632734539349,"build_script_build",false,14824218262700552619]],"local":[{"RerunIfChanged":{"output":"sbf-solana-solana\\release\\build\\ahash-d137ff6499ae0c05\\output","paths":["build.rs"]}}],"rustflags":[],"metadata":0,"config":0,"compile_kind":0}
