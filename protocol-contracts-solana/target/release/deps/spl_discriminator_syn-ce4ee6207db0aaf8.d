@@ -1,9 +1,0 @@
-\\?\C:\Users\ashut\OneDrive\Documents\Bug Bounty\solana\standard-contracts\protocol-contracts-solana\target\release\deps\libspl_discriminator_syn-ce4ee6207db0aaf8.rmeta: C:\Users\ashut\.cargo\registry\src\index.crates.io-6f17d22bba15001f\spl-discriminator-syn-0.1.2\src\lib.rs C:\Users\ashut\.cargo\registry\src\index.crates.io-6f17d22bba15001f\spl-discriminator-syn-0.1.2\src\error.rs C:\Users\ashut\.cargo\registry\src\index.crates.io-6f17d22bba15001f\spl-discriminator-syn-0.1.2\src\parser.rs
-
-\\?\C:\Users\ashut\OneDrive\Documents\Bug Bounty\solana\standard-contracts\protocol-contracts-solana\target\release\deps\libspl_discriminator_syn-ce4ee6207db0aaf8.rlib: C:\Users\ashut\.cargo\registry\src\index.crates.io-6f17d22bba15001f\spl-discriminator-syn-0.1.2\src\lib.rs C:\Users\ashut\.cargo\registry\src\index.crates.io-6f17d22bba15001f\spl-discriminator-syn-0.1.2\src\error.rs C:\Users\ashut\.cargo\registry\src\index.crates.io-6f17d22bba15001f\spl-discriminator-syn-0.1.2\src\parser.rs
-
-\\?\C:\Users\ashut\OneDrive\Documents\Bug Bounty\solana\standard-contracts\protocol-contracts-solana\target\release\deps\spl_discriminator_syn-ce4ee6207db0aaf8.d: C:\Users\ashut\.cargo\registry\src\index.crates.io-6f17d22bba15001f\spl-discriminator-syn-0.1.2\src\lib.rs C:\Users\ashut\.cargo\registry\src\index.crates.io-6f17d22bba15001f\spl-discriminator-syn-0.1.2\src\error.rs C:\Users\ashut\.cargo\registry\src\index.crates.io-6f17d22bba15001f\spl-discriminator-syn-0.1.2\src\parser.rs
-
-C:\Users\ashut\.cargo\registry\src\index.crates.io-6f17d22bba15001f\spl-discriminator-syn-0.1.2\src\lib.rs:
-C:\Users\ashut\.cargo\registry\src\index.crates.io-6f17d22bba15001f\spl-discriminator-syn-0.1.2\src\error.rs:
-C:\Users\ashut\.cargo\registry\src\index.crates.io-6f17d22bba15001f\spl-discriminator-syn-0.1.2\src\parser.rs:

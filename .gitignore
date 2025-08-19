@@ -13,3 +13,13 @@ abi
 
 dist
 package
+
+# Solana/Anchor build outputs (do not commit)
+protocol-contracts-solana/target/
+protocol-contracts-solana/programs/**/target/
+**/*.so
+**/*.idl
+
+# Anchor deploy keypairs (should never be committed)
+protocol-contracts-solana/target/deploy/*.json
+protocol-contracts-solana/**/target/deploy/*.json

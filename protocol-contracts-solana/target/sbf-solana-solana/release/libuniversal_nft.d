@@ -1,1 +1,0 @@
-\\?\C:\Users\ashut\OneDrive\Documents\Bug\ Bounty\solana\standard-contracts\protocol-contracts-solana\target\sbf-solana-solana\release\libuniversal_nft.rlib: \\?\C:\Users\ashut\OneDrive\Documents\Bug\ Bounty\solana\standard-contracts\protocol-contracts-solana\programs\universal_nft\src\lib.rs
