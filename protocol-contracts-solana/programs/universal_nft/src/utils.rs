@@ -1,7 +1,7 @@
 ﻿use anchor_lang::prelude::*;
 use anchor_lang::solana_program::program::invoke_signed;
 use mpl_token_metadata::instruction as mpl_ix;
-use mpl_token_metadata::state::DataV2;
+use mpl_token_metadata::types::DataV2;
 
 pub fn derive_nft_origin_pda(token_id: &[u8]) -> (Pubkey, u8) {
     // Seed order: [token_id_bytes, "nft_origin"] per spec
