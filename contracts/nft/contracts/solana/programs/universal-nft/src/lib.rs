@@ -505,12 +505,25 @@ pub mod universal_nft {
         let old_authority = config.authority;
         let old_gateway = config.gateway_program;
         
+        // Validate and update authority if requested
         if let Some(authority) = new_authority {
-            config.authority = authority;
+            require!(authority != Pubkey::default(), UniversalNftError::InvalidAuthority);
+            if authority != config.authority {
+                config.authority = authority;
+            }
         }
         
+        // Validate and update gateway program if requested
         if let Some(gateway) = new_gateway_program {
-            config.gateway_program = gateway;
+            // Disallow zero pubkey; optionally check executability if the account is provided
+            require!(gateway != Pubkey::default(), UniversalNftError::InvalidGatewayProgram);
+            if let Some(acc) = ctx.remaining_accounts.iter().find(|a| a.key() == gateway) {
+                // If the caller supplied the gateway account, ensure it's a program (executable)
+                require!(acc.executable, UniversalNftError::InvalidGatewayProgram);
+            }
+            if gateway != config.gateway_program {
+                config.gateway_program = gateway;
+            }
         }
         
         if let Some(paused) = pause {
