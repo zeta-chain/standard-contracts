@@ -91,7 +91,7 @@ export class UniversalNftCLI {
     )[0];
   }
 
-  async initialize(gatewayProgram: string): Promise<void> {
+  async initialize(gatewayProgram: string, gatewayPda: string): Promise<void> {
     const configPda = this.deriveConfigPda();
     const tx = await this.program.methods
       .initialize(new PublicKey(gatewayProgram))
@@ -99,6 +99,7 @@ export class UniversalNftCLI {
         config: configPda,
         authority: this.wallet.publicKey,
         gatewayProgram: new PublicKey(gatewayProgram),
+        gatewayPda: new PublicKey(gatewayPda),
         systemProgram: SystemProgram.programId,
       })
       .rpc();
@@ -159,7 +160,7 @@ export class UniversalNftCLI {
     console.log("Token ID:", tokenId.toString("hex"));
   }
 
-  async transferToZetachain(tokenIdHex: string, zcUniversalContractHex: string, destinationChain: string, finalRecipient: string, gatewayPda: string): Promise<void> {
+  async transferToZetachain(tokenIdHex: string, zcUniversalContractHex: string, destinationChain: string, finalRecipient: string): Promise<void> {
     const tokenId = Buffer.from(tokenIdHex.replace(/^0x/, ''), 'hex');
     if (tokenId.length !== 32) throw new Error("tokenId must be 32 bytes hex");
     const receiver = Buffer.from(zcUniversalContractHex.replace(/^0x/, ''), 'hex');
@@ -173,6 +174,7 @@ export class UniversalNftCLI {
     const ata = await getAssociatedTokenAddress(mint, this.wallet.publicKey);
     const config = await this.program.account.universalNftConfig.fetch(configPda);
     const gatewayProgram = (config as any).gatewayProgram as PublicKey;
+    const gatewayPda = (config as any).gatewayPda as PublicKey;
 
     const tx = await this.program.methods
       .transferToZetachain(Array.from(tokenId), Array.from(receiver), new BN(destinationChain), finalRecipient)
@@ -184,7 +186,7 @@ export class UniversalNftCLI {
         metadata: metadataPda,
         owner: this.wallet.publicKey,
         gatewayProgram,
-        gatewayPda: new PublicKey(gatewayPda),
+        gatewayPda,
         tokenProgram: TOKEN_PROGRAM_ID,
         systemProgram: SystemProgram.programId,
       })
@@ -204,6 +206,7 @@ export class UniversalNftCLI {
       const config = await this.program.account.universalNftConfig.fetch(configPda);
       console.log("Authority:", (config as any).authority.toBase58());
       console.log("Gateway Program:", (config as any).gatewayProgram.toBase58());
+      console.log("Gateway PDA:", (config as any).gatewayPda.toBase58());
       console.log("Paused:", (config as any).isPaused);
       console.log("Next Token ID:", (config as any).nextTokenId.toString());
     } catch (e) {
@@ -231,8 +234,9 @@ async function main() {
     switch (cmd) {
       case "initialize": {
         const gateway = args[0];
-        if (!gateway) throw new Error("usage: initialize <gatewayProgramPubkey>");
-        await cli.initialize(gateway);
+        const gatewayPda = args[1];
+        if (!gateway || !gatewayPda) throw new Error("usage: initialize <gatewayProgramPubkey> <gatewayPdaPubkey>");
+        await cli.initialize(gateway, gatewayPda);
         break;
       }
       case "mint": {
@@ -244,11 +248,11 @@ async function main() {
         break;
       }
       case "transfer": {
-        const [tokenIdHex, zcUniversalContractHex, destChain, finalRecipient, gatewayPda] = args;
-        if (!tokenIdHex || !zcUniversalContractHex || !destChain || !finalRecipient || !gatewayPda) {
-          throw new Error("usage: transfer <tokenIdHex32> <zcUniversalContractHex20> <destChainU64> <finalRecipientStr> <gatewayPda>");
+        const [tokenIdHex, zcUniversalContractHex, destChain, finalRecipient] = args;
+        if (!tokenIdHex || !zcUniversalContractHex || !destChain || !finalRecipient) {
+          throw new Error("usage: transfer <tokenIdHex32> <zcUniversalContractHex20> <destChainU64> <finalRecipientStr>");
         }
-        await cli.transferToZetachain(tokenIdHex, zcUniversalContractHex, destChain, finalRecipient, gatewayPda);
+        await cli.transferToZetachain(tokenIdHex, zcUniversalContractHex, destChain, finalRecipient);
         break;
       }
       case "status":
@@ -264,7 +268,7 @@ async function main() {
         await cli.balance();
         break;
       default:
-        console.log("Commands:\n  initialize <gatewayProgram>\n  mint <uri> [name] [symbol]\n  transfer <tokenIdHex32> <zcUniversalContractHex20> <destChainU64> <finalRecipient> <gatewayPda>\n  status\n  origin <tokenIdHex32>\n  balance");
+        console.log("Commands:\n  initialize <gatewayProgramPubkey> <gatewayPdaPubkey>\n  mint <uri> [name] [symbol]\n  transfer <tokenIdHex32> <zcUniversalContractHex20> <destChainU64> <finalRecipient>\n  status\n  origin <tokenIdHex32>\n  balance");
     }
   } catch (e) {
     console.error("Error:", (e as Error).message);

@@ -205,4 +205,11 @@ pub enum UniversalNftError {
     
     #[msg("Invalid caller - only gateway can call this function")]
     InvalidCaller,
+
+    // ========== ORIGIN/STATE ERRORS ==========
+    #[msg("NFT not currently on Solana")]
+    NftNotOnSolana,
+
+    #[msg("Invalid token supply for NFT")]
+    InvalidTokenSupply,
 }

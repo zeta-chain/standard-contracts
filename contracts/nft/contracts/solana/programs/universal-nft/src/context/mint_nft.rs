@@ -23,6 +23,7 @@ pub struct MintNft<'info> {
         bump = ticket.bump,
         constraint = !ticket.used @ crate::error::UniversalNftError::OperationNotAllowed,
         has_one = authority,
+        close = authority,
     )]
     pub ticket: Account<'info, MintTicket>,
 
@@ -70,6 +71,7 @@ pub struct MintNft<'info> {
     )]
     pub master_edition: UncheckedAccount<'info>,
     
+    /// Deterministic recipient ATA; program initializes it if missing
     #[account(
         init,
         payer = payer,

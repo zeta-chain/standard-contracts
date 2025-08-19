@@ -57,12 +57,17 @@ pub struct TransferToZetachain<'info> {
     /// ZetaChain Gateway Program
     /// CHECK: This is the ZetaChain gateway program for cross-chain operations
     #[account(
-        constraint = gateway_program.key() == config.gateway_program @ crate::error::UniversalNftError::InvalidGatewayProgram
+        constraint = gateway_program.key() == config.gateway_program @ crate::error::UniversalNftError::InvalidGatewayProgram,
+        executable
     )]
     pub gateway_program: UncheckedAccount<'info>,
     
     /// ZetaChain Gateway PDA
-    /// CHECK: This is the PDA for the ZetaChain gateway
+    /// CHECK: This is the PDA for the ZetaChain gateway; enforce ownership by gateway program
+    #[account(
+        constraint = *gateway_pda.owner == config.gateway_program @ crate::error::UniversalNftError::InvalidGatewayProgram,
+        constraint = gateway_pda.key() == config.gateway_pda @ crate::error::UniversalNftError::InvalidGatewayProgram
+    )]
     pub gateway_pda: UncheckedAccount<'info>,
     
     pub token_program: Program<'info, Token>,

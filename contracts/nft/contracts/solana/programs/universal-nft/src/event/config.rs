@@ -7,6 +7,8 @@ pub struct ProgramConfigured {
     pub authority: Pubkey,
     /// Gateway program for cross-chain operations
     pub gateway_program: Pubkey,
+    /// Expected gateway PDA
+    pub gateway_pda: Pubkey,
     /// Timestamp of configuration
     pub timestamp: i64,
 }
@@ -21,6 +23,10 @@ pub struct ProgramConfigUpdated {
     pub old_gateway_program: Option<Pubkey>,
     /// New gateway program
     pub new_gateway_program: Option<Pubkey>,
+    /// Previous gateway PDA
+    pub old_gateway_pda: Option<Pubkey>,
+    /// New gateway PDA
+    pub new_gateway_pda: Option<Pubkey>,
     /// Updated by
     pub updated_by: Pubkey,
     /// Timestamp of update

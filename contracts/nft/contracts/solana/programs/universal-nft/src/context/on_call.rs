@@ -18,7 +18,7 @@ pub struct OnCall<'info> {
     pub nft_origin: UncheckedAccount<'info>,
 
     /// Program ATA to receive minted token (authority = config, mint = mint)
-    /// We validate at runtime that owner == config and mint matches.
+    /// We validate at runtime that it matches the derived ATA
     #[account(mut)]
     pub pda_ata: Account<'info, TokenAccount>,
 
@@ -56,7 +56,11 @@ pub struct OnCall<'info> {
     pub master_edition: UncheckedAccount<'info>,
 
     /// Gateway PDA, used for minimal caller verification
-    /// CHECK: Read-only; we assert owner matches config.gateway_program
+    /// CHECK: Read-only; enforce that the PDA equals stored gateway_pda and is owned by the configured gateway program
+    #[account(
+        constraint = gateway_pda.key() == pda.gateway_pda @ crate::error::UniversalNftError::InvalidGatewayProgram,
+        constraint = *gateway_pda.owner == pda.gateway_program @ crate::error::UniversalNftError::InvalidGatewayProgram
+    )]
     pub gateway_pda: UncheckedAccount<'info>,
 
     /// CHECK: Verified against constant ID

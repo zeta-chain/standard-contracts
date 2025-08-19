@@ -16,8 +16,15 @@ pub struct Initialize<'info> {
     #[account(mut)]
     pub authority: Signer<'info>,
     
-    /// CHECK: ZetaChain gateway program
+    /// CHECK: ZetaChain gateway program (must be executable)
     pub gateway_program: UncheckedAccount<'info>,
+
+    /// ZetaChain Gateway PDA owned by the gateway program (for consistency and validation)
+    /// CHECK: We validate ownership against the provided gateway_program
+    #[account(
+        constraint = *gateway_pda.owner == gateway_program.key() @ crate::error::UniversalNftError::InvalidGatewayProgram
+    )]
+    pub gateway_pda: UncheckedAccount<'info>,
     
     pub system_program: Program<'info, System>,
 }

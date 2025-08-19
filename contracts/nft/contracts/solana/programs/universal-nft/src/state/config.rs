@@ -10,6 +10,8 @@ pub struct UniversalNftConfig {
     pub authority: Pubkey,
     /// ZetaChain gateway program for cross-chain operations
     pub gateway_program: Pubkey,
+    /// Expected ZetaChain gateway PDA (pin the exact authority account)
+    pub gateway_pda: Pubkey,
     /// Current nonce for replay protection
     pub nonce: u64,
     /// Next token id counter for new mints

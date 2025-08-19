@@ -30,11 +30,25 @@ pub mod universal_nft {
         ctx: Context<Initialize>,
         gateway_program: Pubkey,
     ) -> Result<()> {
+        // Critical validations for the gateway program configuration
+        require!(gateway_program != Pubkey::default(), UniversalNftError::InvalidGatewayProgram);
+        
+        // Ensure the provided gateway account matches the argument and is executable
+        require_keys_eq!(ctx.accounts.gateway_program.key(), gateway_program, UniversalNftError::InvalidGatewayProgram);
+        require!(ctx.accounts.gateway_program.executable, UniversalNftError::InvalidGatewayProgram);
+
+        // Validate provided gateway_pda is owned by this gateway program
+        require!(
+            *ctx.accounts.gateway_pda.owner == gateway_program,
+            UniversalNftError::InvalidGatewayProgram
+        );
+
         let config = &mut ctx.accounts.config;
         let clock = Clock::get()?;
         
         config.authority = ctx.accounts.authority.key();
         config.gateway_program = gateway_program;
+        config.gateway_pda = ctx.accounts.gateway_pda.key();
         config.nonce = 0;
         config.next_token_id = 0;
         config.is_paused = false;
@@ -44,6 +58,7 @@ pub mod universal_nft {
         emit!(ProgramConfigured {
             authority: config.authority,
             gateway_program: config.gateway_program,
+            gateway_pda: config.gateway_pda,
             timestamp: config.created_at,
         });
         
@@ -98,6 +113,22 @@ pub mod universal_nft {
         require!(!ctx.accounts.config.is_paused, UniversalNftError::OperationNotAllowed);
         
         let clock = Clock::get()?;
+
+        // Use reservation ticket to determine token_id and enforce determinism
+        require_keys_eq!(ctx.accounts.ticket.mint, ctx.accounts.mint.key(), UniversalNftError::InvalidProgram);
+        require_keys_eq!(ctx.accounts.ticket.authority, ctx.accounts.authority.key(), UniversalNftError::InvalidProgram);
+        require!(!ctx.accounts.ticket.used, UniversalNftError::OperationNotAllowed);
+
+        // Recompute token_id from ticket
+        let mut hasher = anchor_lang::solana_program::hash::Hasher::default();
+        hasher.hash(ctx.accounts.mint.key().as_ref());
+        hasher.hash(&ctx.accounts.ticket.slot.to_le_bytes());
+        hasher.hash(&ctx.accounts.ticket.reserved_id.to_le_bytes());
+        let token_id = hasher.result().to_bytes();
+        require!(token_id == ctx.accounts.ticket.token_id, UniversalNftError::InvalidDataFormat);
+
+        // Mark ticket as used immediately to prevent concurrent double-spend
+        ctx.accounts.ticket.used = true;
         
         // Create metadata account using CPI to Metaplex Token Metadata program
         create_metadata_account(
@@ -126,6 +157,12 @@ pub mod universal_nft {
             None,
         )?;
 
+        // Additional mint/token invariants
+        require!(ctx.accounts.mint.decimals == 0, UniversalNftError::InvalidMint);
+        require!(ctx.accounts.mint.supply == 0, UniversalNftError::NftAlreadyExists);
+        require_keys_eq!(ctx.accounts.token_account.mint, ctx.accounts.mint.key(), UniversalNftError::InvalidMint);
+        require_keys_eq!(ctx.accounts.token_account.owner, ctx.accounts.recipient.key(), UniversalNftError::InvalidRecipientAddress);
+
         // Mint NFT to recipient
         mint_nft_to_recipient(
             &ctx.accounts.mint,
@@ -135,41 +172,33 @@ pub mod universal_nft {
             None, // No authority signer needed for minting
         )?;
         
-        // Use reservation ticket to determine token_id and enforce determinism
-        require_keys_eq!(ctx.accounts.ticket.mint, ctx.accounts.mint.key(), UniversalNftError::InvalidProgram);
-        require_keys_eq!(ctx.accounts.ticket.authority, ctx.accounts.authority.key(), UniversalNftError::InvalidProgram);
-        require!(!ctx.accounts.ticket.used, UniversalNftError::OperationNotAllowed);
-
-        // Recompute token_id from ticket
-        let mut hasher = anchor_lang::solana_program::hash::Hasher::default();
-        hasher.hash(ctx.accounts.mint.key().as_ref());
-        hasher.hash(&ctx.accounts.ticket.slot.to_le_bytes());
-        hasher.hash(&ctx.accounts.ticket.reserved_id.to_le_bytes());
-        let token_id = hasher.result().to_bytes();
-        require!(token_id == ctx.accounts.ticket.token_id, UniversalNftError::InvalidDataFormat);
-
         // Create and initialize origin PDA [NFT_ORIGIN_SEED, token_id]
         let (expected_origin, origin_bump) = Pubkey::find_program_address(&[NFT_ORIGIN_SEED, &token_id], &crate::id());
         require_keys_eq!(expected_origin, ctx.accounts.nft_origin.key(), UniversalNftError::InvalidProgram);
 
-        // Create account if needed using config PDA as payer
-        if ctx.accounts.nft_origin.data_is_empty() || *ctx.accounts.nft_origin.owner != crate::id() {
+        // Create account if needed using payer as funder; sign as the new PDA only
+        if ctx.accounts.nft_origin.data_is_empty() {
             let rent = Rent::get()?;
             let space = NftOrigin::LEN as u64;
             let lamports = rent.minimum_balance(space as usize);
-            let config_seeds: &[&[u8]] = &[UNIVERSAL_NFT_CONFIG_SEED, &[ctx.accounts.config.bump]];
             let origin_seeds: &[&[u8]] = &[NFT_ORIGIN_SEED, &token_id, &[origin_bump]];
-            let signers: &[&[&[u8]]] = &[config_seeds, origin_seeds];
             anchor_lang::system_program::create_account(
                 CpiContext::new_with_signer(
                     ctx.accounts.system_program.to_account_info(),
-                    anchor_lang::system_program::CreateAccount { from: ctx.accounts.config.to_account_info(), to: ctx.accounts.nft_origin.to_account_info() },
-                    signers,
+                    anchor_lang::system_program::CreateAccount { from: ctx.accounts.payer.to_account_info(), to: ctx.accounts.nft_origin.to_account_info() },
+                    &[origin_seeds],
                 ),
                 lamports,
                 space,
                 &crate::id(),
             )?;
+        } else {
+            // If already initialized and owned by this program, prevent overwrite; else reject invalid owner
+            if *ctx.accounts.nft_origin.owner == crate::id() {
+                return err!(UniversalNftError::NftAlreadyExists);
+            } else {
+                return err!(UniversalNftError::InvalidAccountOwner);
+            }
         }
 
         // Write discriminator + NftOrigin data
@@ -206,16 +235,7 @@ pub mod universal_nft {
             timestamp: clock.unix_timestamp,
         });
         
-        // Mark ticket as used and close it to authority to reclaim rent
-        ctx.accounts.ticket.used = true;
-        let authority_lamports = ctx.accounts.authority.to_account_info().lamports();
-        **ctx.accounts.authority.to_account_info().lamports.borrow_mut() = authority_lamports
-            .checked_add(ctx.accounts.ticket.to_account_info().lamports())
-            .ok_or(UniversalNftError::ArithmeticOverflow)?;
-        **ctx.accounts.ticket.to_account_info().lamports.borrow_mut() = 0;
-        ctx.accounts.ticket.to_account_info().assign(&System::id());
-        ctx.accounts.ticket.to_account_info().resize(0)?;
-
+        // NOTE: Ticket will be auto-closed to authority via the close attribute in the context
         msg!("NFT minted successfully with token_id: {:?}", token_id);
         Ok(())
     }
@@ -231,10 +251,36 @@ pub mod universal_nft {
     ) -> Result<()> {
         require!(!ctx.accounts.config.is_paused, UniversalNftError::OperationNotAllowed);
         require!(!final_recipient.is_empty(), UniversalNftError::InvalidRecipientAddress);
+        require!(final_recipient.len() <= MAX_RECIPIENT_LENGTH, UniversalNftError::InvalidRecipientAddress);
         
+        // Ensure the provided gateway PDA is actually owned by the configured gateway program
+        require!(
+            *ctx.accounts.gateway_pda.owner == ctx.accounts.config.gateway_program,
+            UniversalNftError::InvalidGatewayProgram
+        );
+        
+        // Defensive: ensure the provided token_id matches the stored one
+        require!(ctx.accounts.nft_origin.token_id == token_id, UniversalNftError::InvalidDataFormat);
+        
+        // Validate nft_origin state and consistency
+        require!(ctx.accounts.nft_origin.is_on_solana, UniversalNftError::NftNotOnSolana);
+        require_keys_eq!(ctx.accounts.nft_origin.original_mint, ctx.accounts.mint.key(), UniversalNftError::InvalidMint);
+        
+        // Enforce strict ATA derivation for owner's token account
+        let expected_owner_ata = anchor_spl::associated_token::get_associated_token_address(
+            &ctx.accounts.owner.key(),
+            &ctx.accounts.mint.key(),
+        );
+        require_keys_eq!(expected_owner_ata, ctx.accounts.token_account.key(), UniversalNftError::InvalidProgram);
+        require_keys_eq!(ctx.accounts.token_account.owner, ctx.accounts.owner.key(), UniversalNftError::InvalidProgram);
+        require_keys_eq!(ctx.accounts.token_account.mint, ctx.accounts.mint.key(), UniversalNftError::InvalidMint);
+        require!(ctx.accounts.token_account.amount == 1, UniversalNftError::InvalidTokenAmount);
+
         let clock = Clock::get()?;
         
         // Burn the NFT on Solana
+        require!(ctx.accounts.mint.decimals == 0, UniversalNftError::InvalidMint);
+        require!(ctx.accounts.mint.supply == 1, UniversalNftError::InvalidTokenSupply);
         let burn_ctx = CpiContext::new(
             ctx.accounts.token_program.to_account_info(),
             Burn {
@@ -271,13 +317,12 @@ pub mod universal_nft {
             message
         };
         
-        // Call ZetaChain gateway `call` via CPI (no SOL deposit)
+        // Call ZetaChain gateway `call` via CPI
         //
         // According to ZetaChain docs (https://www.zetachain.com/docs/developers/chains/solana/):
         // - Use `call` when you need to invoke logic on ZetaChain and no asset movement is required.
         // - `deposit_and_call` is only for depositing SOL and calling; it also incurs a deposit fee.
         // Our NFT transfer burns on Solana and sends only a message → use `call`.
-        msg!("Initiating cross-chain NFT call via ZetaChain gateway");
         // This makes a cross-program invocation to the ZetaChain gateway program
         // which handles calling the universal contract on ZetaChain
         let gateway_pda_info = ctx.accounts.gateway_pda.to_account_info();
@@ -370,7 +415,7 @@ pub mod universal_nft {
             .ok_or(UniversalNftError::InvalidCaller)?;
         
         let current_ix = anchor_lang::solana_program::sysvar::instructions::get_instruction_relative(
-            0,
+            -1,
             ix_account,
         ).map_err(|_| UniversalNftError::InvalidCaller)?;
         
@@ -404,6 +449,18 @@ pub mod universal_nft {
         // Sanity checks for token accounts
         require_keys_eq!(ctx.accounts.pda_ata.owner, ctx.accounts.pda.key(), UniversalNftError::InvalidProgram);
         require_keys_eq!(ctx.accounts.pda_ata.mint, ctx.accounts.mint_account.key(), UniversalNftError::InvalidProgram);
+        
+        // Enforce ATA derivation without requiring associated_token_program account in context
+        let expected_ata = anchor_spl::associated_token::get_associated_token_address(
+            &ctx.accounts.pda.key(),
+            &ctx.accounts.mint_account.key(),
+        );
+
+        require_keys_eq!(
+            expected_ata,
+            ctx.accounts.pda_ata.key(),
+            UniversalNftError::InvalidProgram
+        );
 
         // Prepare signer seeds once
         let signer_seeds_raw = &[UNIVERSAL_NFT_CONFIG_SEED, &[ctx.accounts.pda.bump]];
@@ -539,11 +596,13 @@ pub mod universal_nft {
         ctx: Context<UpdateConfig>,
         new_authority: Option<Pubkey>,
         new_gateway_program: Option<Pubkey>,
+        new_gateway_pda: Option<Pubkey>,
         pause: Option<bool>,
     ) -> Result<()> {
         let config = &mut ctx.accounts.config;
         let old_authority = config.authority;
         let old_gateway = config.gateway_program;
+        let old_gateway_pda = config.gateway_pda;
         
         // Validate and update authority if requested
         if let Some(authority) = new_authority {
@@ -565,6 +624,17 @@ pub mod universal_nft {
                 config.gateway_program = gateway;
             }
         }
+
+        // Update gateway_pda if provided; must be owned by current (possibly updated) gateway program
+        if let Some(gpda) = new_gateway_pda {
+            require!(gpda != Pubkey::default(), UniversalNftError::InvalidGatewayProgram);
+            if let Some(acc) = ctx.remaining_accounts.iter().find(|a| a.key() == gpda) {
+                require!(acc.owner == &config.gateway_program, UniversalNftError::InvalidGatewayProgram);
+            }
+            if gpda != config.gateway_pda {
+                config.gateway_pda = gpda;
+            }
+        }
         
         if let Some(paused) = pause {
             config.is_paused = paused;
@@ -575,6 +645,8 @@ pub mod universal_nft {
             new_authority,
             old_gateway_program: Some(old_gateway),
             new_gateway_program,
+            old_gateway_pda: Some(old_gateway_pda),
+            new_gateway_pda,
             updated_by: ctx.accounts.authority.key(),
             timestamp: Clock::get()?.unix_timestamp,
         });
