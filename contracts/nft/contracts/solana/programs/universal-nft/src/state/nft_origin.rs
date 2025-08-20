@@ -4,7 +4,7 @@ use crate::util::constants::NFT_ORIGIN_SPACE;
 /// NFT origin tracking account
 /// Maps universal token IDs to their original Solana mint accounts
 #[account]
-#[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
+#[derive(Debug)]
 pub struct NftOrigin {
     /// Universal token ID used across all chains
     pub token_id: [u8; 32],
