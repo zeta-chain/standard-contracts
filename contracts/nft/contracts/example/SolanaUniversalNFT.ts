@@ -165,6 +165,12 @@ export class UniversalNftCLI {
     if (tokenId.length !== 32) throw new Error("tokenId must be 32 bytes hex");
     const receiver = Buffer.from(zcUniversalContractHex.replace(/^0x/, ''), 'hex');
     if (receiver.length !== 20) throw new Error("zetachain universal contract must be 20 bytes hex");
+    // Validate destinationChain parses to u64
+    if (!/^\d+$/.test(destinationChain)) throw new Error("destinationChain must be an unsigned integer string");
+    const destChainBig = BigInt(destinationChain);
+    if (destChainBig < 0n || destChainBig > (1n << 64n) - 1n) throw new Error("destinationChain out of range for u64");
+    // Validate final recipient length
+    if (!finalRecipient || finalRecipient.length > 128) throw new Error("finalRecipient must be non-empty and <= 128 chars");
 
     const configPda = this.deriveConfigPda();
     const nftOriginPda = this.deriveNftOriginPda(tokenId);
@@ -177,7 +183,7 @@ export class UniversalNftCLI {
     const gatewayPda = (config as any).gatewayPda as PublicKey;
 
     const tx = await this.program.methods
-      .transferToZetachain(Array.from(tokenId), Array.from(receiver), new BN(destinationChain), finalRecipient)
+      .transferToZetachain(Array.from(tokenId), Array.from(receiver), new BN(destChainBig.toString()), finalRecipient)
       .accountsStrict({
         config: configPda,
         nftOrigin: nftOriginPda,
@@ -272,9 +278,8 @@ async function main() {
     }
   } catch (e) {
     console.error("Error:", (e as Error).message);
-    process.exit(1);
+    process.exitCode = 1;
   }
-    process.exit(1);
 }
 
 // Run if called directly
