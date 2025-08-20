@@ -5,7 +5,11 @@ use anchor_lang::solana_program::{
 };
 use crate::error::UniversalNftError;
 use crate::util::constants::{TOKEN_METADATA_PROGRAM_ID, DEFAULT_SELLER_FEE_BASIS_POINTS};
-use mpl_token_metadata::instruction::{create_metadata_accounts_v3, create_master_edition_v3};
+use mpl_token_metadata::instructions::{
+    CreateMetadataAccountV3Builder,
+    CreateMasterEditionV3Builder,
+};
+use mpl_token_metadata::types::DataV2;
 
 /// Create metadata account using CPI to Metaplex Token Metadata program
 pub fn create_metadata_account<'a>(
@@ -20,28 +24,32 @@ pub fn create_metadata_account<'a>(
     uri: &str,
     authority_signer_seeds: Option<&[&[&[u8]]]>,
 ) -> Result<()> {
-    // Build CreateMetadataAccountsV3 using mpl-token-metadata
-    let create_metadata_account_v3_ix = create_metadata_accounts_v3(
-        TOKEN_METADATA_PROGRAM_ID,
-        *metadata.key,
-        *mint.key,
-        *authority.key,           // mint_authority
-        *payer.key,               // payer
-        *authority.key,           // update_authority
-        name.to_string(),
-        symbol.to_string(),
-        uri.to_string(),
-        None,                     // creators
-        DEFAULT_SELLER_FEE_BASIS_POINTS,
-        true,                     // is_mutable
-        None,                     // collection details
-        None,                     // uses
-        None,                     // collection
-    );
+    // Build CreateMetadataAccountV3 using builder API
+    let data = DataV2 {
+        name: name.to_string(),
+        symbol: symbol.to_string(),
+        uri: uri.to_string(),
+        seller_fee_basis_points: DEFAULT_SELLER_FEE_BASIS_POINTS,
+        creators: None,
+        collection: None,
+        uses: None,
+    };
+
+    let ix = CreateMetadataAccountV3Builder::new()
+        .metadata(*metadata.key)
+        .mint(*mint.key)
+        .mint_authority(*authority.key)
+        .payer(*payer.key)
+        .update_authority(*authority.key, true)
+        .system_program(*system_program.key)
+        .rent(Some(*rent.key))
+        .data(data)
+        .is_mutable(true)
+        .instruction();
 
     match authority_signer_seeds {
         Some(seeds) => anchor_lang::solana_program::program::invoke_signed(
-            &create_metadata_account_v3_ix,
+            &ix,
             &[
                 metadata.clone(),
                 mint.clone(),
@@ -53,7 +61,7 @@ pub fn create_metadata_account<'a>(
             seeds,
         ).map_err(|_| UniversalNftError::MetadataCreationFailed)?,
         None => invoke(
-            &create_metadata_account_v3_ix,
+            &ix,
             &[
                 metadata.clone(),
                 mint.clone(),
@@ -80,24 +88,23 @@ pub fn create_master_edition_account<'a>(
     rent: &AccountInfo<'a>,
     authority_signer_seeds: Option<&[&[&[u8]]]>,
 ) -> Result<()> {
-    // Build CreateMasterEditionV3 using mpl-token-metadata
-    let create_master_edition_v3_ix = create_master_edition_v3(
-        TOKEN_METADATA_PROGRAM_ID,
-        *master_edition.key,
-        *mint.key,
-        *authority.key, // update_authority
-        *authority.key, // mint_authority (same authority here)
-        *payer.key,
-        *metadata.key,
-        *token_program.key,
-        *system_program.key,
-        *rent.key,
-        None, // max_supply
-    );
+    // Build CreateMasterEditionV3 using builder API
+    let ix = CreateMasterEditionV3Builder::new()
+        .edition(*master_edition.key)
+        .mint(*mint.key)
+        .update_authority(*authority.key)
+        .mint_authority(*authority.key)
+        .payer(*payer.key)
+        .metadata(*metadata.key)
+        .token_program(*token_program.key)
+        .system_program(*system_program.key)
+        .rent(Some(*rent.key))
+        .max_supply(0u64)
+        .instruction();
 
     match authority_signer_seeds {
         Some(seeds) => anchor_lang::solana_program::program::invoke_signed(
-            &create_master_edition_v3_ix,
+            &ix,
             &[
                 master_edition.clone(),
                 mint.clone(),
@@ -111,7 +118,7 @@ pub fn create_master_edition_account<'a>(
             seeds,
         ).map_err(|_| UniversalNftError::MasterEditionCreationFailed)?,
         None => invoke(
-            &create_master_edition_v3_ix,
+            &ix,
             &[
                 master_edition.clone(),
                 mint.clone(),
