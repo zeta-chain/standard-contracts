@@ -349,23 +349,7 @@ pub mod universal_nft {
                 AccountMeta::new(owner_info.key(), true),        // Signer (owner)
                 AccountMeta::new_readonly(system_program_info.key(), false), // System Program
             ],
-            data: {
-                // Anchor instruction data for `call` is:
-                // [discriminator(8)] + [receiver([u8;20])] + [message(Vec<u8>)] + [revert_options(Option<RevertOptions>)]
-                // Note: Borsh uses little-endian for lengths; Option::None is encoded as a single 0u8.
-                let mut data = Vec::new();
-                // Discriminator = sha256("global:call")[..8]
-                let disc = anchor_lang::solana_program::hash::hash(b"global:call").to_bytes();
-                data.extend_from_slice(&disc[..8]);
-                // receiver as fixed 20 bytes (no length prefix)
-                data.extend_from_slice(&receiver_bytes);
-                // message Vec<u8>: len (u32 LE) + bytes
-                data.extend_from_slice(&(cross_chain_message.len() as u32).to_le_bytes());
-                data.extend_from_slice(&cross_chain_message);
-                // revert_options: None → 0u8
-                data.push(0u8);
-                data
-            },
+            data: util::gateway_helpers::encode_gateway_call_ix_data(receiver_bytes, &cross_chain_message),
         };
         
         // Execute CPI call to ZetaChain gateway
