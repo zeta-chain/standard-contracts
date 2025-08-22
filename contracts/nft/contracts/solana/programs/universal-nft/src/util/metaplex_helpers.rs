@@ -4,7 +4,7 @@ use anchor_lang::solana_program::{
     account_info::AccountInfo,
 };
 use crate::error::UniversalNftError;
-use crate::util::constants::{TOKEN_METADATA_PROGRAM_ID, DEFAULT_SELLER_FEE_BASIS_POINTS};
+use crate::util::constants::DEFAULT_SELLER_FEE_BASIS_POINTS;
 use mpl_token_metadata::instructions::{
     CreateMetadataAccountV3Builder,
     CreateMasterEditionV3Builder,
