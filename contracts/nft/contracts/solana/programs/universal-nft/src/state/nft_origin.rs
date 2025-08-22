@@ -1,5 +1,4 @@
 use anchor_lang::prelude::*;
-use crate::util::constants::NFT_ORIGIN_SPACE;
 
 /// NFT origin tracking account
 /// Maps universal token IDs to their original Solana mint accounts
@@ -25,9 +24,16 @@ pub struct NftOrigin {
 }
 
 impl NftOrigin {
-    /// Payload length (excluding the 8-byte Anchor discriminator)
-    pub const LEN: usize = NFT_ORIGIN_SPACE - 8;
-    /// Total account space including discriminator
+    /// Payload length in bytes (excludes the 8-byte Anchor discriminator).
+    pub const LEN: usize = 32               // token_id
+        + 32                                // original_mint
+        + 32                                // original_metadata
+        + 4 + crate::util::constants::MAX_URI_LENGTH // original_uri (string prefix + max bytes)
+        + 8                                 // created_at
+        + 8                                 // updated_at
+        + 1                                 // is_on_solana
+        + 1;                                // bump
+    /// Total on-chain space in bytes (discriminator + payload). Use this for allocations.
     pub const SPACE: usize = 8 + Self::LEN;
     
     /// Create a new NFT origin tracking entry

@@ -16,7 +16,7 @@ pub struct ReserveNextTokenId<'info> {
     #[account(
         init,
         payer = authority,
-        space = 8 + MintTicket::LEN,
+        space = MintTicket::SPACE,
         seeds = [MINT_TICKET_SEED, mint.key().as_ref(), authority.key().as_ref()],
         bump
     )]

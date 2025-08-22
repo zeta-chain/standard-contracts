@@ -1,5 +1,4 @@
 use anchor_lang::prelude::*;
-use crate::util::constants::UNIVERSAL_NFT_CONFIG_SPACE;
 
 /// Program configuration account
 /// Stores global settings for the Universal NFT program
@@ -25,5 +24,15 @@ pub struct UniversalNftConfig {
 }
 
 impl UniversalNftConfig {
-    pub const LEN: usize = UNIVERSAL_NFT_CONFIG_SPACE;
+    /// Payload length (excluding the 8-byte Anchor discriminator)
+    pub const LEN: usize = 32 // authority
+        + 32                  // gateway_program
+        + 32                  // gateway_pda
+        + 8                   // nonce
+        + 8                   // next_token_id
+        + 1                   // is_paused
+        + 8                   // created_at
+        + 1;                  // bump
+    /// Total account space including discriminator
+    pub const SPACE: usize = 8 + Self::LEN;
 }

@@ -13,5 +13,15 @@ pub struct MintTicket {
 }
 
 impl MintTicket {
-    pub const LEN: usize = 8 + 32 + 32 + 8 + 8 + 32 + 1 + 8 + 1;
+    /// Payload length in bytes (excludes the 8-byte Anchor discriminator).
+    pub const LEN: usize = 32  // mint
+        + 32                  // authority
+        + 8                   // reserved_id
+        + 8                   // slot
+        + 32                  // token_id
+        + 1                   // used
+        + 8                   // created_at
+        + 1;                  // bump
+    /// Total on-chain space in bytes (discriminator + payload). Use this for allocations.
+    pub const SPACE: usize = 8 + Self::LEN;
 }

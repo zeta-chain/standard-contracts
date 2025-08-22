@@ -7,7 +7,8 @@ pub struct Initialize<'info> {
     #[account(
         init,
         payer = authority,
-        space = UNIVERSAL_NFT_CONFIG_SPACE,
+    // Allocate total space (discriminator + payload)
+        space = UniversalNftConfig::SPACE,
         seeds = [UNIVERSAL_NFT_CONFIG_SEED],
         bump
     )]

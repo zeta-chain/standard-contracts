@@ -14,17 +14,6 @@ pub const MAX_RECIPIENT_LENGTH: usize = 128;
 /// Maximum length for collection name (keeping for potential future use)
 pub const MAX_COLLECTION_NAME_LENGTH: usize = 50;
 
-// ========== ACCOUNT SPACE CALCULATIONS ==========
-/// Space for NftOrigin account 
-/// 8 (discriminator) + 32 (token_id) + 32 (original_mint) + 32 (original_metadata) + 
-/// 4 + MAX_URI_LENGTH (original_uri string) + 8 (created_at) + 8 (updated_at) + 1 (is_on_solana) + 1 (bump)
-pub const NFT_ORIGIN_SPACE: usize = 8 + 32 + 32 + 32 + 4 + MAX_URI_LENGTH + 8 + 8 + 1 + 1;
-
-/// Space for UniversalNftConfig account
-/// 8 (discriminator) + 32 (authority) + 32 (gateway_program) + 32 (gateway_pda) +
-/// 8 (nonce) + 8 (next_token_id) + 1 (is_paused) + 8 (created_at) + 1 (bump)
-pub const UNIVERSAL_NFT_CONFIG_SPACE: usize = 8 + 32 + 32 + 32 + 8 + 8 + 1 + 8 + 1;
-
 // ========== PDA SEEDS ==========
 /// Seed for NFT origin PDA
 pub const NFT_ORIGIN_SEED: &[u8] = b"nft_origin";
