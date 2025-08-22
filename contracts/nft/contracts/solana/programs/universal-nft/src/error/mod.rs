@@ -210,6 +210,9 @@ pub enum UniversalNftError {
     #[msg("NFT not currently on Solana")]
     NftNotOnSolana,
 
+    #[msg("Existing origin data conflicts with expected values")]
+    OriginConflict,
+
     #[msg("Invalid token supply for NFT")]
     InvalidTokenSupply,
 }

@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::instruction::AccountMeta;
-use anchor_spl::token::{self, MintTo, Burn};
+use anchor_spl::token::{self, Burn};
 
 declare_id!("BKfF2J9U6Umt7mkiqZXHF5RPpmTgWdKHH6MzgRQp9G36");
 
@@ -129,32 +129,34 @@ pub mod universal_nft {
         // Mark ticket as used immediately to prevent concurrent double-spend
         ctx.accounts.ticket.used = true;
         
-        // Create metadata account using CPI to Metaplex Token Metadata program
-        create_metadata_account(
-            &ctx.accounts.metadata.to_account_info(),
-            &ctx.accounts.mint.to_account_info(),
-            &ctx.accounts.authority.to_account_info(),
-            &ctx.accounts.payer.to_account_info(),
-            &ctx.accounts.system_program.to_account_info(),
-            &ctx.accounts.rent.to_account_info(),
-            &name,
-            &symbol,
-            &uri,
-            None,
-        )?;
-        
-        // Create master edition account
-        create_master_edition_account(
-            &ctx.accounts.master_edition.to_account_info(),
-            &ctx.accounts.mint.to_account_info(),
-            &ctx.accounts.authority.to_account_info(),
-            &ctx.accounts.payer.to_account_info(),
-            &ctx.accounts.metadata.to_account_info(),
-            &ctx.accounts.token_program.to_account_info(),
-            &ctx.accounts.system_program.to_account_info(),
-            &ctx.accounts.rent.to_account_info(),
-            None,
-        )?;
+        // Create metadata/master edition only if missing (idempotent)
+        if ctx.accounts.metadata.data_is_empty() {
+            create_metadata_account(
+                &ctx.accounts.metadata.to_account_info(),
+                &ctx.accounts.mint.to_account_info(),
+                &ctx.accounts.authority.to_account_info(),
+                &ctx.accounts.payer.to_account_info(),
+                &ctx.accounts.system_program.to_account_info(),
+                &ctx.accounts.rent.to_account_info(),
+                &name,
+                &symbol,
+                &uri,
+                None,
+            )?;
+        }
+        if ctx.accounts.master_edition.data_is_empty() {
+            create_master_edition_account(
+                &ctx.accounts.master_edition.to_account_info(),
+                &ctx.accounts.mint.to_account_info(),
+                &ctx.accounts.authority.to_account_info(),
+                &ctx.accounts.payer.to_account_info(),
+                &ctx.accounts.metadata.to_account_info(),
+                &ctx.accounts.token_program.to_account_info(),
+                &ctx.accounts.system_program.to_account_info(),
+                &ctx.accounts.rent.to_account_info(),
+                None,
+            )?;
+        }
 
         // Additional mint/token invariants
         require!(ctx.accounts.mint.decimals == 0, UniversalNftError::InvalidMint);
@@ -191,31 +193,47 @@ pub mod universal_nft {
                 space,
                 &crate::id(),
             )?;
+
+            // Write discriminator + NftOrigin data only on creation
+            let mut data_ref = ctx.accounts.nft_origin.try_borrow_mut_data()?;
+            let disc = <NftOrigin as anchor_lang::Discriminator>::DISCRIMINATOR;
+            let mut tmp = Vec::with_capacity(8 + NftOrigin::LEN);
+            tmp.extend_from_slice(&disc);
+            let origin_data = NftOrigin::new(
+                token_id,
+                ctx.accounts.mint.key(),
+                ctx.accounts.metadata.key(),
+                uri.clone(),
+                clock.unix_timestamp,
+                origin_bump,
+            );
+            origin_data.try_serialize(&mut tmp).map_err(|_| UniversalNftError::InvalidDataFormat)?;
+            data_ref[..tmp.len()].copy_from_slice(&tmp);
+
+            emit!(OriginTracked {
+                token_id,
+                original_mint: ctx.accounts.mint.key(),
+                original_metadata: ctx.accounts.metadata.key(),
+                original_uri: uri.clone(),
+                created_at: clock.unix_timestamp,
+                timestamp: clock.unix_timestamp,
+            });
         } else {
-            // If already initialized and owned by this program, prevent overwrite; else reject invalid owner
+            // If already initialized and owned by this program, validate it matches expected values
             if *ctx.accounts.nft_origin.owner == crate::id() {
-                return err!(UniversalNftError::NftAlreadyExists);
+                let data_ref = ctx.accounts.nft_origin.try_borrow_data()?;
+                require!(data_ref.len() >= 8, UniversalNftError::InvalidDataFormat);
+                let mut bytes: &[u8] = &data_ref[8..]; // skip discriminator
+                let existing = NftOrigin::try_deserialize(&mut bytes).map_err(|_| UniversalNftError::InvalidDataFormat)?;
+                require!(existing.token_id == token_id, UniversalNftError::OriginConflict);
+                require!(existing.original_mint == ctx.accounts.mint.key(), UniversalNftError::OriginConflict);
+                require!(existing.original_metadata == ctx.accounts.metadata.key(), UniversalNftError::OriginConflict);
+                require!(existing.original_uri == uri, UniversalNftError::OriginConflict);
+                // Matches expected; proceed without rewriting (idempotent)
             } else {
                 return err!(UniversalNftError::InvalidAccountOwner);
             }
         }
-
-        // Write discriminator + NftOrigin data
-        let mut data_ref = ctx.accounts.nft_origin.try_borrow_mut_data()?;
-        let disc = <NftOrigin as anchor_lang::Discriminator>::DISCRIMINATOR;
-        let mut tmp = Vec::with_capacity(8 + NftOrigin::LEN);
-        tmp.extend_from_slice(&disc);
-        
-        let origin_data = NftOrigin::new(
-            token_id,
-            ctx.accounts.mint.key(),
-            ctx.accounts.metadata.key(),
-            uri.clone(),
-            clock.unix_timestamp,
-            origin_bump,
-        );
-        origin_data.try_serialize(&mut tmp).map_err(|_| UniversalNftError::InvalidDataFormat)?;
-        data_ref[..tmp.len()].copy_from_slice(&tmp);
 
         emit!(NftMinted {
             mint: ctx.accounts.mint.key(),
@@ -225,14 +243,6 @@ pub mod universal_nft {
             timestamp: clock.unix_timestamp
         });
         
-        emit!(OriginTracked {
-            token_id,
-            original_mint: ctx.accounts.mint.key(),
-            original_metadata: ctx.accounts.metadata.key(),
-            original_uri: uri,
-            created_at: clock.unix_timestamp,
-            timestamp: clock.unix_timestamp,
-        });
         
         // NOTE: Ticket will be auto-closed to authority via the close attribute in the context
         msg!("NFT minted successfully with token_id: {:?}", token_id);
