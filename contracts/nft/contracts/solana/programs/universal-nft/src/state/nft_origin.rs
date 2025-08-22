@@ -25,7 +25,10 @@ pub struct NftOrigin {
 }
 
 impl NftOrigin {
-    pub const LEN: usize = NFT_ORIGIN_SPACE;
+    /// Payload length (excluding the 8-byte Anchor discriminator)
+    pub const LEN: usize = NFT_ORIGIN_SPACE - 8;
+    /// Total account space including discriminator
+    pub const SPACE: usize = 8 + Self::LEN;
     
     /// Create a new NFT origin tracking entry
     pub fn new(

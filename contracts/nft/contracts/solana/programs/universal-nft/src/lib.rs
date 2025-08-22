@@ -178,7 +178,7 @@ pub mod universal_nft {
         // Create account if needed using payer as funder; sign as the new PDA only
         if ctx.accounts.nft_origin.data_is_empty() {
             let rent = Rent::get()?;
-            let space = NftOrigin::LEN as u64;
+            let space = NftOrigin::SPACE as u64;
             let lamports = rent.minimum_balance(space as usize);
             let origin_seeds: &[&[u8]] = &[NFT_ORIGIN_SEED, &token_id, &[origin_bump]];
             anchor_lang::system_program::create_account(
@@ -515,7 +515,7 @@ pub mod universal_nft {
             );
 
             let rent = Rent::get()?;
-            let space = NftOrigin::LEN as u64;
+            let space = NftOrigin::SPACE as u64;
             let lamports = rent.minimum_balance(space as usize);
             
             // Sign as both payer PDA and the new nft_origin PDA
