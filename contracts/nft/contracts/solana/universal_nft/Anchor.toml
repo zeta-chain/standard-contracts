@@ -1,0 +1,26 @@
+[features]
+seeds = true
+
+[programs.localnet]
+universal_nft = "Un1v3rsa1Nft111111111111111111111111111111"
+
+[programs.devnet]
+universal_nft = "Un1v3rsa1Nft111111111111111111111111111111"
+
+[programs.testnet]
+universal_nft = "Un1v3rsa1Nft111111111111111111111111111111"
+
+[programs.mainnet]
+universal_nft = "Un1v3rsa1Nft111111111111111111111111111111"
+
+[registry]
+url = "https://anchor.projectserum.com"
+
+[provider]
+cluster = "testnet"
+wallet = "~/.config/solana/id.json"
+
+[scripts]
+build = "anchor build"
+deploy = "anchor deploy"
+idl = "anchor idl"
