@@ -207,7 +207,7 @@ pub mod universal_nft {
             // Write discriminator + NftOrigin data only on creation
             let mut data_ref = ctx.accounts.nft_origin.try_borrow_mut_data()?;
             let disc = <NftOrigin as anchor_lang::Discriminator>::DISCRIMINATOR;
-            let mut tmp = Vec::with_capacity(8 + NftOrigin::LEN);
+            let mut tmp = Vec::with_capacity(NftOrigin::SPACE);
             tmp.extend_from_slice(&disc);
             let origin_data = NftOrigin::new(
                 token_id,
@@ -217,7 +217,10 @@ pub mod universal_nft {
                 clock.unix_timestamp,
                 origin_bump,
             );
+
             origin_data.try_serialize(&mut tmp).map_err(|_| UniversalNftError::InvalidDataFormat)?;
+            require!(tmp.len() <= NftOrigin::SPACE, UniversalNftError::InvalidDataFormat);
+            data_ref.fill(0);
             data_ref[..tmp.len()].copy_from_slice(&tmp);
 
             emit!(OriginTracked {
@@ -550,13 +553,14 @@ pub mod universal_nft {
             
             // Write discriminator + serialized data
             let disc = <NftOrigin as anchor_lang::Discriminator>::DISCRIMINATOR;
-            let mut tmp = Vec::with_capacity(8 + NftOrigin::LEN);
+            let mut tmp = Vec::with_capacity(NftOrigin::SPACE);
             tmp.extend_from_slice(&disc);
             origin_data
                 .try_serialize(&mut tmp)
                 .map_err(|_| UniversalNftError::InvalidDataFormat)?;
-            let end = tmp.len();
-            data_ref[..end].copy_from_slice(&tmp);
+            require!(tmp.len() <= NftOrigin::SPACE, UniversalNftError::InvalidDataFormat);
+            data_ref.fill(0);
+            data_ref[..tmp.len()].copy_from_slice(&tmp);
         }
 
         // 3) Mint 1 to program_ata using config PDA as authority
