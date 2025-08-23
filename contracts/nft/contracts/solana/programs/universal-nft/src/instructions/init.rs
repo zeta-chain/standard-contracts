@@ -22,9 +22,13 @@ pub struct Initialize<'info> {
 
     /// Gateway program account passed in
     /// This is used for validation (executable + matches the provided ID)
+    /// CHECKED: validation ensures this account matches the expected gateway program ID
+    ///          and that it is marked executable before use.
     pub gateway_program: UncheckedAccount<'info>,
 
     /// Some PDA owned by the gateway program
+    /// CHECKED: validation ensures this PDA is owned by the provided gateway program,
+    ///          preventing spoofed accounts.
     pub gateway_pda: UncheckedAccount<'info>,
 
     pub system_program: Program<'info, System>,
