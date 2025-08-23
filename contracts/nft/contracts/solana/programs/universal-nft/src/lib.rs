@@ -2,7 +2,7 @@ use anchor_lang::prelude::*;
 use anchor_lang::solana_program::instruction::AccountMeta;
 use anchor_spl::token::{self, Burn};
 
-declare_id!("BKfF2J9U6Umt7mkiqZXHF5RPpmTgWdKHH6MzgRQp9G36");
+declare_id!("HrzackisVMLCjwJnu16KvkkHCsP8ridsZ6uQvfziyRsn");
 
 // Module declarations
 pub mod error;
@@ -126,10 +126,7 @@ pub mod universal_nft {
         let token_id = hasher.result().to_bytes();
         require!(token_id == ctx.accounts.ticket.token_id, UniversalNftError::InvalidDataFormat);
 
-        // Mark ticket as used immediately to prevent concurrent double-spend
-        ctx.accounts.ticket.used = true;
-        
-        // Create metadata/master edition only if missing (idempotent)
+        // Create metadata first (idempotent). Master edition MUST be after minting 1 supply.
         if ctx.accounts.metadata.data_is_empty() {
             create_metadata_account(
                 &ctx.accounts.metadata.to_account_info(),
@@ -144,7 +141,35 @@ pub mod universal_nft {
                 None,
             )?;
         }
+
+        // Mint/token invariants
+        require!(ctx.accounts.mint.decimals == 0, UniversalNftError::InvalidMint);
+        require_keys_eq!(ctx.accounts.token_account.mint, ctx.accounts.mint.key(), UniversalNftError::InvalidMint);
+        require_keys_eq!(ctx.accounts.token_account.owner, ctx.accounts.recipient.key(), UniversalNftError::InvalidRecipientAddress);
+
+        // Ensure total supply is exactly 1 before creating master edition
+        if ctx.accounts.mint.supply == 0 {
+            // Mint NFT to recipient (will create ATA if helper does so)
+            mint_nft_to_recipient(
+                &ctx.accounts.mint,
+                &ctx.accounts.token_account,
+                &ctx.accounts.authority,
+                &ctx.accounts.token_program,
+                None,
+            )?;
+            // Reload accounts to see updated on-chain state after CPI
+            ctx.accounts.mint.reload()?;
+            ctx.accounts.token_account.reload()?;
+        } else {
+            // Defensive checks for idempotent retries
+            require!(ctx.accounts.mint.supply == 1, UniversalNftError::InvalidTokenSupply);
+            require!(ctx.accounts.token_account.amount == 1, UniversalNftError::InvalidTokenAmount);
+        }
+
+        // Now create master edition (requires supply == 1)
         if ctx.accounts.master_edition.data_is_empty() {
+            // At this point, supply must be 1
+            require!(ctx.accounts.mint.supply == 1, UniversalNftError::InvalidTokenSupply);
             create_master_edition_account(
                 &ctx.accounts.master_edition.to_account_info(),
                 &ctx.accounts.mint.to_account_info(),
@@ -157,21 +182,6 @@ pub mod universal_nft {
                 None,
             )?;
         }
-
-        // Additional mint/token invariants
-        require!(ctx.accounts.mint.decimals == 0, UniversalNftError::InvalidMint);
-        require!(ctx.accounts.mint.supply == 0, UniversalNftError::NftAlreadyExists);
-        require_keys_eq!(ctx.accounts.token_account.mint, ctx.accounts.mint.key(), UniversalNftError::InvalidMint);
-        require_keys_eq!(ctx.accounts.token_account.owner, ctx.accounts.recipient.key(), UniversalNftError::InvalidRecipientAddress);
-
-        // Mint NFT to recipient
-        mint_nft_to_recipient(
-            &ctx.accounts.mint,
-            &ctx.accounts.token_account,
-            &ctx.accounts.authority,
-            &ctx.accounts.token_program,
-            None, // No authority signer needed for minting
-        )?;
         
         // Create and initialize origin PDA [NFT_ORIGIN_SEED, token_id]
         let (expected_origin, origin_bump) = Pubkey::find_program_address(&[NFT_ORIGIN_SEED, &token_id], &crate::id());
@@ -242,7 +252,8 @@ pub mod universal_nft {
             uri: uri.clone(),
             timestamp: clock.unix_timestamp
         });
-        
+        // Mark ticket as used only after successful mint + ME + origin
+        ctx.accounts.ticket.used = true;
         
         // NOTE: Ticket will be auto-closed to authority via the close attribute in the context
         msg!("NFT minted successfully with token_id: {:?}", token_id);

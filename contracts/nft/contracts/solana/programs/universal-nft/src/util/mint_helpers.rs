@@ -1,11 +1,11 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token::{self, MintTo, Mint, Token, TokenAccount};
 
-/// Common NFT minting utilities for use across mint_nft, on_call, and on_revert
+/// Common NFT minting utilities for use across mint_nft, on_call
 /// These functions handle the core NFT creation and minting logic
 
 /// Mint an NFT token to a recipient's token account
-/// This is a common operation used in mint_nft, on_call, and on_revert
+/// This is a common operation used in mint_nft, on_call
 pub fn mint_nft_to_recipient<'info>(
     mint_account: &Account<'info, Mint>,
     token_account: &Account<'info, TokenAccount>,
