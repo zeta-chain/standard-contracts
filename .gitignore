@@ -13,3 +13,14 @@ abi
 
 dist
 package
+
+# Solana/Anchor build artifacts
+target/
+.anchor/
+test-ledger/
+*.so
+*.d
+*.rlib
+
+# Deployment files
+deployment*.json

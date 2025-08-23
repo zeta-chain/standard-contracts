@@ -1,0 +1,46 @@
+{
+  "name": "solana-universal-nft",
+  "version": "0.1.0",
+  "description": "Solana Universal NFT program for cross-chain transfers via ZetaChain",
+  "main": "index.js",
+  "scripts": {
+    "build": "anchor build",
+    "test": "anchor test",
+    "deploy": "anchor deploy",
+    "deploy-devnet": "ts-node scripts/deploy-devnet.ts",
+    "deploy-testnet": "anchor deploy --provider.cluster testnet",
+    "test-cross-chain": "ts-node scripts/test-cross-chain.ts",
+    "localnet": "solana-test-validator",
+    "logs": "solana logs"
+  },
+  "dependencies": {
+    "@coral-xyz/anchor": "^0.29.0",
+    "@metaplex-foundation/mpl-token-metadata": "^3.2.1",
+    "@solana/spl-token": "^0.4.8",
+    "@solana/web3.js": "^1.95.2",
+    "borsh": "^0.7.0"
+  },
+  "devDependencies": {
+    "@types/bn.js": "^5.1.0",
+    "@types/chai": "^4.3.0",
+    "@types/mocha": "^10.0.0",
+    "@types/node": "^20.0.0",
+    "chai": "^4.3.0",
+    "mocha": "^10.0.3",
+    "ts-mocha": "^10.0.0",
+    "typescript": "^5.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/zeta-chain/standard-contracts"
+  },
+  "keywords": [
+    "solana",
+    "nft",
+    "cross-chain",
+    "zetachain",
+    "universal"
+  ],
+  "author": "ZetaChain",
+  "license": "MIT"
+}
