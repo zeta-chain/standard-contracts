@@ -122,8 +122,12 @@ pub mod universal_nft {
         destination_chain_id: u64,
         recipient: Vec<u8>,
     ) -> Result<()> {
-        // Default values for now
-        let token_id = 0u64; // Will be derived from mint
+        // Derive token_id from mint address (use first 8 bytes of mint pubkey)
+        let mint_bytes = ctx.accounts.nft_mint.key().to_bytes();
+        let token_id = u64::from_le_bytes([
+            mint_bytes[0], mint_bytes[1], mint_bytes[2], mint_bytes[3],
+            mint_bytes[4], mint_bytes[5], mint_bytes[6], mint_bytes[7]
+        ]);
         let gas_amount = 2000000u64; // Default gas limit
         // Validate destination chain
         require!(
