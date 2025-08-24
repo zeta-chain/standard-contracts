@@ -7,8 +7,10 @@ use crate::util::bridge_constants::METAPLEX_TOKEN_METADATA_PROGRAM_ID;
 pub struct CrossChainCallback<'info> {
     #[account(mut)]
     pub mint: Account<'info, Mint>,
+    /// CHECKED: This is a asset tracker account
     #[account(mut)]
     pub asset_tracker: UncheckedAccount<'info>,
+    /// CHECKED: This is a program token account
     #[account(mut)]
     pub program_token_account: Account<'info, TokenAccount>,
 
@@ -18,6 +20,7 @@ pub struct CrossChainCallback<'info> {
     )]
     pub config: Account<'info, UniversalNftConfig>,
     
+    /// CHECKED: This is a metadata account
     #[account(
         mut,
         seeds = [
@@ -30,6 +33,7 @@ pub struct CrossChainCallback<'info> {
     )]
     pub metadata: UncheckedAccount<'info>,
 
+    /// CHECKED: This is a master edition account
     #[account(
         mut,
         seeds = [
@@ -43,12 +47,14 @@ pub struct CrossChainCallback<'info> {
     )]
     pub master_edition: UncheckedAccount<'info>,
 
+    /// CHECKED: This is a gateway verifier account
     #[account(
         constraint = gateway_verifier.key() == config.zeta_gateway_verifier,
         constraint = *gateway_verifier.owner == config.zeta_gateway_program_id
     )]
     pub gateway_verifier: UncheckedAccount<'info>,
 
+    /// CHECKED: This is a metadata program account
     #[account(constraint = metadata_program.key() == METAPLEX_TOKEN_METADATA_PROGRAM_ID)]
     pub metadata_program: UncheckedAccount<'info>,
     pub system_program: Program<'info, System>,
