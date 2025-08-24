@@ -1,21 +1,18 @@
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::{
-    compute_budget::ComputeBudgetInstruction,
     instruction::Instruction,
-    program::invoke,
+    keccak,
 };
 
 /// Utility functions for handling Solana-specific challenges
 
 /// Request additional compute units to handle complex operations
-pub fn request_compute_units(units: u32) -> Result<()> {
-    let compute_budget_ix = ComputeBudgetInstruction::set_compute_unit_limit(units);
-    
-    invoke(
-        &compute_budget_ix,
-        &[],
-    ).map_err(|_| error!(crate::errors::UniversalNftError::InsufficientComputeBudget))?;
-    
+/// NOTE: Compute budget must be set client-side at transaction creation.
+/// Clients should include ComputeBudgetInstruction::set_compute_unit_limit(units)
+/// as the first instruction in their transaction.
+pub fn request_compute_units(_units: u32) -> Result<()> {
+    // No-op: compute budget cannot be modified via CPI
+    // This must be done by the client when constructing the transaction
     Ok(())
 }
 
@@ -35,16 +32,22 @@ pub fn validate_solana_address(address_bytes: &[u8]) -> Result<Pubkey> {
 }
 
 /// Generate deterministic token ID based on collection and metadata
+/// Uses keccak256 for cross-platform deterministic hashing
 pub fn generate_token_id(collection: &Pubkey, next_id: u64, uri: &str) -> u64 {
-    use std::collections::hash_map::DefaultHasher;
-    use std::hash::{Hash, Hasher};
+    // Create a canonical byte sequence
+    let mut data = Vec::new();
+    data.extend_from_slice(&collection.to_bytes());
+    data.extend_from_slice(&next_id.to_be_bytes()); // Big-endian for consistency
+    data.extend_from_slice(uri.as_bytes());
     
-    let mut hasher = DefaultHasher::new();
-    collection.hash(&mut hasher);
-    next_id.hash(&mut hasher);
-    uri.hash(&mut hasher);
+    // Compute keccak256 hash
+    let hash = keccak::hash(&data);
     
-    hasher.finish()
+    // Take first 8 bytes as u64 (big-endian)
+    u64::from_be_bytes([
+        hash.0[0], hash.0[1], hash.0[2], hash.0[3],
+        hash.0[4], hash.0[5], hash.0[6], hash.0[7]
+    ])
 }
 
 /// Validate URI format and length

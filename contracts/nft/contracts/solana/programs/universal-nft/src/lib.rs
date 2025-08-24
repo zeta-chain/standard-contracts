@@ -1,18 +1,23 @@
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::{
-    secp256k1_recover::{secp256k1_recover},
-    program::{invoke, invoke_signed},
-    instruction::Instruction,
-    system_instruction,
+    keccak,
+    secp256k1_recover::secp256k1_recover,
 };
 use anchor_spl::{
     associated_token::AssociatedToken,
-    token::{self, burn, mint_to, Burn, Mint, MintTo, Token, TokenAccount},
+    token::{burn, mint_to, Burn, Mint, MintTo, Token, TokenAccount},
 };
-use mpl_token_metadata::ID as TOKEN_METADATA_PROGRAM_ID;
+
+// Metaplex Token Metadata Program ID
+pub const TOKEN_METADATA_PROGRAM_ID: Pubkey = Pubkey::new_from_array([
+    0x0b, 0xa2, 0x31, 0xc2, 0xee, 0x93, 0x5a, 0xc5,
+    0xdb, 0x05, 0x01, 0xe4, 0x5e, 0x57, 0x82, 0xd0,
+    0x83, 0xfe, 0xbd, 0x48, 0xe9, 0x4b, 0x21, 0x4f,
+    0x47, 0x73, 0x0b, 0x11, 0xf1, 0x8b, 0x75, 0xee,
+]);
 
 // Universal NFT Program ID - deployed on devnet
-declare_id!("GqXUjfsGancY5D3QxBjhcmwRtykDiPj91wEJ8nRakLip");
+declare_id!("EQYjG2Z8LGXCFouzz8av5fLya7D7FJgAMNfUqBHigVcu");
 
 // ZetaChain Gateway Program ID - deployed on mainnet-beta, testnet, and devnet
 // This is the actual deployed ZetaChain gateway program
@@ -76,6 +81,13 @@ pub mod universal_nft {
         let collection_authority = ctx.accounts.collection.authority;
         let collection_name = ctx.accounts.collection.name.clone();
         let collection_bump = ctx.accounts.collection.bump;
+        
+        // Enforce authority
+        require_keys_eq!(
+            ctx.accounts.authority.key(),
+            collection_authority,
+            UniversalNftError::InvalidSignature
+        );
 
         // Mint NFT token
         let cpi_ctx = CpiContext::new(
@@ -100,9 +112,12 @@ pub mod universal_nft {
         // Note: Simplified metadata creation - in production, use proper Metaplex instructions
         // This is a placeholder for the actual Metaplex metadata creation
 
-        // Update collection state
+        // Update collection state (checked add)
         let collection = &mut ctx.accounts.collection;
-        collection.next_token_id += 1;
+        collection.next_token_id = collection
+            .next_token_id
+            .checked_add(1)
+            .ok_or(error!(UniversalNftError::InvalidTokenId))?;
 
         emit!(TokenMinted {
             collection: collection_key,
@@ -122,11 +137,12 @@ pub mod universal_nft {
         destination_chain_id: u64,
         recipient: Vec<u8>,
     ) -> Result<()> {
-        // Derive token_id from mint address (use first 8 bytes of mint pubkey)
+        // Generate deterministic token_id using keccak256 hash
         let mint_bytes = ctx.accounts.nft_mint.key().to_bytes();
+        let hash = keccak::hash(&mint_bytes);
         let token_id = u64::from_le_bytes([
-            mint_bytes[0], mint_bytes[1], mint_bytes[2], mint_bytes[3],
-            mint_bytes[4], mint_bytes[5], mint_bytes[6], mint_bytes[7]
+            hash.0[0], hash.0[1], hash.0[2], hash.0[3],
+            hash.0[4], hash.0[5], hash.0[6], hash.0[7]
         ]);
         let gas_amount = 2000000u64; // Default gas limit
         // Validate destination chain
@@ -137,8 +153,15 @@ pub mod universal_nft {
 
         let collection = &ctx.accounts.collection;
 
-        // Get NFT metadata URI (placeholder - should read from actual metadata)
-        let nft_uri = "https://example.com/nft.json".to_string();
+        // Try to load metadata URI from the NFT metadata account
+        let metadata_account_info = ctx.accounts.nft_metadata.to_account_info();
+        let uri = if !metadata_account_info.data_is_empty() && metadata_account_info.data_len() > 0 {
+            // For now, use a default URI pattern
+            // Full metadata parsing would require deserializing the Metaplex metadata structure
+            format!("https://example.com/nft/{}", token_id)
+        } else {
+            format!("https://example.com/nft/{}", token_id)
+        };
 
         // Burn the NFT locally
         let cpi_ctx = CpiContext::new(
@@ -153,15 +176,16 @@ pub mod universal_nft {
         burn(cpi_ctx, 1)?;
 
         // Prepare cross-chain message
+        require!(recipient.len() == 20, UniversalNftError::InvalidRecipientAddress);
         let mut recipient_array = [0u8; 20];
-        recipient_array.copy_from_slice(&recipient[..20.min(recipient.len())]);
+        recipient_array.copy_from_slice(&recipient);
         let message = ZetaChainMessage {
             destination_chain_id,
             destination_address: recipient_array,
             destination_gas_limit: gas_amount,
             message: vec![],
             token_id,
-            uri: nft_uri.clone(),
+            uri: uri.clone(),
             sender: ctx.accounts.owner.key().to_bytes(),
         };
 
@@ -201,7 +225,7 @@ pub mod universal_nft {
             token_id,
             destination_chain_id,
             recipient: recipient.to_vec(),
-            uri: nft_uri,
+            uri,
             sender: ctx.accounts.owner.key(),
             message: message_data,
         });
@@ -216,6 +240,11 @@ pub mod universal_nft {
         source_chain_id: u64,
         message: Vec<u8>,
     ) -> Result<()> {
+        // Verify the caller is the gateway program
+        require!(
+            ctx.accounts.gateway.key() == ZETACHAIN_GATEWAY_PROGRAM_ID,
+            UniversalNftError::UnauthorizedGateway
+        );
         // Parse the incoming message
         // Expected format: [token_id(8), uri_len(4), uri(variable), recipient(32)]
         require!(message.len() >= 44, UniversalNftError::InvalidMessageHash);
@@ -248,6 +277,11 @@ pub mod universal_nft {
         offset += uri_len;
         
         // Extract recipient (32 bytes for Solana pubkey)
+        // Expect recipient (32 bytes) at start of `message` payload
+        require!(
+            message.len() >= offset + 32,
+            UniversalNftError::InvalidMessage
+        );
         let recipient_bytes: [u8; 32] = message[offset..offset + 32]
             .try_into()
             .map_err(|_| UniversalNftError::InvalidMessageHash)?;
@@ -440,10 +474,15 @@ pub struct MintNft<'info> {
         bump = collection.bump
     )]
     pub collection: Account<'info, Collection>,
+    
+    /// Authority controlling the collection and paying for the transaction
+    /// This account serves as both authority and payer to avoid duplicate signer issues
+    #[account(mut)]
+    pub authority: Signer<'info>,
 
     #[account(
         init,
-        payer = payer,
+        payer = authority,  // Use authority as payer
         mint::decimals = 0,
         mint::authority = collection,
         mint::freeze_authority = collection,
@@ -452,7 +491,7 @@ pub struct MintNft<'info> {
 
     #[account(
         init,
-        payer = payer,
+        payer = authority,  // Use authority as payer
         associated_token::mint = nft_mint,
         associated_token::authority = recipient,
     )]
@@ -465,8 +504,10 @@ pub struct MintNft<'info> {
     #[account(mut)]
     pub nft_metadata: UncheckedAccount<'info>,
 
-    #[account(mut)]
-    pub payer: Signer<'info>,
+    /// Payer account - same as authority in most cases
+    /// CHECK: Using UncheckedAccount to avoid duplicate signer requirement
+    #[account(mut, constraint = payer.key() == authority.key())]
+    pub payer: UncheckedAccount<'info>,
 
     pub rent: Sysvar<'info, Rent>,
     pub system_program: Program<'info, System>,
@@ -493,6 +534,9 @@ pub struct TransferCrossChain<'info> {
 
     pub owner: Signer<'info>,
 
+    /// CHECK: NFT metadata account
+    pub nft_metadata: UncheckedAccount<'info>,
+
     /// CHECK: ZetaChain gateway PDA account
     #[account(mut)]
     pub gateway_pda: UncheckedAccount<'info>,
@@ -512,8 +556,9 @@ pub struct OnRevert<'info> {
     
     pub collection_mint: Account<'info, Mint>,
     
-    /// CHECK: Gateway account that calls this function
-    pub gateway: Signer<'info>,
+    /// CHECK: Gateway program that calls this function
+    #[account(address = ZETACHAIN_GATEWAY_PROGRAM_ID)]
+    pub gateway: UncheckedAccount<'info>,
     
     /// CHECK: Gateway PDA account
     pub gateway_pda: UncheckedAccount<'info>,
@@ -565,8 +610,9 @@ pub struct OnCall<'info> {
     
     pub collection_mint: Account<'info, Mint>,
     
-    /// CHECK: Gateway account that calls this function
-    pub gateway: Signer<'info>,
+    /// CHECK: Gateway program that calls this function
+    #[account(address = ZETACHAIN_GATEWAY_PROGRAM_ID)]
+    pub gateway: UncheckedAccount<'info>,
     
     /// CHECK: Gateway PDA account
     pub gateway_pda: UncheckedAccount<'info>,

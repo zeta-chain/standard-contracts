@@ -17,7 +17,7 @@ async function main() {
     const connection = new Connection("https://api.devnet.solana.com", "confirmed");
     
     // Load wallet
-    const walletPath = process.env.ANCHOR_WALLET || "/Users/ayushsrivastava/.config/solana/id.json";
+    const walletPath = process.env.ANCHOR_WALLET || path.join(require('os').homedir(), '.config', 'solana', 'id.json');
     const walletKeypair = Keypair.fromSecretKey(
         new Uint8Array(JSON.parse(fs.readFileSync(walletPath, "utf-8")))
     );

@@ -6,7 +6,7 @@ pub struct CollectionInitialized {
     pub authority: Pubkey,
     pub name: String,
     pub symbol: String,
-    pub gateway_address: Pubkey,
+    pub tss_address: [u8; 20],
 }
 
 #[event]
@@ -23,10 +23,11 @@ pub struct TokenMinted {
 pub struct TokenTransfer {
     pub collection: Pubkey,
     pub token_id: u64,
-    pub destination_chain: Vec<u8>,
+    pub destination_chain_id: u64,
     pub recipient: Vec<u8>,
     pub uri: String,
     pub sender: Pubkey,
+    pub message: Vec<u8>,
 }
 
 #[event]
@@ -36,6 +37,7 @@ pub struct TokenTransferReceived {
     pub recipient: Pubkey,
     pub uri: String,
     pub original_sender: Vec<u8>,
+    pub nonce: u64,
 }
 
 #[event]

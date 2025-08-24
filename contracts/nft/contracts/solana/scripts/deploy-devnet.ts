@@ -5,12 +5,12 @@ import * as fs from "fs";
 import * as path from "path";
 
 // Configuration for devnet deployment
+const GATEWAY_PROGRAM_ID = "ZETAjseVjuFsxdRxo6MmTCvqFwb3ZHUx56Co3vCmGis";
+
 const DEVNET_CONFIG = {
   cluster: "devnet",
   rpcUrl: clusterApiUrl("devnet"),
-  programId: "UNFTfPKLjpJqVxfCcqvdJUPDAXZnVqUcVaQ3CYwx2TU",
-  gatewayProgramId: "ZETAjseVjuFsxdRxo6MmTCvqFwb3ZHUx56Co3vCmGis",
-  gatewayPda: "2f9SLuUNb7TNeM6gzBwT4ZjbL5ZyKzzHg1Ce9yiquEjj",
+  gatewayProgramId: GATEWAY_PROGRAM_ID,
   // ZetaChain testnet TSS address (example - replace with actual)
   tssAddress: [
     0x85, 0x31, 0xa5, 0xab, 0x84, 0x7f, 0xf5, 0xb2,
@@ -42,15 +42,31 @@ async function main() {
   anchor.setProvider(provider);
 
   // Load the program
-  const programId = new PublicKey(DEVNET_CONFIG.programId);
   const idl = JSON.parse(
     fs.readFileSync(
       path.join(__dirname, "../target/idl/universal_nft.json"),
       "utf-8"
     )
   );
+  
+  // Get program ID from IDL or environment
+  const programId = new PublicKey(
+    process.env.DEVNET_PROGRAM_ID || 
+    idl.metadata?.address || 
+    "GqXUjfsGancY5D3QxBjhcmwRtykDiPj91wEJ8nRakLip"
+  );
 
-  const program: Program = new anchor.Program(idl as anchor.Idl, programId, provider);
+  // Add program ID to IDL before creating program instance
+  idl.metadata = idl.metadata || {};
+  idl.metadata.address = programId.toString();
+  
+  const program: Program = new anchor.Program(idl as anchor.Idl, provider);
+  
+  // Derive gateway PDA
+  const [gatewayPda] = PublicKey.findProgramAddressSync(
+    [Buffer.from("meta")],
+    new PublicKey(GATEWAY_PROGRAM_ID)
+  );
 
   // Derive collection PDA
   const [collectionPda, collectionBump] = PublicKey.findProgramAddressSync(
@@ -61,7 +77,7 @@ async function main() {
   console.log("📝 Configuration:");
   console.log("  Program ID:", programId.toString());
   console.log("  Gateway Program:", DEVNET_CONFIG.gatewayProgramId);
-  console.log("  Gateway PDA:", DEVNET_CONFIG.gatewayPda);
+  console.log("  Gateway PDA:", gatewayPda.toString());
   console.log("  Collection PDA:", collectionPda.toString());
   console.log("  Deployer:", wallet.publicKey.toString());
 
@@ -73,7 +89,7 @@ async function main() {
       console.log("✅ Collection already initialized at:", collectionPda.toString());
 
       // Fetch collection data
-      const collection = (await program.account.collection.fetch(collectionPda)) as any;
+      const collection = await (program.account as any).collection.fetch(collectionPda);
       console.log("📊 Collection Info:");
       console.log("  Name:", collection.name);
       console.log("  Symbol:", collection.symbol);
@@ -105,7 +121,7 @@ async function main() {
       await connection.confirmTransaction(tx, "confirmed");
 
       // Fetch and display collection data
-      const collection = (await program.account.collection.fetch(collectionPda)) as any;
+      const collection = await (program.account as any).collection.fetch(collectionPda);
       console.log("📊 Collection Info:");
       console.log("  Name:", collection.name);
       console.log("  Symbol:", collection.symbol);
@@ -119,7 +135,7 @@ async function main() {
       programId: programId.toString(),
       collectionPda: collectionPda.toString(),
       gatewayProgramId: DEVNET_CONFIG.gatewayProgramId,
-      gatewayPda: DEVNET_CONFIG.gatewayPda,
+      gatewayPda: gatewayPda.toString(),
       deployer: wallet.publicKey.toString(),
       timestamp: new Date().toISOString(),
     };

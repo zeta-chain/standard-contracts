@@ -35,12 +35,11 @@ describe("universal-nft-clean", () => {
     // Generate collection mint
     collectionMint = Keypair.generate();
 
-    // Derive collection PDA
+    // Derive collection PDA - using correct seeds without collection name
     const [pda] = PublicKey.findProgramAddressSync(
       [
         Buffer.from("collection"),
-        authority.publicKey.toBuffer(),
-        Buffer.from(collectionName)
+        authority.publicKey.toBuffer()
       ],
       program.programId
     );
