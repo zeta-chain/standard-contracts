@@ -305,14 +305,14 @@ impl<'info> MintUniversalNft<'info> {
         uri: &str,
         timestamp: i64,
     ) -> Result<()> {
-        let (expected_origin, origin_bump) = Pubkey::find_program_address(&[b"universal_nft_origin", nft_id], &crate::id());
+        let (expected_origin, origin_bump) = Pubkey::find_program_address(&[b"asset_tracker", nft_id], &crate::id());
         require_keys_eq!(expected_origin, accounts.asset_origin.key(), Errors::InvalidProgram);
 
         if accounts.asset_origin.data_is_empty() {
             let rent = Rent::get()?;
             let space = UniversalNftOrigin::INIT_SPACE as u64;
             let lamports = rent.minimum_balance(space as usize);
-            let origin_seeds: &[&[u8]] = &[b"universal_nft_origin", nft_id, &[origin_bump]];
+            let origin_seeds: &[&[u8]] = &[b"asset_tracker", nft_id, &[origin_bump]];
             anchor_lang::system_program::create_account(
                 CpiContext::new_with_signer(
                     accounts.system_program.to_account_info(),

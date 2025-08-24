@@ -6,10 +6,10 @@ use crate::errors::Errors;
 pub struct ModifySettings<'info> {
     #[account(mut)]
     pub administrator: Signer<'info>,
-    /// CHECKED: This is a universal nft config account
+    
     #[account(
         mut,
-        seeds = [b"universal_nft_config"],
+        seeds = [b"config"],
         bump = config.pda_bump,
         constraint = config.admin.is_some(),
         constraint = config.admin.unwrap() == administrator.key()

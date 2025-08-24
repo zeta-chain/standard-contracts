@@ -18,7 +18,7 @@ pub struct AllocateTokenId<'info> {
     #[account(
         init,
         payer = admin,
-        space = TokenReservation::INIT_SPACE,
+        space = 8 + TokenReservation::INIT_SPACE,
         seeds = [
             b"token_reservation",
             mint.key().as_ref(),
