@@ -143,8 +143,8 @@ anchor deploy --provider.cluster devnet
 # Initialize NFT collection
 node scripts/test-direct.js
 
-# Perform cross-chain transfer
-node scripts/test-full-cross-chain.js
+# Test Universal NFT functionality
+node scripts/test-universal-nft.js
 
 # Test complete functionality
 npx ts-node scripts/local-solana.ts

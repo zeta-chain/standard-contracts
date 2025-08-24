@@ -3,13 +3,13 @@ seeds = false
 skip-lint = false
 
 [programs.localnet]
-universal_nft = "7Y4yxx8znoASMCAUGE2NUv6kWKgmpzYFRejc2dwaqpEK"
+universal_nft = "GqXUjfsGancY5D3QxBjhcmwRtykDiPj91wEJ8nRakLip"
 
 [programs.devnet]
-universal_nft = "7Y4yxx8znoASMCAUGE2NUv6kWKgmpzYFRejc2dwaqpEK"
+universal_nft = "GqXUjfsGancY5D3QxBjhcmwRtykDiPj91wEJ8nRakLip"
 
 [programs.testnet]
-universal_nft = "7Y4yxx8znoASMCAUGE2NUv6kWKgmpzYFRejc2dwaqpEK"
+universal_nft = "GqXUjfsGancY5D3QxBjhcmwRtykDiPj91wEJ8nRakLip"
 
 [registry]
 url = "https://api.apr.dev"

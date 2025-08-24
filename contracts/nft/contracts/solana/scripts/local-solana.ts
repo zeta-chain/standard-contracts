@@ -1,6 +1,6 @@
 import * as anchor from "@coral-xyz/anchor";
 import { Program } from "@coral-xyz/anchor";
-import { PublicKey, Keypair, SystemProgram, Connection } from "@solana/web3.js";
+import { Connection, PublicKey, Keypair, SystemProgram } from "@solana/web3.js";
 import { TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID, getAssociatedTokenAddress } from "@solana/spl-token";
 import * as fs from "fs";
 import * as path from "path";
@@ -16,11 +16,15 @@ async function main() {
     const deploymentPath = path.join(__dirname, "../deployment.json");
     const deployment = JSON.parse(fs.readFileSync(deploymentPath, "utf-8"));
     
-    // Setup connection
+    // Setup connection and wallet
     const connection = new Connection("https://api.devnet.solana.com", "confirmed");
+    const defaultWalletPath = path.join(os.homedir(), ".config", "solana", "id.json");
+    const walletPath = process.env.ANCHOR_WALLET || process.env.SOLANA_WALLET || defaultWalletPath;
     
-    // Load wallet
-    const walletPath = process.env.ANCHOR_WALLET || path.join(os.homedir(), ".config/solana/id.json");
+    if (!fs.existsSync(walletPath)) {
+        throw new Error(`Wallet file not found at ${walletPath}. Set ANCHOR_WALLET or SOLANA_WALLET to a valid keypair JSON.`);
+    }
+    
     const walletKeypair = Keypair.fromSecretKey(
         new Uint8Array(JSON.parse(fs.readFileSync(walletPath, "utf-8")))
     );
@@ -40,8 +44,15 @@ async function main() {
     // Create program ID
     const programId = new PublicKey(deployment.programId);
     
-    // Create program instance with explicit program ID as second parameter
-    const program = new anchor.Program(idl, programId, provider);
+    // Add the program address to the IDL metadata
+    if (!idl.metadata) {
+        idl.metadata = {};
+    }
+    idl.metadata.address = deployment.programId;
+    
+    // For Anchor 0.29.0, use the three-parameter constructor
+    // @ts-ignore - TypeScript types mismatch between Anchor versions
+    const program = new Program(idl, programId, provider);
     
     console.log("📋 Configuration:");
     console.log(`   Program ID: ${programId.toBase58()}`);
@@ -76,13 +87,14 @@ async function main() {
     );
     
     try {
-        const mintTx = await program.methods
+        const mintTx = await (program.methods as any)
             .mintNft(nftName, nftUri)
             .accounts({
                 collection: collectionPda,
+                authority: authority,
                 nftMint: nftMint.publicKey,
                 nftTokenAccount: nftTokenAccount,
-                recipient: authority,  // Note: using recipient, not authority
+                recipient: authority,
                 nftMetadata: nftMetadata,
                 payer: authority,
                 rent: anchor.web3.SYSVAR_RENT_PUBKEY,
@@ -95,9 +107,8 @@ async function main() {
             .rpc();
         
         console.log(`   ✅ NFT Minted: ${nftName}`);
-        console.log(`   Token ID: ${tokenId}`);
         console.log(`   Mint: ${nftMint.publicKey.toBase58()}`);
-        console.log(`   Tx: ${mintTx}`);
+        console.log(`   Metadata: ${nftMetadata.toBase58()}`);
         console.log(`   View: https://explorer.solana.com/tx/${mintTx}?cluster=devnet\n`);
         
         // Wait for confirmation
@@ -117,16 +128,16 @@ async function main() {
             GATEWAY_PROGRAM_ID
         );
         
-        const transferTx = await program.methods
+        const transferTx = await (program.methods as any)
             .transferCrossChain(new anchor.BN(destinationChainId), recipientBytes)
             .accounts({
                 collection: collectionPda,
-                authority: authority,
+                owner: authority,
                 nftMint: nftMint.publicKey,
                 nftTokenAccount: nftTokenAccount,
-                gateway: GATEWAY_PROGRAM_ID,
+                nftMetadata: nftMetadata,
+                collectionMint: collectionMint,
                 gatewayPda: gatewayPda,
-                payer: authority,
                 systemProgram: SystemProgram.programId,
                 tokenProgram: TOKEN_PROGRAM_ID,
             })
@@ -178,34 +189,35 @@ async function main() {
             recipientBuffer
         ]);
         
-        const senderBytes = Buffer.from("1234567890123456789012345678901234567890", "hex");
-        const sender: number[] = Array.from(senderBytes);
-        const sourceChainId = 1; // Ethereum
+        const signature = Buffer.from("1234567890123456789012345678901234567890", "hex");
         
         try {
-            const onCallTx = await program.methods
-                .onCall(sender, new anchor.BN(sourceChainId), Array.from(message))
-                .accounts({
-                    collection: collectionPda,
-                    collectionMint: collectionMint,
-                    gateway: GATEWAY_PROGRAM_ID,
-                    gatewayPda: gatewayPda,
-                    nftMint: incomingNftMint.publicKey,
-                    nftTokenAccount: incomingTokenAccount,
-                    recipient: authority,
-                    nftMetadata: incomingMetadata,
-                    payer: authority,
-                    rent: anchor.web3.SYSVAR_RENT_PUBKEY,
-                    systemProgram: SystemProgram.programId,
-                    tokenProgram: TOKEN_PROGRAM_ID,
-                    associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
-                    metadataProgram: TOKEN_METADATA_PROGRAM_ID,
-                })
-                .signers([incomingNftMint])
-                .rpc();
+            const onCallTx = await (program.methods as any)
+            .onCall(
+                Buffer.from(message),
+                Buffer.from(signature)
+            )
+            .accounts({
+                collection: collectionPda,
+                collectionMint: collectionMint,
+                gateway: GATEWAY_PROGRAM_ID,
+                gatewayPda: gatewayPda,
+                nftMint: incomingNftMint.publicKey,
+                nftTokenAccount: incomingTokenAccount,
+                recipient: authority,
+                nftMetadata: incomingMetadata,
+                payer: authority,
+                rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+                systemProgram: SystemProgram.programId,
+                tokenProgram: TOKEN_PROGRAM_ID,
+                associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+                metadataProgram: TOKEN_METADATA_PROGRAM_ID,
+            })
+            .signers([incomingNftMint])
+            .rpc();
             
             console.log(`   ✅ NFT Received via On-Call`);
-            console.log(`   Source: Ethereum (${sourceChainId})`);
+            console.log(`   Source: Ethereum`);
             console.log(`   Token ID: ${incomingTokenId}`);
             console.log(`   Tx: ${onCallTx}`);
             console.log(`   View: https://explorer.solana.com/tx/${onCallTx}?cluster=devnet\n`);

@@ -15,7 +15,8 @@
     "resolveJsonModule": true,
     "allowJs": true,
     "forceConsistentCasingInFileNames": true,
-    "noEmit": true
+    "noEmit": true,
+    "downlevelIteration": true
   },
   "exclude": [
     "node_modules",
