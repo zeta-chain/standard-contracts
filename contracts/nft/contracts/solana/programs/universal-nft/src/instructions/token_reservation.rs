@@ -8,7 +8,6 @@ use crate::{
 
 #[derive(Accounts)]
 pub struct AllocateTokenId<'info> {
-    /// Configuration account that tracks global state
     #[account(
         mut,    
         seeds = [b"config"],
@@ -16,7 +15,6 @@ pub struct AllocateTokenId<'info> {
     )]
     pub config: Account<'info, UniversalNftConfig>,
 
-    /// New reservation account to be created
     #[account(
         init,
         payer = admin,
@@ -30,7 +28,6 @@ pub struct AllocateTokenId<'info> {
     )]
     pub reservation: Account<'info, TokenReservation>,
 
-    /// The mint address for which we're reserving a token ID
     /// CHECK: Only used as seed for PDA derivation
     pub mint: UncheckedAccount<'info>,
 
@@ -44,10 +41,8 @@ pub struct AllocateTokenId<'info> {
 
 impl<'info> AllocateTokenId<'info> {
     pub fn allocate_token_identifier(ctx: Context<Self>) -> Result<()> {
-        // Check if program is paused
         require!(!ctx.accounts.config.paused, Errors::ProgramPaused);
 
-        // Verify admin authority
         require!(
             ctx.accounts.config.admin == Some(ctx.accounts.admin.key()),
             Errors::GatewayProgramDefault
@@ -56,14 +51,12 @@ impl<'info> AllocateTokenId<'info> {
         let current_slot = Clock::get()?.slot;
         let current_token_id = ctx.accounts.config.next_nft_id;
 
-        // Generate deterministic token hash using mint, slot, and current ID
         let mut hash_calculator = Hasher::default();
         hash_calculator.hash(ctx.accounts.mint.key().as_ref());
         hash_calculator.hash(&current_slot.to_le_bytes());
         hash_calculator.hash(&current_token_id.to_le_bytes());
         let computed_hash = hash_calculator.result().to_bytes();
 
-        // Initialize the reservation account
         let reservation = &mut ctx.accounts.reservation;
         reservation.mint_address = ctx.accounts.mint.key();
         reservation.creator = ctx.accounts.admin.key();
@@ -74,7 +67,6 @@ impl<'info> AllocateTokenId<'info> {
         reservation.creation_time = Clock::get()?.unix_timestamp;
         reservation.bump_seed = ctx.bumps.reservation;
 
-        // Increment the global token ID counter
         ctx.accounts.config.next_nft_id = ctx.accounts.config
             .next_nft_id
             .checked_add(1)

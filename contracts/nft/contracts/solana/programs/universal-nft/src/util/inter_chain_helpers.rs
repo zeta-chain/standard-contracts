@@ -1,11 +1,6 @@
 use anchor_lang::prelude::*;
 use crate::errors::Errors;
 
-/// Inter-chain message data parsing and utilities
-/// This module contains helper functions for encoding/decoding inter-chain asset data
-
-/// Convert hex string address to 20-byte array (for Ethereum-style addresses)
-/// Supports both "0x" prefixed and raw hex strings
 pub fn parse_hex_address_to_bytes(address_str: &str) -> Result<[u8; 20]> {
     let hex_str = if address_str.starts_with("0x") {
         &address_str[2..]

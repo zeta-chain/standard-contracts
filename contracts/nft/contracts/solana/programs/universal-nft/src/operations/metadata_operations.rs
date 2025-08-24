@@ -10,7 +10,6 @@ use mpl_token_metadata::instructions::{
 };
 use mpl_token_metadata::types::DataV2;
 
-/// Initialize metadata account using Metaplex Token Metadata program
 pub fn initialize_metadata_account<'a>(
     metadata: &AccountInfo<'a>,
     mint: &AccountInfo<'a>,
@@ -23,7 +22,6 @@ pub fn initialize_metadata_account<'a>(
     uri: &str,
     authority_signer_seeds: Option<&[&[&[u8]]]>,
 ) -> Result<()> {
-    // Build CreateMetadataAccountV3 using builder API
     let data = DataV2 {
         name: name.to_string(),
         symbol: symbol.to_string(),
@@ -46,32 +44,30 @@ pub fn initialize_metadata_account<'a>(
         .is_mutable(true)
         .instruction();
 
-    // Account order must match the builder's metas exactly
-    // [metadata, mint, mint_authority, payer, update_authority, system_program, rent]
     match authority_signer_seeds {
         Some(seeds) => anchor_lang::solana_program::program::invoke_signed(
             &ix,
             &[
-                metadata.clone(),        // metadata
-                mint.clone(),            // mint
-                authority.clone(),       // mint_authority
-                payer.clone(),           // payer
-                authority.clone(),       // update_authority (same pubkey, duplicated)
-                system_program.clone(),  // system_program
-                rent.clone(),            // rent
+                metadata.clone(),
+                mint.clone(),
+                authority.clone(),
+                payer.clone(),
+                authority.clone(),
+                system_program.clone(),
+                rent.clone(),
             ],
             seeds,
         ).map_err(|_| Errors::InvalidDataFormat)?,
         None => invoke(
             &ix,
             &[
-                metadata.clone(),        // metadata
-                mint.clone(),            // mint
-                authority.clone(),       // mint_authority
-                payer.clone(),           // payer
-                authority.clone(),       // update_authority (same pubkey, duplicated)
-                system_program.clone(),  // system_program
-                rent.clone(),            // rent
+                metadata.clone(),
+                mint.clone(),
+                authority.clone(),
+                payer.clone(),
+                authority.clone(),
+                system_program.clone(),
+                rent.clone(),
             ],
         ).map_err(|_| Errors::InvalidDataFormat)?,
     }
@@ -79,7 +75,6 @@ pub fn initialize_metadata_account<'a>(
     Ok(())
 }
 
-/// Initialize master edition account using Metaplex Token Metadata program
 pub fn initialize_master_edition_account<'a>(
     master_edition: &AccountInfo<'a>,
     mint: &AccountInfo<'a>,
@@ -91,7 +86,6 @@ pub fn initialize_master_edition_account<'a>(
     rent: &AccountInfo<'a>,
     authority_signer_seeds: Option<&[&[&[u8]]]>,
 ) -> Result<()> {
-    // Build CreateMasterEditionV3 using builder API
     let ix = CreateMasterEditionV3Builder::new()
         .edition(*master_edition.key)
         .mint(*mint.key)
@@ -105,36 +99,34 @@ pub fn initialize_master_edition_account<'a>(
         .max_supply(0u64)
         .instruction();
 
-    // Account order must match the builder's metas exactly
-    // [edition, mint, update_authority, mint_authority, payer, metadata, token_program, system_program, rent]
     match authority_signer_seeds {
         Some(seeds) => anchor_lang::solana_program::program::invoke_signed(
             &ix,
             &[
-                master_edition.clone(),   // edition
-                mint.clone(),             // mint
-                authority.clone(),        // update_authority
-                authority.clone(),        // mint_authority (same pubkey, duplicated)
-                payer.clone(),            // payer
-                metadata.clone(),         // metadata
-                token_program.clone(),    // token_program
-                system_program.clone(),   // system_program
-                rent.clone(),             // rent
+                master_edition.clone(),
+                mint.clone(),
+                authority.clone(),
+                authority.clone(),
+                payer.clone(),
+                metadata.clone(),
+                token_program.clone(),
+                system_program.clone(),
+                rent.clone(),
             ],
             seeds,
         ).map_err(|_| Errors::InvalidDataFormat)?,
         None => invoke(
             &ix,
             &[
-                master_edition.clone(),   // edition
-                mint.clone(),             // mint
-                authority.clone(),        // update_authority
-                authority.clone(),        // mint_authority (same pubkey, duplicated)
-                payer.clone(),            // payer
-                metadata.clone(),         // metadata
-                token_program.clone(),    // token_program
-                system_program.clone(),   // system_program
-                rent.clone(),             // rent
+                master_edition.clone(),
+                mint.clone(),
+                authority.clone(),
+                authority.clone(),
+                payer.clone(),
+                metadata.clone(),
+                token_program.clone(),
+                system_program.clone(),
+                rent.clone(),
             ],
         ).map_err(|_| Errors::InvalidDataFormat)?,
     }

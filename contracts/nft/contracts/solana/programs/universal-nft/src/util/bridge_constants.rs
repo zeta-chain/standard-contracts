@@ -9,3 +9,5 @@ pub const MAX_RECIPIENT_ADDRESS_LENGTH: usize = 128;
 pub const SOLANA_NETWORK_ID: u64 = 4;
 
 pub const METAPLEX_TOKEN_METADATA_PROGRAM_ID: Pubkey = pubkey!("metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s");
+
+pub const UNIVERSAL_NFT_CONFIG_SEED: &[u8] = b"config";
