@@ -21,3 +21,25 @@ pub struct UniversalNftConfig {
     /// Bump seed used to derive config PDA
     pub pda_bump: u8,
 }
+
+/// Token reservation account for pre-allocating unique token identifiers
+#[account]
+#[derive(InitSpace)]
+pub struct TokenReservation {
+    /// The mint address this reservation is for
+    pub mint_address: Pubkey,
+    /// The authority that created this reservation
+    pub creator: Pubkey,
+    /// The reserved token identifier number
+    pub allocated_id: u64,
+    /// The blockchain slot when reservation was created
+    pub block_slot: u64,
+    /// The computed unique token hash
+    pub token_hash: [u8; 32],
+    /// Whether this reservation has been used
+    pub is_consumed: bool,
+    /// Timestamp when reservation was created
+    pub creation_time: i64,
+    /// PDA bump seed
+    pub bump_seed: u8,
+}

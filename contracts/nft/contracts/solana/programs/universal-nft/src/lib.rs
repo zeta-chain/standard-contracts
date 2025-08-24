@@ -5,8 +5,8 @@ declare_id!("GZVn56cKAKbq6K76jf2rigSktqELicPjvneNBvEgDBkM");
 mod state;
 mod errors;
 mod instructions;
-use instructions::init::*;
 
+use instructions::*;
 
 #[program]
 pub mod universal_nft {
@@ -21,6 +21,15 @@ pub mod universal_nft {
         ctx: Context<Initialize>, zeta_gateway_program_id: Pubkey
     ) -> Result<()> {
         Initialize::init(ctx, zeta_gateway_program_id)
+    }
+
+    /// Allocates a unique token identifier for a specific mint address.
+    /// Creates a reservation account that can be used later for minting.
+    ///
+    /// # Arguments
+    /// * `ctx` - The context of the transaction.
+    pub fn allocate_token_id(ctx: Context<AllocateTokenId>) -> Result<()> {
+        AllocateTokenId::allocate_token_identifier(ctx)
     }
 
 }

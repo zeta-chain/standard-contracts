@@ -14,4 +14,17 @@ pub enum Errors {
 
     #[msg("Gateway PDA is not owned by the gateway program")]
     GatewayPdaOwnershipInvalid,
+
+    // Token reservation specific errors
+    #[msg("Token reservation has already been consumed")]
+    ReservationAlreadyUsed,
+
+    #[msg("Invalid token reservation data")]
+    InvalidReservationData,
+
+    #[msg("Mathematical operation overflow occurred")]
+    MathOverflow,
+
+    #[msg("Program is currently paused")]
+    ProgramPaused,
 }
