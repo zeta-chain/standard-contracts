@@ -6,7 +6,6 @@ use crate::{
     state::{UniversalNftConfig, UniversalNftOrigin},
     errors::Errors,
     util::{bridge_constants::*, inter_chain_helpers, bridge_operations},
-    transaction_logs::{InterChainTransferStarted, DigitalAssetDestroyed},
 };
 
 #[derive(Accounts)]
@@ -65,8 +64,6 @@ pub struct CrossChainBridge<'info> {
 }
 
 impl<'info> CrossChainBridge<'info> {
-
-
     pub fn bridge_to_zetachain(
         ctx: Context<Self>,
         asset_identifier: [u8; 32],
@@ -149,27 +146,29 @@ impl<'info> CrossChainBridge<'info> {
         let settings = &mut ctx.accounts.settings;
         settings.message_sequence = settings.message_sequence.checked_add(1).ok_or(Errors::MathOverflow)?;
         
-        emit!(InterChainTransferStarted {
-            digital_asset_id: asset_identifier,
-            origin_network: SOLANA_NETWORK_ID,
-            target_network: final_destination_chain,
-            transfer_initiator: ctx.accounts.asset_owner.key(),
-            destination_address: final_recipient.clone(),
-            metadata_location: asset_tracker.original_uri.clone(),
-            transfer_fee: 0,
-            transfer_time: clock.unix_timestamp,
-            transfer_number: settings.message_sequence,
-        });
+        msg!(
+            "Asset bridged to ZetaChain universal contract: {:?}\nDigital asset ID: {:?}\nOrigin network: {}\nTarget network: {}\nTransfer initiator: {}\nDestination address: {}\nMetadata location: {}\nTransfer fee: {}\nTransfer time: {}\nTransfer number: {}",
+            zetachain_universal_contract,
+            asset_identifier,
+            SOLANA_NETWORK_ID,
+            final_destination_chain,
+            ctx.accounts.asset_owner.key(),
+            final_recipient,
+            asset_tracker.original_uri.clone(),
+            0,
+            clock.unix_timestamp,
+            settings.message_sequence
+        );
+
+        msg!(
+            "Digital asset destroyed\nToken mint: {}\nDigital asset ID: {:?}\nPrevious owner: {}\nDestruction time: {}\nDestruction purpose: {}",
+            ctx.accounts.mint.key(),
+            asset_identifier,
+            ctx.accounts.asset_owner.key(),
+            clock.unix_timestamp,
+            "bridge_to_zetachain".to_string()
+        );
         
-        emit!(DigitalAssetDestroyed {
-            token_mint: ctx.accounts.mint.key(),
-            digital_asset_id: asset_identifier,
-            previous_owner: ctx.accounts.asset_owner.key(),
-            destruction_time: clock.unix_timestamp,
-            destruction_purpose: "bridge_to_zetachain".to_string(),
-        });
-        
-        msg!("Asset bridged to ZetaChain universal contract: {:?}", zetachain_universal_contract);
         Ok(())
     }
     

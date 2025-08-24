@@ -88,4 +88,10 @@ pub enum Errors {
 
     #[msg("Arithmetic overflow occurred")]
     ArithmeticOverflow,
+
+    #[msg("Unauthorized access attempt")]
+    UnauthorizedAccess,
+
+    #[msg("Invalid parameter provided")]
+    InvalidParameter,
 }

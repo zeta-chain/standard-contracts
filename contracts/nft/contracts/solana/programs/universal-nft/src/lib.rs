@@ -7,7 +7,6 @@ mod errors;
 mod operations;
 mod instructions;
 mod util;
-mod transaction_logs;
 mod callbacks;
 
 use instructions::*;
@@ -26,6 +25,31 @@ pub mod universal_nft {
         ctx: Context<Initialize>, zeta_gateway_program_id: Pubkey
     ) -> Result<()> {
         Initialize::init(ctx, zeta_gateway_program_id)
+    }
+
+    /// Modify program configuration settings
+    /// Allows authorized administrator to update gateway settings, admin, and pause state
+    ///
+    /// # Arguments
+    /// * `ctx` - The instruction context.
+    /// * `new_admin` - Optional new administrator public key.
+    /// * `new_gateway_id` - Optional new ZetaChain gateway program ID.
+    /// * `new_verifier` - Optional new gateway verifier PDA.
+    /// * `pause_state` - Optional pause/unpause program state.
+    pub fn modify_program_settings(
+        ctx: Context<ModifySettings>,
+        new_admin: Option<Pubkey>,
+        new_gateway_id: Option<Pubkey>,
+        new_verifier: Option<Pubkey>,
+        pause_state: Option<bool>,
+    ) -> Result<()> {
+        ModifySettings::modify_program_settings(
+            ctx,
+            new_admin,
+            new_gateway_id,
+            new_verifier,
+            pause_state,
+        )
     }
 
     /// Allocates a unique token identifier for a specific mint address.
@@ -103,6 +127,5 @@ pub mod universal_nft {
             encoded_data
         )
     }
-
 }
 

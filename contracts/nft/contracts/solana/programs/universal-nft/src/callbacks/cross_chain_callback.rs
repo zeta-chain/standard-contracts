@@ -283,14 +283,17 @@ impl<'info> CrossChainCallback<'info> {
         timestamp: i64,
         origin_chain: u64,
     ) -> Result<()> {
-        emit!(crate::transaction_logs::NftRecovered {
-            mint: ctx.accounts.mint.key(),
+        msg!(
+            "NFT recovered from cross-chain bridge\nMint: {}\nNFT ID: {:?}\nOwner: {}\nURI: {}\nTimestamp: {}\nOrigin chain: {}",
+            ctx.accounts.mint.key(),
             nft_id,
-            owner: ctx.accounts.config.key(),
-            uri: metadata_uri.to_string(),
+            ctx.accounts.config.key(),
+            metadata_uri,
             timestamp,
-            origin_chain,
-        });
+            origin_chain
+        );  
+
         Ok(())
     }
 }
+
