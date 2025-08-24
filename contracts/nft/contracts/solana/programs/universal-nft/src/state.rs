@@ -22,24 +22,45 @@ pub struct UniversalNftConfig {
     pub pda_bump: u8,
 }
 
-/// Token reservation account for pre-allocating unique token identifiers
+/// Token reservation account for pre-allocated unique identifiers
 #[account]
 #[derive(InitSpace)]
 pub struct TokenReservation {
-    /// The mint address this reservation is for
+    /// The mint address this voucher is for
     pub mint_address: Pubkey,
-    /// The authority that created this reservation
+    /// The authority that created this voucher
     pub creator: Pubkey,
     /// The reserved token identifier number
-    pub allocated_id: u64,
-    /// The blockchain slot when reservation was created
+    pub reserved_id: u64,
+    /// The blockchain slot when voucher was created
     pub block_slot: u64,
     /// The computed unique token hash
     pub token_hash: [u8; 32],
-    /// Whether this reservation has been used
+    /// Whether this voucher has been used
     pub is_consumed: bool,
-    /// Timestamp when reservation was created
+    /// Timestamp when voucher was created
     pub creation_time: i64,
+    /// PDA bump seed
+    pub bump_seed: u8,
+}
+
+/// Universal NFT origin tracking account
+#[account]
+#[derive(InitSpace)]
+pub struct UniversalNftOrigin {
+    /// Unique identifier for the Universal NFT
+    pub nft_id: [u8; 32],
+    /// Original mint address
+    pub original_mint: Pubkey,
+    /// Original metadata address
+    pub original_metadata: Pubkey,
+    /// Original URI
+    #[max_len(200)]
+    pub original_uri: String,
+    /// Whether NFT is currently on Solana
+    pub is_on_solana: bool,
+    /// Timestamp when NFT was created
+    pub created_at: i64,
     /// PDA bump seed
     pub bump_seed: u8,
 }

@@ -27,4 +27,51 @@ pub enum Errors {
 
     #[msg("Program is currently paused")]
     ProgramPaused,
+
+    // Digital asset creation errors
+    #[msg("Digital asset voucher has already been consumed")]
+    VoucherAlreadyUsed,
+
+    #[msg("Invalid digital asset voucher data")]
+    InvalidVoucherData,
+
+    #[msg("Digital asset name is too long")]
+    NameTooLong,
+
+    #[msg("Digital asset symbol is too long")]
+    SymbolTooLong,
+
+    #[msg("Digital asset URI is too long")]
+    UriTooLong,
+
+    #[msg("Insufficient rent provided for account creation")]
+    InsufficientRent,
+
+    #[msg("Invalid mint account")]
+    InvalidMint,
+
+    #[msg("Invalid token supply")]
+    InvalidTokenSupply,
+
+    #[msg("Invalid token amount")]
+    InvalidTokenAmount,
+
+    #[msg("Invalid recipient address")]
+    InvalidRecipientAddress,
+
+    #[msg("Invalid program")]
+    InvalidProgram,
+
+    #[msg("Invalid data format")]
+    InvalidDataFormat,
+
+    #[msg("Invalid account owner")]
+    InvalidAccountOwner,
+
+    #[msg("Origin conflict detected")]
+    OriginConflict,
+
+    #[msg("Operation not allowed")]
+    OperationNotAllowed,
+
 }

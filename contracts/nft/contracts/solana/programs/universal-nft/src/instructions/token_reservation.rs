@@ -10,8 +10,8 @@ use crate::{
 pub struct AllocateTokenId<'info> {
     /// Configuration account that tracks global state
     #[account(
-        mut,
-        seeds = [b"program_config"],
+        mut,    
+        seeds = [b"config"],
         bump = config.pda_bump
     )]
     pub config: Account<'info, UniversalNftConfig>,
@@ -67,7 +67,7 @@ impl<'info> AllocateTokenId<'info> {
         let reservation = &mut ctx.accounts.reservation;
         reservation.mint_address = ctx.accounts.mint.key();
         reservation.creator = ctx.accounts.admin.key();
-        reservation.allocated_id = current_token_id;
+        reservation.reserved_id = current_token_id;
         reservation.block_slot = current_slot;
         reservation.token_hash = computed_hash;
         reservation.is_consumed = false;
