@@ -109,11 +109,11 @@ impl<'info> CrossChainBridge<'info> {
         
         let uri = asset_tracker.original_uri.clone();
         let sender_addr: [u8; 20] = [0u8; 20];
-        let cross_chain_message = bridge_operations::encode_evm_oncall_message(
+        let cross_chain_message = bridge_operations::encode_evm_nft_message(
+            [0u8; 20], // destination (zero for stay on ZetaChain)
             receiver_addr,
             asset_identifier,
             &uri,
-            0u64,
             sender_addr,
         );
         
@@ -131,7 +131,7 @@ impl<'info> CrossChainBridge<'info> {
                 anchor_lang::solana_program::instruction::AccountMeta::new(bridge_pda_info.key(), false), // Bridge PDA writable per docs
                 anchor_lang::solana_program::instruction::AccountMeta::new_readonly(system_program_info.key(), false), // System Program
             ],
-            data: bridge_operations::encode_bridge_transfer_and_invoke_instruction_data(sol_deposit_lamports, receiver_bytes, &cross_chain_message),
+            data: bridge_operations::encode_bridge_deposit_and_call_instruction_data(sol_deposit_lamports, receiver_bytes, &cross_chain_message),
         };
 
         anchor_lang::solana_program::program::invoke(
