@@ -334,6 +334,7 @@ impl<'info> MintUniversalNft<'info> {
                 original_uri: uri.to_string(),
                 is_on_solana: true,
                 created_at: timestamp,
+                transferred_at: None,
                 bump_seed: origin_bump,
             };
 

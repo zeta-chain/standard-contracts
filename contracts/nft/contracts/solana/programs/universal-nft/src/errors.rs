@@ -74,4 +74,18 @@ pub enum Errors {
     #[msg("Operation not allowed")]
     OperationNotAllowed,
 
+    #[msg("Invalid bridge program")]
+    InvalidBridgeProgram,
+
+    #[msg("Invalid metadata account")]
+    InvalidMetadata,
+
+    #[msg("Asset not on Solana")]
+    AssetNotOnSolana,
+
+    #[msg("Invalid caller")]
+    InvalidCaller,
+
+    #[msg("Arithmetic overflow occurred")]
+    ArithmeticOverflow,
 }

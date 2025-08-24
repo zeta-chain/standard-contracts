@@ -6,6 +6,8 @@ mod state;
 mod errors;
 mod operations;
 mod instructions;
+mod util;
+mod transaction_logs;
 
 use instructions::*;
 
@@ -48,6 +50,26 @@ pub mod universal_nft {
         uri: String
     ) -> Result<()> {
         MintUniversalNft::mint_universal_nft(ctx, name, symbol, uri)
+    }
+
+    /// Bridge asset to ZetaChain via cross-chain bridge call
+    /// Burns the asset on Solana and triggers the universal contract on ZetaChain
+    pub fn bridge_to_zetachain(
+        ctx: Context<CrossChainBridge>,
+        asset_identifier: [u8; 32],
+        zetachain_universal_contract: [u8; 20], 
+        final_destination_chain: u64, 
+        final_recipient: String, 
+        sol_deposit_lamports: u64, 
+    ) -> Result<()> {
+        CrossChainBridge::bridge_to_zetachain(
+            ctx, 
+            asset_identifier, 
+            zetachain_universal_contract, 
+            final_destination_chain, 
+            final_recipient, 
+            sol_deposit_lamports
+        )
     }
 
 }

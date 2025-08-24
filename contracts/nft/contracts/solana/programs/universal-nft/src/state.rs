@@ -61,6 +61,16 @@ pub struct UniversalNftOrigin {
     pub is_on_solana: bool,
     /// Timestamp when NFT was created
     pub created_at: i64,
+    /// Timestamp when NFT was transferred off Solana
+    pub transferred_at: Option<i64>,
     /// PDA bump seed
     pub bump_seed: u8,
+}
+
+impl UniversalNftOrigin {
+    /// Mark the NFT as transferred off Solana
+    pub fn mark_transferred_off_solana(&mut self, timestamp: i64) {
+        self.is_on_solana = false;
+        self.transferred_at = Some(timestamp);
+    }
 }
