@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { Connection, PublicKey, Keypair, SystemProgram, SYSVAR_RENT_PUBKEY } from "@solana/web3.js";
+import { Connection, PublicKey, Keypair, SystemProgram, SYSVAR_RENT_PUBKEY, ComputeBudgetProgram } from "@solana/web3.js";
 import { TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID, getAssociatedTokenAddress } from "@solana/spl-token";
 import * as anchor from "@coral-xyz/anchor";
 import { Program, BN } from "@coral-xyz/anchor";
@@ -107,6 +107,34 @@ export class UniversalNftCLI {
     console.log("Config:", configPda.toBase58());
   }
 
+  async updateConfigCli(newGatewayProgramArg?: string, newGatewayPdaArg?: string, newAuthorityArg?: string, pauseArg?: string): Promise<void> {
+    const toOptPubkey = (v?: string | null) => {
+      if (!v || v === "-") return null;
+      return new PublicKey(v);
+    };
+    const toOptBool = (v?: string | null) => {
+      if (!v || v === "-") return null;
+      if (v === "true" || v === "1") return true;
+      if (v === "false" || v === "0") return false;
+      throw new Error("pause must be true|false|- (empty)");
+    };
+
+    const configPda = this.deriveConfigPda();
+    const newGatewayProgram = toOptPubkey(newGatewayProgramArg);
+    const newGatewayPda = toOptPubkey(newGatewayPdaArg);
+    const newAuthority = toOptPubkey(newAuthorityArg);
+    const pause = toOptBool(pauseArg);
+
+    const tx = await this.program.methods
+      .updateConfig(newAuthority, newGatewayProgram, newGatewayPda, pause)
+      .accountsStrict({
+        config: configPda,
+        authority: this.wallet.publicKey,
+      })
+      .rpc();
+    console.log("Config updated. Tx:", tx);
+  }
+
   async mint(uri: string, name = "Universal NFT", symbol = "UNFT"): Promise<void> {
     // Two-step flow: reserve -> mint. Reservation yields token_id to derive nft_origin PDA.
     const mint = Keypair.generate();
@@ -133,72 +161,128 @@ export class UniversalNftCLI {
     const tokenId: Buffer = Buffer.from(ticket.tokenId as number[]);
     const nftOriginPda = this.deriveNftOriginPda(tokenId);
 
-    const tx = await this.program.methods
-      .mintNft(name, symbol, uri)
-      .accountsStrict({
-        config: configPda,
-        ticket: ticketPda,
-        nftOrigin: nftOriginPda,
-        mint: mint.publicKey,
-        metadata: metadataPda,
-        masterEdition: masterEditionPda,
-        tokenAccount: ata,
-        authority: this.wallet.publicKey,
-        payer: this.wallet.publicKey,
-        recipient: this.wallet.publicKey,
-        tokenProgram: TOKEN_PROGRAM_ID,
-        associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
-        metadataProgram: METADATA_PROGRAM_ID,
-        systemProgram: SystemProgram.programId,
-        rent: SYSVAR_RENT_PUBKEY,
-      })
-      .signers([mint])
-      .rpc();
+    // Increase CU limit for heavy Metaplex CPIs (metadata + master edition)
+    const computeIxs = [
+      ComputeBudgetProgram.setComputeUnitLimit({ units: 1_000_000 }),
+    ];
 
-    console.log("Minted. Tx:", tx);
-    console.log("Mint:", mint.publicKey.toBase58());
-    console.log("Token ID:", tokenId.toString("hex"));
+    try {
+      const tx = await this.program.methods
+        .mintNft(name, symbol, uri)
+        .accountsStrict({
+          config: configPda,
+          ticket: ticketPda,
+          nftOrigin: nftOriginPda,
+          mint: mint.publicKey,
+          metadata: metadataPda,
+          masterEdition: masterEditionPda,
+          tokenAccount: ata,
+          authority: this.wallet.publicKey,
+          payer: this.wallet.publicKey,
+          recipient: this.wallet.publicKey,
+          tokenProgram: TOKEN_PROGRAM_ID,
+          associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+          metadataProgram: METADATA_PROGRAM_ID,
+          systemProgram: SystemProgram.programId,
+          rent: SYSVAR_RENT_PUBKEY,
+        })
+        .preInstructions(computeIxs)
+        .signers([mint])
+        .rpc();
+
+      console.log("Minted. Tx:", tx);
+      console.log("Mint:", mint.publicKey.toBase58());
+      console.log("Metadata:", metadataPda.toBase58());
+      console.log("Token ID:", tokenId.toString("hex"));
+    } catch (e: any) {
+      console.error("mint failed:", e?.message || e);
+      if (e?.stack) console.error(e.stack);
+      if (e?.logs) console.error("Transaction logs:\n" + (e.logs as string[]).join("\n"));
+      else if (typeof e?.getLogs === "function") {
+        try {
+          const logs = await e.getLogs();
+          if (logs) console.error("Transaction logs:\n" + logs.join("\n"));
+        } catch {}
+      }
+      throw e;
+    }
   }
 
   async transferToZetachain(tokenIdHex: string, zcUniversalContractHex: string, destinationChain: string, finalRecipient: string): Promise<void> {
+    // Strict arg validations
     const tokenId = Buffer.from(tokenIdHex.replace(/^0x/, ''), 'hex');
-    if (tokenId.length !== 32) throw new Error("tokenId must be 32 bytes hex");
+    if (tokenId.length !== 32) throw new Error(`tokenId must be 32 bytes hex (got ${tokenId.length})`);
     const receiver = Buffer.from(zcUniversalContractHex.replace(/^0x/, ''), 'hex');
-    if (receiver.length !== 20) throw new Error("zetachain universal contract must be 20 bytes hex");
-    // Validate destinationChain parses to u64
+    if (receiver.length !== 20) throw new Error(`zetachain universal contract must be 20 bytes hex (got ${receiver.length})`);
     if (!/^\d+$/.test(destinationChain)) throw new Error("destinationChain must be an unsigned integer string");
     const destChainBig = BigInt(destinationChain);
     if (destChainBig < 0n || destChainBig > (1n << 64n) - 1n) throw new Error("destinationChain out of range for u64");
-    // Validate final recipient length
     if (!finalRecipient || finalRecipient.length > 128) throw new Error("finalRecipient must be non-empty and <= 128 chars");
 
     const configPda = this.deriveConfigPda();
     const nftOriginPda = this.deriveNftOriginPda(tokenId);
     const origin = await this.program.account.nftOrigin.fetch(nftOriginPda);
-    const mint = (origin as any).originalMint as PublicKey;
-    const metadataPda = (origin as any).originalMetadata as PublicKey;
+    const mint = origin.originalMint as PublicKey;
+    const metadataPda = origin.originalMetadata as PublicKey;
     const ata = await getAssociatedTokenAddress(mint, this.wallet.publicKey);
     const config = await this.program.account.universalNftConfig.fetch(configPda);
-    const gatewayProgram = (config as any).gatewayProgram as PublicKey;
-    const gatewayPda = (config as any).gatewayPda as PublicKey;
+    const gatewayProgram = config.gatewayProgram as PublicKey;
+    const gatewayPda = config.gatewayPda as PublicKey;
 
-    const tx = await this.program.methods
-      .transferToZetachain(Array.from(tokenId), Array.from(receiver), new BN(destChainBig.toString()), finalRecipient)
-      .accountsStrict({
-        config: configPda,
-        nftOrigin: nftOriginPda,
-        mint,
-        tokenAccount: ata,
-        metadata: metadataPda,
-        owner: this.wallet.publicKey,
-        gatewayProgram,
-        gatewayPda,
-        tokenProgram: TOKEN_PROGRAM_ID,
-        systemProgram: SystemProgram.programId,
-      })
-      .rpc();
+    // Optional diagnostics to catch IDL/program mismatches
+    const idlAddr = (idl as any)?.address;
+    if (idlAddr) {
+      const idlInstr = (idl as any)?.instructions?.find((i: any) => i.name === 'transferToZetachain');
+      console.log('IDL program address:', idlAddr);
+      console.log('Loaded program address:', this.program.programId.toBase58());
+      if (idlInstr) console.log('IDL transferToZetachain args:', idlInstr.args?.map((a: any) => `${a.name}:${JSON.stringify(a.type)}`));
+    }
 
-    console.log("Transfer initiated. Tx:", tx);
+    // Ensure arrays are exact-sized
+    const tokenIdArr = Array.from(tokenId);
+    const receiverArr = Array.from(receiver);
+    if (tokenIdArr.length !== 32 || receiverArr.length !== 20) {
+      throw new Error('Invalid arg lengths after conversion');
+    }
+
+    try {
+      const tx = await this.program.methods
+        .transferToZetachain(tokenIdArr, receiverArr, new BN(destChainBig.toString()), finalRecipient)
+        .accountsStrict({
+          config: configPda,
+          nftOrigin: nftOriginPda,
+          mint,
+          tokenAccount: ata,
+          metadata: metadataPda,
+          owner: this.wallet.publicKey,
+          gatewayProgram,
+          gatewayPda,
+          tokenProgram: TOKEN_PROGRAM_ID,
+          systemProgram: SystemProgram.programId,
+        })
+        .preInstructions([
+          // Give headroom for burn + gateway CPI
+          ComputeBudgetProgram.setComputeUnitLimit({ units: 600_000 }),
+        ])
+        .rpc();
+      console.log("Transfer initiated. Tx:", tx);
+    } catch (e: any) {
+      // Surface common client-side coder errors and on-chain logs
+      console.error('transferToZetachain failed:', e?.message || e);
+      if (e?.stack) console.error(e.stack);
+      if (e?.logs) console.error('Transaction logs:\n' + (e.logs as string[]).join('\n'));
+      else if (typeof e?.getLogs === 'function') {
+        try {
+          const logs = await e.getLogs();
+          if (logs) console.error('Transaction logs:\n' + logs.join('\n'));
+        } catch {}
+      }
+      // Helpful hint for Buffer offset errors
+      if ((e?.message || '').includes('offset') && (e?.message || '').includes('out of range')) {
+        console.error('Hint: This often indicates an IDL/method args mismatch. Ensure anchor build was run and the CLI loads the fresh IDL/types for this deployed program.');
+      }
+      throw e;
+    }
   }
 
   async balance(): Promise<void> {
@@ -261,6 +345,12 @@ async function main() {
         await cli.transferToZetachain(tokenIdHex, zcUniversalContractHex, destChain, finalRecipient);
         break;
       }
+      case "update-config": {
+        // usage: update-config <newGatewayProgram|- or empty> <newGatewayPda|- or empty> [newAuthority|-] [pause true|false|-]
+        const [ngp, ngpda, na, p] = args;
+        await cli.updateConfigCli(ngp, ngpda, na, p);
+        break;
+      }
       case "status":
         await cli.status();
         break;
@@ -274,7 +364,7 @@ async function main() {
         await cli.balance();
         break;
       default:
-        console.log("Commands:\n  initialize <gatewayProgramPubkey> <gatewayPdaPubkey>\n  mint <uri> [name] [symbol]\n  transfer <tokenIdHex32> <zcUniversalContractHex20> <destChainU64> <finalRecipient>\n  status\n  origin <tokenIdHex32>\n  balance");
+  console.log("Commands:\n  initialize <gatewayProgramPubkey> <gatewayPdaPubkey>\n  update-config <newGatewayProgramPubkey|- or empty> <newGatewayPdaPubkey|- or empty> [newAuthorityPubkey|-] [pause true|false|-]\n  mint <uri> [name] [symbol]\n  transfer <tokenIdHex32> <zcUniversalContractHex20> <destChainU64> <finalRecipient>\n  status\n  origin <tokenIdHex32>\n  balance");
     }
   } catch (e) {
     console.error("Error:", (e as Error).message);
