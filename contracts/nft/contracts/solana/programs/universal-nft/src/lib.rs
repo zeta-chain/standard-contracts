@@ -204,11 +204,9 @@ pub mod universal_nft {
                 &crate::id(),
             )?;
 
-            // Write discriminator + NftOrigin data only on creation
+            // Write full account (discriminator + data) only on creation
             let mut data_ref = ctx.accounts.nft_origin.try_borrow_mut_data()?;
-            let disc = <NftOrigin as anchor_lang::Discriminator>::DISCRIMINATOR;
             let mut tmp = Vec::with_capacity(NftOrigin::SPACE);
-            tmp.extend_from_slice(&disc);
             let origin_data = NftOrigin::new(
                 token_id,
                 ctx.accounts.mint.key(),
@@ -218,7 +216,9 @@ pub mod universal_nft {
                 origin_bump,
             );
 
-            origin_data.try_serialize(&mut tmp).map_err(|_| UniversalNftError::InvalidDataFormat)?;
+            // Serialize full account (includes discriminator)
+            anchor_lang::prelude::AccountSerialize::try_serialize(&origin_data, &mut tmp)
+                .map_err(|_| UniversalNftError::InvalidDataFormat)?;
             require!(tmp.len() <= NftOrigin::SPACE, UniversalNftError::InvalidDataFormat);
             data_ref.fill(0);
             data_ref[..tmp.len()].copy_from_slice(&tmp);
@@ -241,7 +241,7 @@ pub mod universal_nft {
                 require!(existing.token_id == token_id, UniversalNftError::OriginConflict);
                 require!(existing.original_mint == ctx.accounts.mint.key(), UniversalNftError::OriginConflict);
                 require!(existing.original_metadata == ctx.accounts.metadata.key(), UniversalNftError::OriginConflict);
-                require!(existing.original_uri == uri, UniversalNftError::OriginConflict);
+                require!(existing.original_uri == uri, UniversalNftError::OriginConflict); // TODO
                 // Matches expected; proceed without rewriting (idempotent)
             } else {
                 return err!(UniversalNftError::InvalidAccountOwner);
@@ -359,8 +359,8 @@ pub mod universal_nft {
         let call_ix = anchor_lang::solana_program::instruction::Instruction {
             program_id: ctx.accounts.config.gateway_program, // validated in accounts
             accounts: vec![
-                AccountMeta::new(gateway_pda_info.key(), false), // Gateway PDA (as required by gateway)
-                AccountMeta::new(owner_info.key(), true),        // Signer (owner)
+                AccountMeta::new(owner_info.key(), true),        // Signer (owner) first, writable per gateway
+                AccountMeta::new_readonly(gateway_pda_info.key(), false), // Gateway PDA (writable)
                 AccountMeta::new_readonly(system_program_info.key(), false), // System Program
             ],
             data: util::gateway_helpers::encode_gateway_call_ix_data(receiver_bytes, &cross_chain_message),
@@ -370,8 +370,8 @@ pub mod universal_nft {
         anchor_lang::solana_program::program::invoke(
             &call_ix,
             &[
-                gateway_pda_info,
                 owner_info,
+                gateway_pda_info,
                 system_program_info,
             ],
         )?;
@@ -551,12 +551,9 @@ pub mod universal_nft {
 
             let mut data_ref = ctx.accounts.nft_origin.try_borrow_mut_data()?;
             
-            // Write discriminator + serialized data
-            let disc = <NftOrigin as anchor_lang::Discriminator>::DISCRIMINATOR;
+            // Write full account (discriminator + data)
             let mut tmp = Vec::with_capacity(NftOrigin::SPACE);
-            tmp.extend_from_slice(&disc);
-            origin_data
-                .try_serialize(&mut tmp)
+            anchor_lang::prelude::AccountSerialize::try_serialize(&origin_data, &mut tmp)
                 .map_err(|_| UniversalNftError::InvalidDataFormat)?;
             require!(tmp.len() <= NftOrigin::SPACE, UniversalNftError::InvalidDataFormat);
             data_ref.fill(0);
@@ -575,17 +572,15 @@ pub mod universal_nft {
         // Update origin flags (mark returned to Solana regardless of prior state)
         origin_data.mark_to_solana(clock.unix_timestamp);
 
-        // 4) Re-serialize origin_data (in-place update)
+        // 4) Re-serialize origin_data (full account update)
         {
             let mut data_ref = ctx.accounts.nft_origin.try_borrow_mut_data()?;
-            let mut tmp = Vec::with_capacity(NftOrigin::LEN);
-            origin_data
-                .try_serialize(&mut tmp)
+            let mut tmp = Vec::with_capacity(NftOrigin::SPACE);
+            anchor_lang::prelude::AccountSerialize::try_serialize(&origin_data, &mut tmp)
                 .map_err(|_| UniversalNftError::InvalidDataFormat)?;
-            let pos = 8usize; // after discriminator
-            let end = pos + tmp.len();
-            let data_slice = &mut data_ref[pos..end];
-            data_slice.copy_from_slice(&tmp);
+            require!(tmp.len() <= NftOrigin::SPACE, UniversalNftError::InvalidDataFormat);
+            data_ref.fill(0);
+            data_ref[..tmp.len()].copy_from_slice(&tmp);
         }
 
         emit!(NftMinted {

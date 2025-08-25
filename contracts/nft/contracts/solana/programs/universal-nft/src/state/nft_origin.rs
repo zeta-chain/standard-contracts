@@ -20,7 +20,7 @@ pub struct NftOrigin {
     /// Whether this NFT is currently on Solana
     pub is_on_solana: bool,
     /// Bump seed for PDA
-    pub bump: u8,
+    pub bump: u8
 }
 
 impl NftOrigin {
