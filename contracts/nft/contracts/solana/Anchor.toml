@@ -5,14 +5,14 @@ package_manager = "yarn"
 resolution = true
 skip-lint = false
 
-[programs.localnet]
-universal_nft = "GZVn56cKAKbq6K76jf2rigSktqELicPjvneNBvEgDBkM"
+[programs.devnet]
+universal_nft = "2QDqQXRX1gUq5czLmAMM84WL4yVUiPQYuYKviof6Q2pQ"
 
 [registry]
 url = "https://api.apr.dev"
 
 [provider]
-cluster = "localnet"
+cluster = "devnet"
 wallet = "~/.config/solana/id.json"
 
 [scripts]
