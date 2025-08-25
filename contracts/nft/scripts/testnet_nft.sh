@@ -26,19 +26,19 @@ if ! retry 3 npx --no-install hardhat compile; then
 fi
 
 echo "🚀 Deploying Universal NFT on ZetaChain testnet (nft:deploy)..."
-UNIVERSAL=$(npx hardhat nft:deploy --name ZetaChainUniversalNFT --network zeta_testnet --gateway 0x6c533f7fe93fae114d0954697069df33c9b74fd7 --uniswapRouter 0x2ca7d64A7EFE2D62A725E2B35Cf7230D6677FfEe --gasLimit "$GAS_LIMIT" --json | jq -r '.contractAddress')
+UNIVERSAL=$(npx hardhat nft:deploy --name ZetaChainUniversalNFT --network zeta_testnet --gateway 0x6c533f7fe93fae114d0954697069df33c9b74fd7 --uniswap-router 0x2ca7d64A7EFE2D62A725E2B35Cf7230D6677FfEe --json | jq -r '.contractAddress')
 echo "ZetaChain Universal NFT: $UNIVERSAL"
 
 echo "🚀 Deploying EVMUniversalNFT on Base Sepolia (nft:deploy)..."
-CONNECTED_BASE=$(npx hardhat nft:deploy --name EVMUniversalNFT --network base_sepolia --gateway 0x0c487a766110c85d301d96e33579c5b317fa4995 --gasLimit "$GAS_LIMIT" --json | jq -r '.contractAddress')
+CONNECTED_BASE=$(npx hardhat nft:deploy --name EVMUniversalNFT --network base_sepolia --gateway 0x0c487a766110c85d301d96e33579c5b317fa4995 --json | jq -r '.contractAddress')
 echo "Base Sepolia Universal NFT: $CONNECTED_BASE"
 
 echo "🚀 Deploying EVMUniversalNFT on BNB testnet (nft:deploy)..."
-CONNECTED_BNB=$(npx hardhat nft:deploy --name EVMUniversalNFT --network bsc_testnet --gateway 0x0c487a766110c85d301d96e33579c5b317fa4995 --gasLimit "$GAS_LIMIT" --json | jq -r '.contractAddress')
+CONNECTED_BNB=$(npx hardhat nft:deploy --name EVMUniversalNFT --network bsc_testnet --gateway 0x0c487a766110c85d301d96e33579c5b317fa4995 --json | jq -r '.contractAddress')
 echo "BNB testnet Universal NFT: $CONNECTED_BNB"
 
 # ZRC-20 references (can be paramaterized later)
-ZRC20_BASE=0x236b0DE675cC8F46AE186897fCCeFe3370C9eDeD
+ZRC20_BASE=0x9984117913bD53a2Cc861929F6a2e42Bf60b19AC
 ZRC20_BNB=0xd97B1de3619ed2c6BEb3860147E30cA8A7dC9891
 
 echo "🔗 Wiring connections (set-universal / set-connected)..."
