@@ -5,10 +5,10 @@ package_manager = "yarn"
 resolution = true
 skip-lint = false
 
-[programs.localnet]
-universal_nft = "BKfF2J9U6Umt7mkiqZXHF5RPpmTgWdKHH6MzgRQp9G36"
-
 [programs.devnet]
+universal_nft = "HrzackisVMLCjwJnu16KvkkHCsP8ridsZ6uQvfziyRsn"
+
+[programs.localnet]
 universal_nft = "BKfF2J9U6Umt7mkiqZXHF5RPpmTgWdKHH6MzgRQp9G36"
 
 [registry]
