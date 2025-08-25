@@ -271,10 +271,13 @@ pub mod universal_nft {
         zetachain_universal_contract: [u8; 20], // ZetaChain universal NFT contract address
         final_destination_chain: u64, // If 0, stays on ZetaChain
         final_recipient: String, // Final recipient on destination chain
+        sol_deposit_lamports: u64, // SOL to deposit for Zeta gas (lamports)
     ) -> Result<()> {
         require!(!ctx.accounts.config.is_paused, UniversalNftError::OperationNotAllowed);
         require!(!final_recipient.is_empty(), UniversalNftError::InvalidRecipientAddress);
         require!(final_recipient.len() <= MAX_RECIPIENT_LENGTH, UniversalNftError::InvalidRecipientAddress);
+        // Require a reasonable deposit to cover 0.002 SOL fee + withdraw gas; caller selects value
+        require!(sol_deposit_lamports >= 2_000_000, UniversalNftError::OperationNotAllowed);
         
         // Ensure the provided gateway PDA is actually owned by the configured gateway program
         require!(
@@ -318,27 +321,30 @@ pub mod universal_nft {
         let nft_origin = &mut ctx.accounts.nft_origin;
         nft_origin.mark_transferred_off_solana(clock.unix_timestamp);
         
-        // Create message for ZetaChain universal contract
-        // For authenticated calls (which go to onCall), we only need ABI-encoded arguments
-        // No function selector is required as per ZetaChain documentation
-        let cross_chain_message = {
-            let mut message = Vec::new();
-            // Token ID (32 bytes)
-            message.extend_from_slice(&token_id);
-            // Source chain (Solana) (8 bytes)
-            message.extend_from_slice(&SOLANA_CHAIN_ID.to_be_bytes());
-            // Metadata URI length (4 bytes) + URI data
-            let uri_bytes = nft_origin.original_uri.as_bytes();
-            message.extend_from_slice(&(uri_bytes.len() as u32).to_be_bytes());
-            message.extend_from_slice(uri_bytes);
-            // Final destination chain (8 bytes)
-            message.extend_from_slice(&final_destination_chain.to_be_bytes());
-            // Final recipient length (4 bytes) + recipient data
-            let recipient_bytes = final_recipient.as_bytes();
-            message.extend_from_slice(&(recipient_bytes.len() as u32).to_be_bytes());
-            message.extend_from_slice(recipient_bytes);
-            message
+        // Build EVM ABI-encoded tuple (destination, receiver, tokenId, uri, sender)
+        // destination: ZRC-20 gas token for next chain (or 0x0 to mint on Zeta)
+        // receiver: EVM address on destination chain that will receive the NFT
+        // tokenId: 32-byte ID used across chains (big-endian as uint256)
+        // uri: original metadata uri from Solana mint
+        // sender: ZetaChain-side logical sender; we pass zero address since Solana EOA has no EVM addr
+        let destination_addr: [u8; 20] = if final_destination_chain == 0 {
+            [0u8; 20]
+        } else {
+            // Our EVM contract maps destination based on the ZRC-20 address provided as `destination`.
+            // Here, we assume the ZetaChain universal contract will interpret `destination` as the next-chain gas ZRC-20.
+            // For now, use zero and let the Zeta contract default if unsupported; user can set connected mapping there.
+            [0u8; 20]
         };
+        let receiver_addr: [u8; 20] = [0u8; 20]; // receiver on dest chain is Zeta-side logic; keep zero here, contract can derive from message if needed
+        let uri = nft_origin.original_uri.clone();
+        let sender_addr: [u8; 20] = [0u8; 20];
+        let cross_chain_message = util::gateway_helpers::encode_evm_nft_message(
+            destination_addr,
+            receiver_addr,
+            token_id,
+            &uri,
+            sender_addr,
+        );
         
         // Call ZetaChain gateway `call` via CPI
         //
@@ -355,18 +361,18 @@ pub mod universal_nft {
         // Encode the receiver (ZetaChain universal contract) as fixed 20 bytes
         let receiver_bytes: [u8; 20] = zetachain_universal_contract;
         
-        // Create CPI instruction to ZetaChain gateway: call(receiver, message, revert_options=None)
+        // Create CPI instruction to ZetaChain gateway: deposit_and_call(amount, receiver, message, revert_options=None)
         let call_ix = anchor_lang::solana_program::instruction::Instruction {
             program_id: ctx.accounts.config.gateway_program, // validated in accounts
             accounts: vec![
-                AccountMeta::new(owner_info.key(), true),        // Signer (owner) first, writable per gateway
-                AccountMeta::new_readonly(gateway_pda_info.key(), false), // Gateway PDA (writable)
+                AccountMeta::new(owner_info.key(), true),        // payer/signer supplying lamports
+                AccountMeta::new(gateway_pda_info.key(), false), // Gateway PDA writable per docs
                 AccountMeta::new_readonly(system_program_info.key(), false), // System Program
             ],
-            data: util::gateway_helpers::encode_gateway_call_ix_data(receiver_bytes, &cross_chain_message),
+            data: util::gateway_helpers::encode_gateway_deposit_and_call_ix_data(sol_deposit_lamports, receiver_bytes, &cross_chain_message),
         };
         
-        // Execute CPI call to ZetaChain gateway
+        // Execute CPI call to ZetaChain gateway, transferring lamports from owner to gateway as deposit
         anchor_lang::solana_program::program::invoke(
             &call_ix,
             &[

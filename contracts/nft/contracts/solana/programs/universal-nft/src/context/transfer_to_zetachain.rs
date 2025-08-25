@@ -65,6 +65,7 @@ pub struct TransferToZetachain<'info> {
     /// ZetaChain Gateway PDA
     /// CHECK: This is the PDA for the ZetaChain gateway; enforce ownership by gateway program
     #[account(
+        mut,
         constraint = *gateway_pda.owner == config.gateway_program @ crate::error::UniversalNftError::InvalidGatewayProgram,
         constraint = gateway_pda.key() == config.gateway_pda @ crate::error::UniversalNftError::InvalidGatewayProgram
     )]

@@ -33,6 +33,9 @@ fi
 # Final recipient on destination chain (string). Override to your target.
 : "${FINAL_RECIPIENT:=0x4955a3F38ff86ae92A914445099caa8eA2B9bA32}"
 
+# SOL deposit (in SOL) for ZetaChain gateway deposit_and_call gas; override via env
+: "${DEPOSIT_SOL:=0.02}"
+
 # Optional overrides
 : "${SOLANA_URL:=https://api.devnet.solana.com}"
 : "${METADATA_URI:=https://example.com/nft/metadata.json}"
@@ -41,7 +44,7 @@ fi
 
 # Export so downstream tools (if any) can reference them
 export GATEWAY_PROGRAM GATEWAY_PDA ZC_UNIVERSAL_ADDR DEST_CHAIN FINAL_RECIPIENT
-export SOLANA_URL METADATA_URI NFT_NAME NFT_SYMBOL
+export SOLANA_URL METADATA_URI NFT_NAME NFT_SYMBOL DEPOSIT_SOL
 
 SOLANA_DIR="$ROOT_DIR/contracts/solana"
 
@@ -51,6 +54,7 @@ echo -e "  GATEWAY_PDA:     ${YELLOW}$GATEWAY_PDA${NC}"
 echo -e "  ZC_UNIVERSAL:    ${YELLOW}$ZC_UNIVERSAL_ADDR${NC}"
 echo -e "  DEST_CHAIN:      ${YELLOW}$DEST_CHAIN${NC}"
 echo -e "  FINAL_RECIPIENT: ${YELLOW}$FINAL_RECIPIENT${NC}"
+echo -e "  DEPOSIT_SOL:     ${YELLOW}$DEPOSIT_SOL SOL${NC}"
 echo -e "  SOLANA_URL:      ${YELLOW}$SOLANA_URL${NC}"
 echo -e "  METADATA_URI:    ${YELLOW}$METADATA_URI${NC}"
 echo -e "  NFT_NAME:        ${YELLOW}$NFT_NAME${NC}"
@@ -88,10 +92,10 @@ fi
 
 echo -e "${YELLOW}🆔 Token ID (hex): ${TOKEN_ID_HEX}${NC}"
 
-echo -e "${BLUE}🌉 Initiating transfer to ZetaChain (transfer_to_zetachain)...${NC}"
+echo -e "${BLUE}🌉 Initiating transfer to ZetaChain (deposit_and_call via transfer)...${NC}"
 # Capture full output and exit code without aborting the script immediately
 set +e
-TRANSFER_OUT=$("${CLI_RUN[@]}" transfer "$TOKEN_ID_HEX" "$ZC_UNIVERSAL_ADDR" "$DEST_CHAIN" "$FINAL_RECIPIENT" 2>&1)
+TRANSFER_OUT=$("${CLI_RUN[@]}" transfer "$TOKEN_ID_HEX" "$ZC_UNIVERSAL_ADDR" "$DEST_CHAIN" "$FINAL_RECIPIENT" "$DEPOSIT_SOL" 2>&1)
 TRANSFER_RC=$?
 set -e
 

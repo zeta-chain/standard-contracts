@@ -208,7 +208,13 @@ export class UniversalNftCLI {
     }
   }
 
-  async transferToZetachain(tokenIdHex: string, zcUniversalContractHex: string, destinationChain: string, finalRecipient: string): Promise<void> {
+  async transferToZetachain(
+    tokenIdHex: string,
+    zcUniversalContractHex: string,
+    destinationChain: string,
+    finalRecipient: string,
+    depositSol?: string
+  ): Promise<void> {
     // Strict arg validations
     const tokenId = Buffer.from(tokenIdHex.replace(/^0x/, ''), 'hex');
     if (tokenId.length !== 32) throw new Error(`tokenId must be 32 bytes hex (got ${tokenId.length})`);
@@ -218,6 +224,14 @@ export class UniversalNftCLI {
     const destChainBig = BigInt(destinationChain);
     if (destChainBig < 0n || destChainBig > (1n << 64n) - 1n) throw new Error("destinationChain out of range for u64");
     if (!finalRecipient || finalRecipient.length > 128) throw new Error("finalRecipient must be non-empty and <= 128 chars");
+
+    // Convert deposit SOL to lamports, default 0.02 SOL if not provided
+    const depositSolStr = depositSol ?? "0.02";
+    if (!/^\d*(?:\.\d+)?$/.test(depositSolStr)) throw new Error("depositSol must be a number (SOL), e.g., 0.02");
+    const lamportsBig = this.solToLamportsBig(depositSolStr);
+    if (lamportsBig < 2_000_000n) {
+      throw new Error(`depositSol too low; must be >= 0.002 SOL to cover deposit fee (got ${depositSolStr} SOL)`);
+    }
 
     const configPda = this.deriveConfigPda();
     const nftOriginPda = this.deriveNftOriginPda(tokenId);
@@ -247,7 +261,13 @@ export class UniversalNftCLI {
 
     try {
       const tx = await this.program.methods
-        .transferToZetachain(tokenIdArr, receiverArr, new BN(destChainBig.toString()), finalRecipient)
+        .transferToZetachain(
+          tokenIdArr,
+          receiverArr,
+          new BN(destChainBig.toString()),
+          finalRecipient,
+          new BN(lamportsBig.toString())
+        )
         .accountsStrict({
           config: configPda,
           nftOrigin: nftOriginPda,
@@ -283,6 +303,15 @@ export class UniversalNftCLI {
       }
       throw e;
     }
+  }
+
+  private solToLamportsBig(solStr: string): bigint {
+    // Avoid floating errors: split integer and fractional parts
+    const [intPart, fracPartRaw] = solStr.split(".");
+    const fracPart = (fracPartRaw || "").padEnd(9, "0").slice(0, 9); // 9 dp for lamports
+    const intLamports = BigInt(intPart || "0") * 1_000_000_000n;
+    const fracLamports = BigInt(fracPart || "0");
+    return intLamports + fracLamports;
   }
 
   async balance(): Promise<void> {
@@ -338,11 +367,11 @@ async function main() {
         break;
       }
       case "transfer": {
-        const [tokenIdHex, zcUniversalContractHex, destChain, finalRecipient] = args;
+        const [tokenIdHex, zcUniversalContractHex, destChain, finalRecipient, depositSol] = args;
         if (!tokenIdHex || !zcUniversalContractHex || !destChain || !finalRecipient) {
-          throw new Error("usage: transfer <tokenIdHex32> <zcUniversalContractHex20> <destChainU64> <finalRecipientStr>");
+          throw new Error("usage: transfer <tokenIdHex32> <zcUniversalContractHex20> <destChainU64> <finalRecipientStr> [depositSol default 0.02]");
         }
-        await cli.transferToZetachain(tokenIdHex, zcUniversalContractHex, destChain, finalRecipient);
+        await cli.transferToZetachain(tokenIdHex, zcUniversalContractHex, destChain, finalRecipient, depositSol);
         break;
       }
       case "update-config": {
@@ -364,7 +393,7 @@ async function main() {
         await cli.balance();
         break;
       default:
-  console.log("Commands:\n  initialize <gatewayProgramPubkey> <gatewayPdaPubkey>\n  update-config <newGatewayProgramPubkey|- or empty> <newGatewayPdaPubkey|- or empty> [newAuthorityPubkey|-] [pause true|false|-]\n  mint <uri> [name] [symbol]\n  transfer <tokenIdHex32> <zcUniversalContractHex20> <destChainU64> <finalRecipient>\n  status\n  origin <tokenIdHex32>\n  balance");
+  console.log("Commands:\n  initialize <gatewayProgramPubkey> <gatewayPdaPubkey>\n  update-config <newGatewayProgramPubkey|- or empty> <newGatewayPdaPubkey|- or empty> [newAuthorityPubkey|-] [pause true|false|-]\n  mint <uri> [name] [symbol]\n  transfer <tokenIdHex32> <zcUniversalContractHex20> <destChainU64> <finalRecipient> [depositSol default 0.02]\n  status\n  origin <tokenIdHex32>\n  balance");
     }
   } catch (e) {
     console.error("Error:", (e as Error).message);
