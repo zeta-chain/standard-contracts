@@ -38,7 +38,7 @@ CONNECTED_BNB=$(npx hardhat nft:deploy --name EVMUniversalNFT --network bsc_test
 echo "BNB testnet Universal NFT: $CONNECTED_BNB"
 
 # ZRC-20 references (can be paramaterized later)
-ZRC20_BASE=0x9984117913bD53a2Cc861929F6a2e42Bf60b19AC
+ZRC20_BASE=0x236b0DE675cC8F46AE186897fCCeFe3370C9eDeD
 ZRC20_BNB=0xd97B1de3619ed2c6BEb3860147E30cA8A7dC9891
 
 echo "🔗 Wiring connections (set-universal / set-connected)..."
