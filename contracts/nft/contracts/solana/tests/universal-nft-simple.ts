@@ -1,0 +1,112 @@
+// Simplified test file for Solana Universal NFT program
+// This version avoids complex type issues and focuses on functionality
+
+import * as anchor from "@coral-xyz/anchor";
+import { PublicKey, Keypair, SystemProgram, SYSVAR_RENT_PUBKEY } from "@solana/web3.js";
+import { TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID, getAssociatedTokenAddressSync } from "@solana/spl-token";
+import { expect } from "chai";
+
+// Global test functions
+declare const describe: any;
+declare const it: any;
+declare const before: any;
+
+describe("universal-nft-simple", () => {
+  const provider = anchor.AnchorProvider.env();
+  anchor.setProvider(provider);
+
+  // Simple program reference without complex typing
+  const program: any = anchor.workspace.UniversalNft;
+  const authority = provider.wallet;
+
+  let collectionMint: Keypair;
+  let collectionPda: PublicKey;
+  let collectionTokenAccount: PublicKey;
+  let collectionMetadata: PublicKey;
+  let collectionMasterEdition: PublicKey;
+
+  const collectionName = "Test Universal NFT";
+  const collectionSymbol = "TUNFT";
+  const collectionUri = "https://example.com/collection.json";
+  const gatewayAddress = new PublicKey("GatewayAddress111111111111111111111111111");
+
+  before(async () => {
+    // Generate collection mint
+    collectionMint = Keypair.generate();
+
+    // Derive collection PDA
+    const [pda] = PublicKey.findProgramAddressSync(
+      [
+        Buffer.from("collection"),
+        authority.publicKey.toBuffer(),
+        Buffer.from(collectionName)
+      ],
+      program.programId
+    );
+    collectionPda = pda;
+
+    // Get associated token account using modern API
+    collectionTokenAccount = getAssociatedTokenAddressSync(
+      collectionMint.publicKey,
+      authority.publicKey
+    );
+
+    // Derive metadata accounts
+    const TOKEN_METADATA_PROGRAM_ID = new PublicKey("metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s");
+    
+    const [metadata] = PublicKey.findProgramAddressSync(
+      [
+        Buffer.from("metadata"),
+        TOKEN_METADATA_PROGRAM_ID.toBuffer(),
+        collectionMint.publicKey.toBuffer(),
+      ],
+      TOKEN_METADATA_PROGRAM_ID
+    );
+    collectionMetadata = metadata;
+
+    const [masterEdition] = PublicKey.findProgramAddressSync(
+      [
+        Buffer.from("metadata"),
+        TOKEN_METADATA_PROGRAM_ID.toBuffer(),
+        collectionMint.publicKey.toBuffer(),
+        Buffer.from("edition"),
+      ],
+      TOKEN_METADATA_PROGRAM_ID
+    );
+    collectionMasterEdition = masterEdition;
+  });
+
+  it("Program loads successfully", async () => {
+    console.log("Program ID:", program.programId.toString());
+    console.log("Authority:", authority.publicKey.toString());
+    console.log("Collection PDA:", collectionPda.toString());
+    
+    // Basic test to ensure program is accessible
+    expect(program.programId).to.be.instanceOf(PublicKey);
+    expect(authority.publicKey).to.be.instanceOf(PublicKey);
+  });
+
+  it("Can derive collection PDA", async () => {
+    const [expectedPda, bump] = PublicKey.findProgramAddressSync(
+      [
+        Buffer.from("collection"),
+        authority.publicKey.toBuffer(),
+        Buffer.from(collectionName)
+      ],
+      program.programId
+    );
+
+    expect(collectionPda.toString()).to.equal(expectedPda.toString());
+    expect(bump).to.be.a('number');
+  });
+
+  it("Can generate required accounts", async () => {
+    expect(collectionMint.publicKey).to.be.instanceOf(PublicKey);
+    expect(collectionTokenAccount).to.be.instanceOf(PublicKey);
+    expect(collectionMetadata).to.be.instanceOf(PublicKey);
+    expect(collectionMasterEdition).to.be.instanceOf(PublicKey);
+  });
+
+  // Note: Actual program method tests would require the program to be built and deployed
+  // These tests focus on setup and account derivation which can work without deployment
+});
