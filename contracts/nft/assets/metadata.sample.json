@@ -1,0 +1,18 @@
+{
+  "name": "Universal NFT Example",
+  "symbol": "UNFT",
+  "description": "Example metadata for Universal NFT cross-chain demo.",
+  "image": "https://placehold.co/600x600/png",
+  "external_url": "https://zetachain.com",
+  "attributes": [
+    { "trait_type": "Chain", "value": "Solana" },
+    { "trait_type": "Universal", "value": "true" }
+  ],
+  "properties": {
+    "files": [
+      { "uri": "https://placehold.co/600x600/png", "type": "image/png" }
+    ],
+    "category": "image",
+    "creators": []
+  }
+}

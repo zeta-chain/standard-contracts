@@ -1,0 +1,9 @@
+[workspace]
+resolver = "2"
+members = [
+    "contracts/nft/contracts/solana/programs/universal-nft"
+]
+
+[workspace.dependencies]
+anchor-lang = "0.31.1"
+anchor-spl = "0.31.1"
