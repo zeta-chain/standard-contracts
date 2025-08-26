@@ -44,6 +44,9 @@ pub struct OnCall<'info> {
     pub nft_origin: UncheckedAccount<'info>,
     /// CHECK: PDA with gateway program id
     pub gateway_config: UncheckedAccount<'info>,
+    /// CHECK: Sysvar instructions for CPI caller verification
+    #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
+    pub instructions: UncheckedAccount<'info>,
     /// CHECK: replay marker account
     #[account(mut)]
     pub replay_marker: UncheckedAccount<'info>,
@@ -65,7 +68,18 @@ pub fn handler(ctx: Context<OnCall>, payload: Vec<u8>) -> Result<()> {
     let (cfg_pda, _bump) = Pubkey::find_program_address(&[GatewayConfig::SEED], &crate::ID);
     require_keys_eq!(ctx.accounts.gateway_config.key(), cfg_pda, ErrorCode::UnauthorizedGateway);
     let data = ctx.accounts.gateway_config.try_borrow_data()?;
-    let _cfg = GatewayConfig::try_from_slice(&data[8..]).map_err(|_| ErrorCode::UnauthorizedGateway)?;
+    let cfg = GatewayConfig::try_from_slice(&data[8..]).map_err(|_| ErrorCode::UnauthorizedGateway)?;
+
+    // Verify the immediate CPI caller via Instructions sysvar (if applicable)
+    use anchor_lang::solana_program::sysvar::instructions as sys_ix;
+    let ix_sysvar = &ctx.accounts.instructions.to_account_info();
+    if let Ok(cur_idx) = sys_ix::load_current_index_checked(ix_sysvar) {
+        if cur_idx > 0 {
+            let prev = sys_ix::load_instruction_at_checked((cur_idx - 1) as usize, ix_sysvar)
+                .map_err(|_| ErrorCode::UnauthorizedGateway)?;
+            require_keys_eq!(prev.program_id, cfg.gateway_program, ErrorCode::UnauthorizedGateway);
+        }
+    }
 
     // Deserialize payload
     let p: CrossChainNftPayload = CrossChainNftPayload::try_from_slice(&payload)
@@ -128,6 +142,12 @@ pub fn handler(ctx: Context<OnCall>, payload: Vec<u8>) -> Result<()> {
     )?;
 
     // Create Metaplex metadata and master edition
+    // Validate MPL PDAs first
+    use crate::utils::{derive_metadata_pda, derive_master_edition_pda};
+    let (expected_md, _) = derive_metadata_pda(&ctx.accounts.mint.key());
+    require_keys_eq!(ctx.accounts.metadata.key(), expected_md, ErrorCode::InvalidMetadataPda);
+    let (expected_me, _) = derive_master_edition_pda(&ctx.accounts.mint.key());
+    require_keys_eq!(ctx.accounts.master_edition.key(), expected_me, ErrorCode::InvalidMasterEditionPda);
     cpi_create_metadata_v3(
         &ctx.accounts.payer.to_account_info(),
         &ctx.accounts.mint.to_account_info(),
@@ -178,6 +198,8 @@ pub fn handler(ctx: Context<OnCall>, payload: Vec<u8>) -> Result<()> {
         )?;
     }
 
+    // Enforce recipient matches payload
+    require_keys_eq!(ctx.accounts.recipient.key(), p.recipient, ErrorCode::InvalidPayload);
     let nft_origin = NftOrigin {
         origin_chain: p.origin_chain,
         origin_token_id: p.token_id,

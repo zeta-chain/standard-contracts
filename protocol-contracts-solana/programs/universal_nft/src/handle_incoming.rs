@@ -42,6 +42,9 @@ pub struct HandleIncoming<'info> {
     pub gateway_config: UncheckedAccount<'info>,
     /// CHECK: gateway program that should match the config
     pub gateway_program: UncheckedAccount<'info>,
+    /// CHECK: Sysvar instructions for CPI caller verification
+    #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
+    pub instructions_sysvar: UncheckedAccount<'info>,
     /// CHECK: replay marker account
     #[account(mut)]
     pub replay_marker: UncheckedAccount<'info>,
@@ -128,6 +131,13 @@ pub fn handler(ctx: Context<HandleIncoming>, payload: Vec<u8>) -> Result<()> {
         1,
     )?;
 
+    // Validate Metaplex PDAs before CPI
+    use crate::utils::{derive_metadata_pda, derive_master_edition_pda};
+    let (expected_md, _) = derive_metadata_pda(&ctx.accounts.mint.key());
+    require_keys_eq!(ctx.accounts.metadata.key(), expected_md, ErrorCode::InvalidMetadataPda);
+    let (expected_me, _) = derive_master_edition_pda(&ctx.accounts.mint.key());
+    require_keys_eq!(ctx.accounts.master_edition.key(), expected_me, ErrorCode::InvalidMasterEditionPda);
+
     // Create Metaplex metadata and master edition
     crate::utils::cpi_create_metadata_v3(
         &ctx.accounts.payer.to_account_info(),
@@ -179,6 +189,8 @@ pub fn handler(ctx: Context<HandleIncoming>, payload: Vec<u8>) -> Result<()> {
         )?;
     }
 
+    // Enforce recipient matches payload
+    require_keys_eq!(ctx.accounts.recipient.key(), p.recipient, ErrorCode::InvalidPayload);
     let nft_origin = NftOrigin {
         origin_chain: p.origin_chain,
         origin_token_id: p.token_id,
@@ -229,6 +241,10 @@ pub enum ErrorCode {
     ReplayAttack,
     #[msg("Replay PDA mismatch")]
     ReplayPdaMismatch,
+    #[msg("Invalid Metadata PDA")]
+    InvalidMetadataPda,
+    #[msg("Invalid Master Edition PDA")]
+    InvalidMasterEditionPda,
     #[msg("Invalid NftOrigin PDA")]
     NftOriginPdaMismatch,
     #[msg("Invalid Mint Authority PDA")]

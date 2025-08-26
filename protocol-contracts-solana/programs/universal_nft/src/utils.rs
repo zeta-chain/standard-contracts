@@ -28,8 +28,8 @@ pub fn derive_master_edition_pda(mint: &Pubkey) -> (Pubkey, u8) {
     ], &mpl_token_metadata::ID)
 }
 
-pub fn derive_mint_authority_pda() -> (Pubkey, u8) {
-    Pubkey::find_program_address(&[b"mint_authority"], &crate::ID)
+pub fn derive_mint_authority_pda(mint: &Pubkey) -> (Pubkey, u8) {
+    Pubkey::find_program_address(&[b"mint_authority", mint.as_ref()], &crate::ID)
 }
 
 pub fn cpi_create_metadata_v3<'a>(
