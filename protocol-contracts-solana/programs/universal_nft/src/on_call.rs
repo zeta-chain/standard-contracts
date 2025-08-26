@@ -1,10 +1,16 @@
 use anchor_lang::prelude::*;
+use anchor_lang::Discriminator;
 use anchor_spl::associated_token::AssociatedToken;
 use anchor_spl::token::{Mint, Token, TokenAccount};
 use crate::state::gateway::GatewayConfig;
 use crate::state::nft_origin::{NftOrigin, CrossChainNftPayload};
 use crate::state::replay::ReplayMarker;
-use crate::utils::{derive_nft_origin_pda, derive_replay_marker_pda};
+use crate::utils::{
+    derive_nft_origin_pda,
+    derive_replay_marker_pda,
+    cpi_create_metadata_v3,
+    cpi_create_master_edition_v3,
+};
 
 #[derive(Accounts)]
 pub struct OnCall<'info> {
@@ -33,12 +39,9 @@ pub struct OnCall<'info> {
         associated_token::authority = recipient
     )]
     pub recipient_token_account: Account<'info, TokenAccount>,
-    #[account(
-        init,
-        payer = payer,
-        space = NftOrigin::LEN
-    )]
-    pub nft_origin: Account<'info, NftOrigin>,
+    /// CHECK: nft_origin PDA; will be created with seeds [token_id, "nft_origin"]
+    #[account(mut)]
+    pub nft_origin: UncheckedAccount<'info>,
     /// CHECK: PDA with gateway program id
     pub gateway_config: UncheckedAccount<'info>,
     /// CHECK: replay marker account
@@ -70,7 +73,7 @@ pub fn handler(ctx: Context<OnCall>, payload: Vec<u8>) -> Result<()> {
     if !ctx.accounts.replay_marker.data_is_empty() {
         return Err(ErrorCode::ReplayAttack.into());
     }
-    let space = 8 + ReplayMarker::LEN;
+    let space = ReplayMarker::LEN; // includes discriminator
     let lamports = Rent::get()?.minimum_balance(space);
     anchor_lang::solana_program::program::invoke_signed(
         &anchor_lang::solana_program::system_instruction::create_account(
@@ -88,7 +91,7 @@ pub fn handler(ctx: Context<OnCall>, payload: Vec<u8>) -> Result<()> {
         &[&[ReplayMarker::SEED, &p.token_id, &p.nonce.to_le_bytes(), &[bump]]],
     )?;
 
-    // Write replay marker
+    // Write replay marker with discriminator
     let marker = ReplayMarker {
         token_id: p.token_id,
         nonce: p.nonce,
@@ -96,7 +99,8 @@ pub fn handler(ctx: Context<OnCall>, payload: Vec<u8>) -> Result<()> {
         bump,
     };
     let mut data = ctx.accounts.replay_marker.try_borrow_mut_data()?;
-    marker.try_serialize(&mut &mut data[..])?;
+    data[..8].copy_from_slice(&ReplayMarker::discriminator());
+    marker.try_serialize(&mut &mut data[8..])?;
 
     // Mint 1 token to recipient
     anchor_spl::token::mint_to(
@@ -112,7 +116,7 @@ pub fn handler(ctx: Context<OnCall>, payload: Vec<u8>) -> Result<()> {
     )?;
 
     // Create Metaplex metadata and master edition
-    crate::utils::cpi_create_metadata_v3(
+    cpi_create_metadata_v3(
         &ctx.accounts.payer.to_account_info(),
         &ctx.accounts.mint.to_account_info(),
         &ctx.accounts.payer.to_account_info(),
@@ -125,10 +129,10 @@ pub fn handler(ctx: Context<OnCall>, payload: Vec<u8>) -> Result<()> {
         p.metadata_uri.clone(),
     )?;
 
-    crate::utils::cpi_create_master_edition_v3(
-        &ctx.accounts.payer.to_account_info(),
+    cpi_create_master_edition_v3(
         &ctx.accounts.payer.to_account_info(),
         &ctx.accounts.mint.to_account_info(),
+        &ctx.accounts.payer.to_account_info(),
         &ctx.accounts.payer.to_account_info(),
         &ctx.accounts.metadata.to_account_info(),
         &ctx.accounts.master_edition.to_account_info(),
@@ -137,8 +141,30 @@ pub fn handler(ctx: Context<OnCall>, payload: Vec<u8>) -> Result<()> {
         &ctx.accounts.rent.to_account_info(),
     )?;
 
-    // Create or update nft_origin PDA
-    let (_nft_origin_pda, nft_origin_bump) = derive_nft_origin_pda(&p.token_id);
+    // Create nft_origin PDA deterministically
+    let (nft_origin_pda, nft_origin_bump) = derive_nft_origin_pda(&p.token_id);
+    require_keys_eq!(ctx.accounts.nft_origin.key(), nft_origin_pda, ErrorCode::NftOriginPdaMismatch);
+
+    if ctx.accounts.nft_origin.data_is_empty() {
+        let space = NftOrigin::LEN; // includes discriminator
+        let lamports = Rent::get()?.minimum_balance(space);
+        anchor_lang::solana_program::program::invoke_signed(
+            &anchor_lang::solana_program::system_instruction::create_account(
+                &ctx.accounts.payer.key(),
+                &nft_origin_pda,
+                lamports,
+                space as u64,
+                &crate::ID,
+            ),
+            &[
+                ctx.accounts.payer.to_account_info(),
+                ctx.accounts.nft_origin.to_account_info(),
+                ctx.accounts.system_program.to_account_info(),
+            ],
+            &[&[&p.token_id, b"nft_origin", &[nft_origin_bump]]],
+        )?;
+    }
+
     let nft_origin = NftOrigin {
         origin_chain: p.origin_chain_id,
         origin_token_id: p.token_id,
@@ -147,10 +173,13 @@ pub fn handler(ctx: Context<OnCall>, payload: Vec<u8>) -> Result<()> {
         created_at: clock.unix_timestamp,
         bump: nft_origin_bump,
     };
-    let nft_origin_account = &mut ctx.accounts.nft_origin;
-    **nft_origin_account = nft_origin;
 
-    // Emit event
+    // Write discriminator + data
+    let mut no_data = ctx.accounts.nft_origin.try_borrow_mut_data()?;
+    no_data[..8].copy_from_slice(&NftOrigin::discriminator());
+    nft_origin.try_serialize(&mut &mut no_data[8..])?;
+
+    // Emit cross-chain mint event
     emit!(CrossChainMintEvent {
         token_id: p.token_id,
         origin_chain: p.origin_chain_id,
@@ -159,15 +188,12 @@ pub fn handler(ctx: Context<OnCall>, payload: Vec<u8>) -> Result<()> {
         timestamp: clock.unix_timestamp,
     });
 
-    Ok(())
-}
+    msg!("Minted Universal NFT from cross-chain transfer");
+    msg!("Token ID: {}", hex::encode(&p.token_id[..8]));
+    msg!("Origin Chain: {}", p.origin_chain_id);
+    msg!("Recipient: {}", p.recipient);
 
-#[error_code]
-pub enum ErrorCode {
-    #[msg("Unauthorized gateway")] UnauthorizedGateway,
-    #[msg("Invalid payload")] InvalidPayload,
-    #[msg("Replay attack detected")] ReplayAttack,
-    #[msg("Replay PDA mismatch")] ReplayPdaMismatch,
+    Ok(())
 }
 
 #[event]
@@ -177,6 +203,24 @@ pub struct CrossChainMintEvent {
     pub recipient: Pubkey,
     pub nonce: u64,
     pub timestamp: i64,
+}
+
+#[error_code]
+pub enum ErrorCode {
+    #[msg("Unauthorized gateway")]
+    UnauthorizedGateway,
+    #[msg("Invalid payload")]
+    InvalidPayload,
+    #[msg("Replay attack detected")]
+    ReplayAttack,
+    #[msg("Replay PDA mismatch")]
+    ReplayPdaMismatch,
+    #[msg("Invalid Metadata PDA")]
+    InvalidMetadataPda,
+    #[msg("Invalid Master Edition PDA")]
+    InvalidMasterEditionPda,
+    #[msg("Invalid NftOrigin PDA")]
+    NftOriginPdaMismatch,
 }
 
 

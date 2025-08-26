@@ -7,7 +7,6 @@ use sha2::{Digest, Sha256};
 use crate::state::nft_origin::NftOrigin;
 use crate::utils::*;
 
-
 #[derive(Accounts)]
 pub struct MintNewNft<'info> {
     #[account(mut)]
@@ -34,12 +33,9 @@ pub struct MintNewNft<'info> {
         associated_token::authority = recipient
     )]
     pub recipient_token_account: Account<'info, TokenAccount>,
-    #[account(
-        init,
-        payer = payer,
-        space = NftOrigin::LEN
-    )]
-    pub nft_origin: Account<'info, NftOrigin>,
+    /// CHECK: nft_origin PDA; will be created programmatically with seeds
+    #[account(mut)]
+    pub nft_origin: UncheckedAccount<'info>,
     pub token_program: Program<'info, Token>,
     pub associated_token_program: Program<'info, AssociatedToken>,
     pub system_program: Program<'info, System>,
@@ -59,6 +55,12 @@ pub fn handler(ctx: Context<MintNewNft>, metadata_uri: String) -> Result<()> {
     let token_id_hash = hasher.finalize();
     let mut token_id: [u8; 32] = [0u8; 32];
     token_id.copy_from_slice(&token_id_hash[..32]);
+
+    // Validate metadata and master edition PDAs
+    let (expected_metadata_pda, _) = derive_metadata_pda(&ctx.accounts.mint.key());
+    let (expected_master_edition_pda, _) = derive_master_edition_pda(&ctx.accounts.mint.key());
+    require_keys_eq!(ctx.accounts.metadata.key(), expected_metadata_pda, ErrorCode::InvalidMetadataPda);
+    require_keys_eq!(ctx.accounts.master_edition.key(), expected_master_edition_pda, ErrorCode::InvalidMasterEditionPda);
 
     // Mint 1 token to recipient
     anchor_spl::token::mint_to(
@@ -99,11 +101,32 @@ pub fn handler(ctx: Context<MintNewNft>, metadata_uri: String) -> Result<()> {
         &ctx.accounts.rent.to_account_info(),
     )?;
 
-    // Create nft_origin PDA to store metadata
+    // Create nft_origin PDA deterministically
     let (nft_origin_pda, nft_origin_bump) = derive_nft_origin_pda(&token_id);
+    require_keys_eq!(ctx.accounts.nft_origin.key(), nft_origin_pda, ErrorCode::NftOriginPdaMismatch);
+    
+    if ctx.accounts.nft_origin.data_is_empty() {
+        let space = NftOrigin::LEN; // includes discriminator
+        let lamports = Rent::get()?.minimum_balance(space);
+        anchor_lang::solana_program::program::invoke_signed(
+            &anchor_lang::solana_program::system_instruction::create_account(
+                &ctx.accounts.payer.key(),
+                &nft_origin_pda,
+                lamports,
+                space as u64,
+                &crate::ID,
+            ),
+            &[
+                ctx.accounts.payer.to_account_info(),
+                ctx.accounts.nft_origin.to_account_info(),
+                ctx.accounts.system_program.to_account_info(),
+            ],
+            &[&[&token_id, b"nft_origin", &[nft_origin_bump]]],
+        )?;
+    }
     
     let nft_origin = NftOrigin {
-        origin_chain: 0, // 0 for Solana
+        origin_chain: 0, // Solana
         origin_token_id: token_id,
         origin_mint: ctx.accounts.mint.key(),
         metadata_uri,
@@ -111,9 +134,11 @@ pub fn handler(ctx: Context<MintNewNft>, metadata_uri: String) -> Result<()> {
         bump: nft_origin_bump,
     };
 
-    // Create the nft_origin account using Anchor's account initialization
-    let nft_origin_account = &mut ctx.accounts.nft_origin;
-    **nft_origin_account = nft_origin.clone();
+    // Write discriminator + data
+    use anchor_lang::Discriminator;
+    let mut data = ctx.accounts.nft_origin.try_borrow_mut_data()?;
+    data[..8].copy_from_slice(&NftOrigin::discriminator());
+    nft_origin.try_serialize(&mut &mut data[8..])?;
 
     msg!("Minted Universal NFT with token ID: {}", hex::encode(&token_id[..8]));
     msg!("Metadata URI: {}", nft_origin.metadata_uri);
@@ -126,4 +151,10 @@ pub fn handler(ctx: Context<MintNewNft>, metadata_uri: String) -> Result<()> {
 pub enum ErrorCode {
     #[msg("Metadata URI too long")]
     MetadataTooLong,
+    #[msg("Invalid Metadata PDA")]
+    InvalidMetadataPda,
+    #[msg("Invalid Master Edition PDA")]
+    InvalidMasterEditionPda,
+    #[msg("Invalid NftOrigin PDA")]
+    NftOriginPdaMismatch,
 }

@@ -11,8 +11,15 @@ pub struct NftOrigin {
 }
 
 impl NftOrigin {
-    pub const LEN: usize = 8 + 2 + 32 + 32 + 4 + 200 + 8 + 1; // discriminator + u16 + [u8; 32] + pubkey + string_len + max_uri + i64 + u8
+    pub const SEED: &'static [u8] = b"nft_origin";
     pub const MAX_URI_LEN: usize = 200;
+    // Space calculation (excludes 8-byte discriminator):
+    pub const LEN: usize = 2           // origin_chain (u16)
+        + 32                           // origin_token_id (fixed array)
+        + 32                           // origin_mint (Pubkey)
+        + 4 + Self::MAX_URI_LEN       // metadata_uri (length prefix + data)
+        + 8                            // created_at (i64)
+        + 1;                           // bump (u8)
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize)]
