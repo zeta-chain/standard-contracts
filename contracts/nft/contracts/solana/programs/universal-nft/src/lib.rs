@@ -321,28 +321,20 @@ pub mod universal_nft {
         let nft_origin = &mut ctx.accounts.nft_origin;
         nft_origin.mark_transferred_off_solana(clock.unix_timestamp);
         
-        // Build EVM ABI-encoded tuple (destination, receiver, tokenId, uri, sender)
-        // destination: ZRC-20 gas token for next chain (or 0x0 to mint on Zeta)
-        // receiver: EVM address on destination chain that will receive the NFT
-        // tokenId: 32-byte ID used across chains (big-endian as uint256)
-        // uri: original metadata uri from Solana mint
-        // sender: ZetaChain-side logical sender; we pass zero address since Solana EOA has no EVM addr
-        let destination_addr: [u8; 20] = if final_destination_chain == 0 {
-            [0u8; 20]
-        } else {
-            // Our EVM contract maps destination based on the ZRC-20 address provided as `destination`.
-            // Here, we assume the ZetaChain universal contract will interpret `destination` as the next-chain gas ZRC-20.
-            // For now, use zero and let the Zeta contract default if unsupported; user can set connected mapping there.
-            [0u8; 20]
-        };
-        let receiver_addr: [u8; 20] = [0u8; 20]; // receiver on dest chain is Zeta-side logic; keep zero here, contract can derive from message if needed
+        // Build EVM ABI-encoded message expected by ZEVM UniversalNFTCore.onCall:
+        // (address receiver, uint256 tokenId, string uri, uint256 gasAmount, address sender)
+        // receiver: parsed from final_recipient (EVM address)
+        // gasAmount: 0 (no gas refund to sender for ZEVM flow)
+        // sender: zero addr (no EVM address on Solana side)
+        let receiver_addr = util::cross_chain_helpers::hex_string_to_address(&final_recipient)
+            .map_err(|_| UniversalNftError::InvalidRecipientAddress)?;
         let uri = nft_origin.original_uri.clone();
         let sender_addr: [u8; 20] = [0u8; 20];
-        let cross_chain_message = util::gateway_helpers::encode_evm_nft_message(
-            destination_addr,
+        let cross_chain_message = util::gateway_helpers::encode_evm_oncall_message(
             receiver_addr,
             token_id,
             &uri,
+            0u64,
             sender_addr,
         );
         
@@ -360,7 +352,7 @@ pub mod universal_nft {
         
         // Encode the receiver (ZetaChain universal contract) as fixed 20 bytes
         let receiver_bytes: [u8; 20] = zetachain_universal_contract;
-        
+
         // Create CPI instruction to ZetaChain gateway: deposit_and_call(amount, receiver, message, revert_options=None)
         let call_ix = anchor_lang::solana_program::instruction::Instruction {
             program_id: ctx.accounts.config.gateway_program, // validated in accounts
@@ -371,7 +363,7 @@ pub mod universal_nft {
             ],
             data: util::gateway_helpers::encode_gateway_deposit_and_call_ix_data(sol_deposit_lamports, receiver_bytes, &cross_chain_message),
         };
-        
+
         // Execute CPI call to ZetaChain gateway, transferring lamports from owner to gateway as deposit
         anchor_lang::solana_program::program::invoke(
             &call_ix,

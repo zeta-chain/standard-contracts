@@ -88,6 +88,62 @@ pub fn encode_evm_nft_message(
     out
 }
 
+/// Encode message expected by UniversalNFTCore.onCall on ZEVM:
+/// (address receiver, uint256 tokenId, string uri, uint256 gasAmount, address sender)
+/// Notes:
+/// - Addresses occupy 32 bytes (12 zero prefix + 20 bytes)
+/// - tokenId and gasAmount are 32-byte big-endian words
+/// - string is dynamic: head holds offset; tail holds len + data + padding
+pub fn encode_evm_oncall_message(
+    receiver: [u8; 20],
+    token_id_be32: [u8; 32],
+    uri: &str,
+    gas_amount: u64,
+    sender: [u8; 20],
+) -> Vec<u8> {
+    // Head = 5 * 32 bytes
+    let head_len = 32 * 5;
+    let uri_bytes = uri.as_bytes();
+    let uri_len = uri_bytes.len();
+    let uri_padded_len = ((uri_len + 31) / 32) * 32;
+
+    let total_len = head_len + 32 /*len*/ + uri_padded_len;
+    let mut out = Vec::with_capacity(total_len);
+
+    // 1) receiver address
+    out.extend_from_slice(&[0u8; 12]);
+    out.extend_from_slice(&receiver);
+    // 2) tokenId (32 bytes, already big-endian)
+    out.extend_from_slice(&token_id_be32);
+    // 3) offset to string (from start)
+    let offset = (32 * 5) as u64;
+    let mut off_buf = [0u8; 32];
+    let off_bytes = offset.to_be_bytes();
+    off_buf[32 - off_bytes.len()..].copy_from_slice(&off_bytes);
+    out.extend_from_slice(&off_buf);
+    // 4) gasAmount (u256 big-endian from u64)
+    let mut gas_buf = [0u8; 32];
+    let gas_be = gas_amount.to_be_bytes();
+    gas_buf[32 - gas_be.len()..].copy_from_slice(&gas_be);
+    out.extend_from_slice(&gas_buf);
+    // 5) sender address
+    out.extend_from_slice(&[0u8; 12]);
+    out.extend_from_slice(&sender);
+
+    // Tail: string (len + bytes + padding)
+    let mut len_buf = [0u8; 32];
+    let len_be = (uri_len as u64).to_be_bytes();
+    len_buf[32 - len_be.len()..].copy_from_slice(&len_be);
+    out.extend_from_slice(&len_buf);
+    out.extend_from_slice(uri_bytes);
+    let pad_len = uri_padded_len - uri_len;
+    if pad_len > 0 {
+        out.extend_from_slice(&vec![0u8; pad_len]);
+    }
+
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
