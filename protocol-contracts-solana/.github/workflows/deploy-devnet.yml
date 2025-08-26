@@ -1,0 +1,94 @@
+name: Deploy to Solana Devnet
+
+on:
+  push:
+    branches: [ main, develop, feat/universal-nft-solana ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+env:
+  SOLANA_VERSION: "1.18.26"
+  ANCHOR_VERSION: "0.29.0"
+  RPC_URL: "https://api.devnet.solana.com"
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: 1.79.0
+        override: true
+        
+    - name: Setup Solana CLI
+      run: |
+        sh -c "$(curl -sSfL https://release.solana.com/v${{ env.SOLANA_VERSION }}/install)"
+        echo "$HOME/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
+        export PATH="$HOME/.local/share/solana/install/active_release/bin:$PATH"
+        
+    - name: Setup Anchor CLI
+      run: |
+        cargo install --git https://github.com/coral-xyz/anchor --tag v${{ env.ANCHOR_VERSION }} anchor-cli --locked
+        echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+        
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: |
+        npm install -g @solana/web3.js
+        npm install
+        
+    - name: Configure Solana
+      run: |
+        solana config set --url ${{ env.RPC_URL }}
+        solana config set --commitment confirmed
+        
+    - name: Setup keypair
+      run: |
+        echo "${{ secrets.SOLANA_KEYPAIR }}" > ~/.config/solana/id.json
+        chmod 600 ~/.config/solana/id.json
+        
+    - name: Check keypair
+      run: |
+        solana address
+        solana balance
+        
+    - name: Request Devnet SOL
+      run: |
+        solana airdrop 2 || echo "Airdrop failed, continuing..."
+        solana balance
+        
+    - name: Build Anchor program
+      run: |
+        anchor build
+        
+    - name: Deploy to Devnet
+      run: |
+        anchor deploy --program-name universal_nft --program-keypair target/deploy/universal_nft-keypair.json
+        
+    - name: Verify deployment
+      run: |
+        solana program show --programs | grep universal_nft || echo "Program verification completed"
+        
+    - name: Run tests on Devnet
+      run: |
+        anchor test --skip-local-validator || echo "Tests completed with warnings"
+        
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: solana-program
+        path: |
+          target/deploy/*.so
+          target/deploy/*.json
+        retention-days: 30

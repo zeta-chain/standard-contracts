@@ -1,6 +1,6 @@
+# CodeRabbit configuration
 reviews:
-  auto_review:
-    base_branches:
-      - main
-  poem: false
-  collapse_walkthrough: true
+  review_status: false
+  path_includes:
+    - protocol-contracts-solana/**
+    - contracts/nft/scripts/devnet.sh
