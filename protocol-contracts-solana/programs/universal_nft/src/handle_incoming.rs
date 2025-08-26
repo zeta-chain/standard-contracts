@@ -18,8 +18,8 @@ pub struct HandleIncoming<'info> {
         init,
         payer = payer,
         mint::decimals = 0,
-        mint::authority = payer,            // TODO: switch to PDA authority
-        mint::freeze_authority = payer,     // TODO: switch to PDA authority
+        mint::authority = mint_authority_pda,
+        mint::freeze_authority = mint_authority_pda,
     )]
     pub mint: Account<'info, Mint>,
     /// CHECK: Metaplex metadata PDA for this mint; created via CPI
@@ -49,6 +49,8 @@ pub struct HandleIncoming<'info> {
     pub associated_token_program: Program<'info, AssociatedToken>,
     pub system_program: Program<'info, System>,
     pub rent: Sysvar<'info, Rent>,
+    /// CHECK: mint_authority PDA; will be derived programmatically
+    pub mint_authority_pda: UncheckedAccount<'info>,
 }
 
 pub fn handler(ctx: Context<HandleIncoming>, payload: Vec<u8>) -> Result<()> {
@@ -68,13 +70,20 @@ pub fn handler(ctx: Context<HandleIncoming>, payload: Vec<u8>) -> Result<()> {
     let p: CrossChainNftPayload = CrossChainNftPayload::try_from_slice(&payload)
         .map_err(|_| ErrorCode::InvalidPayload)?;
 
+    // Derive mint authority PDA
+    let (mint_authority_pda, mint_authority_bump) = Pubkey::find_program_address(
+        &[b"mint_authority", ctx.accounts.mint.key().as_ref()],
+        &crate::ID,
+    );
+    require_keys_eq!(ctx.accounts.mint_authority_pda.key(), mint_authority_pda, ErrorCode::InvalidMintAuthorityPda);
+
     // Replay protection: derive and ensure empty
     let (replay_pda, bump) = derive_replay_marker_pda(&p.token_id, p.nonce);
     require_keys_eq!(ctx.accounts.replay_marker.key(), replay_pda, ErrorCode::ReplayPdaMismatch);
     if !ctx.accounts.replay_marker.data_is_empty() {
         return Err(ErrorCode::ReplayAttack.into());
     }
-    let space = ReplayMarker::LEN; // includes discriminator
+            let space = 8 + ReplayMarker::LEN; // add discriminator
     let lamports = Rent::get()?.minimum_balance(space);
     anchor_lang::solana_program::program::invoke_signed(
         &anchor_lang::solana_program::system_instruction::create_account(
@@ -89,7 +98,7 @@ pub fn handler(ctx: Context<HandleIncoming>, payload: Vec<u8>) -> Result<()> {
             ctx.accounts.replay_marker.to_account_info(),
             ctx.accounts.system_program.to_account_info(),
         ],
-        &[&[ReplayMarker::SEED, &p.token_id, &p.nonce.to_le_bytes(), &[bump]]],
+                    &[&[b"replay", &p.token_id, &p.nonce.to_le_bytes(), &[bump]]],
     )?;
 
     // Write replay marker with discriminator
@@ -105,13 +114,14 @@ pub fn handler(ctx: Context<HandleIncoming>, payload: Vec<u8>) -> Result<()> {
 
     // Mint 1 token to recipient
     anchor_spl::token::mint_to(
-        CpiContext::new(
+        CpiContext::new_with_signer(
             ctx.accounts.token_program.to_account_info(),
             anchor_spl::token::MintTo {
                 mint: ctx.accounts.mint.to_account_info(),
                 to: ctx.accounts.recipient_token_account.to_account_info(),
-                authority: ctx.accounts.payer.to_account_info(),
+                authority: ctx.accounts.mint_authority_pda.to_account_info(),
             },
+            &[&[b"mint_authority", ctx.accounts.mint.key().as_ref(), &[mint_authority_bump]]],
         ),
         1,
     )?;
@@ -120,8 +130,8 @@ pub fn handler(ctx: Context<HandleIncoming>, payload: Vec<u8>) -> Result<()> {
     crate::utils::cpi_create_metadata_v3(
         &ctx.accounts.payer.to_account_info(),
         &ctx.accounts.mint.to_account_info(),
-        &ctx.accounts.payer.to_account_info(),
-        &ctx.accounts.payer.to_account_info(),
+        &ctx.accounts.mint_authority_pda.to_account_info(),
+        &ctx.accounts.mint_authority_pda.to_account_info(),
         &ctx.accounts.metadata.to_account_info(),
         &ctx.accounts.system_program.to_account_info(),
         &ctx.accounts.rent.to_account_info(),
@@ -133,8 +143,8 @@ pub fn handler(ctx: Context<HandleIncoming>, payload: Vec<u8>) -> Result<()> {
     crate::utils::cpi_create_master_edition_v3(
         &ctx.accounts.payer.to_account_info(),
         &ctx.accounts.mint.to_account_info(),
-        &ctx.accounts.payer.to_account_info(),
-        &ctx.accounts.payer.to_account_info(),
+        &ctx.accounts.mint_authority_pda.to_account_info(),
+        &ctx.accounts.mint_authority_pda.to_account_info(),
         &ctx.accounts.metadata.to_account_info(),
         &ctx.accounts.master_edition.to_account_info(),
         &ctx.accounts.token_program.to_account_info(),
@@ -147,7 +157,7 @@ pub fn handler(ctx: Context<HandleIncoming>, payload: Vec<u8>) -> Result<()> {
     require_keys_eq!(ctx.accounts.nft_origin.key(), nft_origin_pda, ErrorCode::NftOriginPdaMismatch);
 
     if ctx.accounts.nft_origin.data_is_empty() {
-        let space = NftOrigin::LEN; // includes discriminator
+        let space = 8 + NftOrigin::LEN; // add discriminator
         let lamports = Rent::get()?.minimum_balance(space);
         anchor_lang::solana_program::program::invoke_signed(
             &anchor_lang::solana_program::system_instruction::create_account(
@@ -167,7 +177,7 @@ pub fn handler(ctx: Context<HandleIncoming>, payload: Vec<u8>) -> Result<()> {
     }
 
     let nft_origin = NftOrigin {
-        origin_chain: p.origin_chain_id,
+        origin_chain: p.origin_chain,
         origin_token_id: p.token_id,
         origin_mint: p.origin_mint,
         metadata_uri: p.metadata_uri,
@@ -183,7 +193,7 @@ pub fn handler(ctx: Context<HandleIncoming>, payload: Vec<u8>) -> Result<()> {
     // Emit cross-chain mint event
     emit!(CrossChainMintEvent {
         token_id: p.token_id,
-        origin_chain: p.origin_chain_id,
+        origin_chain: p.origin_chain,
         recipient: p.recipient,
         nonce: p.nonce,
         timestamp: clock.unix_timestamp,
@@ -191,7 +201,7 @@ pub fn handler(ctx: Context<HandleIncoming>, payload: Vec<u8>) -> Result<()> {
 
     msg!("Minted Universal NFT from cross-chain transfer");
     msg!("Token ID: {}", hex::encode(&p.token_id[..8]));
-    msg!("Origin Chain: {}", p.origin_chain_id);
+    msg!("Origin Chain: {}", p.origin_chain);
     msg!("Recipient: {}", p.recipient);
 
     Ok(())
@@ -200,7 +210,7 @@ pub fn handler(ctx: Context<HandleIncoming>, payload: Vec<u8>) -> Result<()> {
 #[event]
 pub struct CrossChainMintEvent {
     pub token_id: [u8; 32],
-    pub origin_chain: u16,
+    pub origin_chain: u64,
     pub recipient: Pubkey,
     pub nonce: u64,
     pub timestamp: i64,
@@ -218,4 +228,6 @@ pub enum ErrorCode {
     ReplayPdaMismatch,
     #[msg("Invalid NftOrigin PDA")]
     NftOriginPdaMismatch,
+    #[msg("Invalid Mint Authority PDA")]
+    InvalidMintAuthorityPda,
 }

@@ -9,6 +9,6 @@ pub struct ReplayMarker {
 }
 
 impl ReplayMarker {
-    pub const LEN: usize = 8 + 32 + 8 + 8 + 1; // discriminator + [u8; 32] + u64 + i64 + u8
+    pub const LEN: usize = 32 + 8 + 8 + 1; // [u8; 32] + u64 + i64 + u8
     pub const SEED: &[u8] = b"replay";
 }

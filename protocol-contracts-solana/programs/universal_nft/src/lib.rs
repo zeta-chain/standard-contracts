@@ -6,19 +6,16 @@ pub mod on_call;
 pub mod state;
 pub mod utils;
 
+declare_id!("Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS");
 
-
-declare_id!("7bwYem3NvksZcsmgBLtNbQLkS1p35ahHa7JsssKeQ8UT");
-
-#[program]
-pub mod universal_nft {
-    use super::*;
-
-    pub fn initialize(_ctx: Context<Initialize>) -> Result<()> {
-        msg!("Initialized!");
-        Ok(())
-    }
+pub fn mint_new_nft(ctx: Context<mint::MintNewNft>, metadata_uri: String) -> Result<()> {
+    mint::handler(ctx, metadata_uri)
 }
 
-#[derive(Accounts)]
-pub struct Initialize {}
+pub fn handle_incoming(ctx: Context<handle_incoming::HandleIncoming>, payload: Vec<u8>) -> Result<()> {
+    handle_incoming::handler(ctx, payload)
+}
+
+pub fn on_call(ctx: Context<on_call::OnCall>, payload: Vec<u8>) -> Result<()> {
+    on_call::handler(ctx, payload)
+}
