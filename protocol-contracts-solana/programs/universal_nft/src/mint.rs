@@ -6,7 +6,7 @@ use sha2::{Digest, Sha256};
 
 use crate::state::nft_origin::NftOrigin;
 use crate::utils::*;
-use mpl_token_metadata::ID as TOKEN_METADATA_ID;
+
 
 #[derive(Accounts)]
 pub struct MintNewNft<'info> {
@@ -81,6 +81,7 @@ pub fn handler(ctx: Context<MintNewNft>, metadata_uri: String) -> Result<()> {
         &ctx.accounts.payer.to_account_info(),
         &ctx.accounts.metadata.to_account_info(),
         &ctx.accounts.system_program.to_account_info(),
+        &ctx.accounts.rent.to_account_info(),
         "UniversalNFT".to_string(),
         "UNFT".to_string(),
         metadata_uri.clone(),
@@ -93,6 +94,9 @@ pub fn handler(ctx: Context<MintNewNft>, metadata_uri: String) -> Result<()> {
         &ctx.accounts.payer.to_account_info(),
         &ctx.accounts.metadata.to_account_info(),
         &ctx.accounts.master_edition.to_account_info(),
+        &ctx.accounts.token_program.to_account_info(),
+        &ctx.accounts.system_program.to_account_info(),
+        &ctx.accounts.rent.to_account_info(),
     )?;
 
     // Create nft_origin PDA to store metadata

@@ -1,7 +1,6 @@
-﻿use anchor_lang::prelude::*;
-use anchor_lang::solana_program::program::invoke_signed;
-use mpl_token_metadata::instruction as mpl_ix;
+use anchor_lang::prelude::*;
 use mpl_token_metadata::types::DataV2;
+use anchor_spl::metadata::{create_master_edition_v3, CreateMasterEditionV3, create_metadata_accounts_v3};
 
 pub fn derive_nft_origin_pda(token_id: &[u8]) -> (Pubkey, u8) {
     // Seed order: [token_id_bytes, "nft_origin"] per spec
@@ -29,13 +28,18 @@ pub fn derive_master_edition_pda(mint: &Pubkey) -> (Pubkey, u8) {
     ], &mpl_token_metadata::ID)
 }
 
-pub fn cpi_create_metadata_v3(
-    payer: &AccountInfo,
-    mint: &AccountInfo,
-    mint_authority: &AccountInfo,
-    update_authority: &AccountInfo,
-    metadata: &AccountInfo,
-    system_program: &AccountInfo,
+pub fn derive_mint_authority_pda() -> (Pubkey, u8) {
+    Pubkey::find_program_address(&[b"mint_authority"], &crate::ID)
+}
+
+pub fn cpi_create_metadata_v3<'a>(
+    payer: &AccountInfo<'a>,
+    mint: &AccountInfo<'a>,
+    mint_authority: &AccountInfo<'a>,
+    update_authority: &AccountInfo<'a>,
+    metadata: &AccountInfo<'a>,
+    system_program: &AccountInfo<'a>,
+    rent: &AccountInfo<'a>,
     name: String,
     symbol: String,
     uri: String,
@@ -50,50 +54,56 @@ pub fn cpi_create_metadata_v3(
         uses: None,
     };
 
-    let ix = mpl_ix::create_metadata_accounts_v3(
-        mpl_token_metadata::ID,
-        *metadata.key,
-        *mint.key,
-        *mint_authority.key,
-        *payer.key,
-        *update_authority.key,
-        data.name.clone(),
-        data.symbol.clone(),
-        data.uri.clone(),
-        None,
-        0,
-        true,
-        true,
-        None,
-        None,
-        None,
+    let cpi_accounts = anchor_spl::metadata::CreateMetadataAccountsV3 {
+        metadata: metadata.to_account_info(),
+        mint: mint.to_account_info(),
+        mint_authority: mint_authority.to_account_info(),
+        payer: payer.to_account_info(),
+        update_authority: update_authority.to_account_info(),
+        system_program: system_program.to_account_info(),
+        rent: rent.to_account_info(),
+    };
+
+    let cpi_ctx = CpiContext::new(
+        system_program.to_account_info(),
+        cpi_accounts,
     );
 
-    invoke_signed(&ix, &[metadata.clone(), mint.clone(), mint_authority.clone(), payer.clone(), update_authority.clone(), system_program.clone()], &[])?;
+    create_metadata_accounts_v3(cpi_ctx, data, true, true, None)?;
 
     Ok(())
 }
 
-pub fn cpi_create_master_edition_v3(
-    payer: &AccountInfo,
-    mint: &AccountInfo,
-    mint_authority: &AccountInfo,
-    update_authority: &AccountInfo,
-    metadata: &AccountInfo,
-    master_edition: &AccountInfo,
+pub fn cpi_create_master_edition_v3<'a>(
+    payer: &AccountInfo<'a>,
+    mint: &AccountInfo<'a>,
+    mint_authority: &AccountInfo<'a>,
+    update_authority: &AccountInfo<'a>,
+    metadata: &AccountInfo<'a>,
+    master_edition: &AccountInfo<'a>,
+    token_program: &AccountInfo<'a>,
+    system_program: &AccountInfo<'a>,
+    rent: &AccountInfo<'a>,
 ) -> Result<()> {
-    let ix = mpl_ix::create_master_edition_v3(
-        mpl_token_metadata::ID,
-        *master_edition.key,
-        *mint.key,
-        *update_authority.key,
-        *mint_authority.key,
-        *metadata.key,
-        *payer.key,
-        Some(0),
+    // Use Anchor SPL's create_master_edition_v3 instead of MPL's private version
+    let cpi_accounts = CreateMasterEditionV3 {
+        edition: master_edition.to_account_info(),
+        mint: mint.to_account_info(),
+        update_authority: update_authority.to_account_info(),
+        mint_authority: mint_authority.to_account_info(),
+        payer: payer.to_account_info(),
+        metadata: metadata.to_account_info(),
+        token_program: token_program.to_account_info(),
+        system_program: system_program.to_account_info(),
+        rent: rent.to_account_info(),
+    };
+
+    let cpi_ctx = CpiContext::new(
+        token_program.to_account_info(),
+        cpi_accounts,
     );
 
-    invoke_signed(&ix, &[master_edition.clone(), mint.clone(), update_authority.clone(), mint_authority.clone(), metadata.clone(), payer.clone()], &[])?;
+    create_master_edition_v3(cpi_ctx, Some(0))?;
 
     Ok(())
 }

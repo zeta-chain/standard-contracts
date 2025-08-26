@@ -8,7 +8,5 @@ pub struct GatewayConfig {
 
 impl GatewayConfig {
     pub const SEED: &'static [u8] = b"gateway_config";
-    pub const LEN: usize = 32 + 1;
+    pub const LEN: usize = 8 + 32 + 1; // discriminator + pubkey + bump
 }
-
-

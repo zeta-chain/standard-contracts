@@ -1,14 +1,15 @@
-use anchor_lang::prelude::*;
+﻿use anchor_lang::prelude::*;
 use anchor_spl::associated_token::AssociatedToken;
 use anchor_spl::token::{Mint, Token, TokenAccount};
-use crate::state::gateway::GatewayConfig;
+use anchor_lang::prelude::UncheckedAccount;
+
 use crate::state::nft_origin::{NftOrigin, CrossChainNftPayload};
+use crate::state::gateway::GatewayConfig;
 use crate::state::replay::ReplayMarker;
 use crate::utils::{derive_nft_origin_pda, derive_replay_marker_pda};
 
 #[derive(Accounts)]
-pub struct OnCall<'info> {
-    /// The CPI caller program (Gateway) is enforced via address lookup of config
+pub struct HandleIncoming<'info> {
     #[account(mut)]
     pub payer: Signer<'info>,
     pub recipient: SystemAccount<'info>,
@@ -39,7 +40,7 @@ pub struct OnCall<'info> {
         space = NftOrigin::LEN
     )]
     pub nft_origin: Account<'info, NftOrigin>,
-    /// CHECK: PDA with gateway program id
+    /// CHECK: gateway program config PDA
     pub gateway_config: UncheckedAccount<'info>,
     /// CHECK: replay marker account
     #[account(mut)]
@@ -50,11 +51,10 @@ pub struct OnCall<'info> {
     pub rent: Sysvar<'info, Rent>,
 }
 
-// A generic entrypoint to be invoked by ZetaChain Gateway
-pub fn handler(ctx: Context<OnCall>, payload: Vec<u8>) -> Result<()> {
+pub fn handler(ctx: Context<HandleIncoming>, payload: Vec<u8>) -> Result<()> {
     let clock = Clock::get()?;
 
-    // Verify gateway config PDA
+    // Load gateway config from PDA and verify signer program id from payload origin (out-of-band)
     let (cfg_pda, _bump) = Pubkey::find_program_address(&[GatewayConfig::SEED], &crate::ID);
     require_keys_eq!(ctx.accounts.gateway_config.key(), cfg_pda, ErrorCode::UnauthorizedGateway);
     let data = ctx.accounts.gateway_config.try_borrow_data()?;
@@ -119,6 +119,7 @@ pub fn handler(ctx: Context<OnCall>, payload: Vec<u8>) -> Result<()> {
         &ctx.accounts.payer.to_account_info(),
         &ctx.accounts.metadata.to_account_info(),
         &ctx.accounts.system_program.to_account_info(),
+        &ctx.accounts.rent.to_account_info(),
         "UniversalNFT".to_string(),
         "UNFT".to_string(),
         p.metadata_uri.clone(),
@@ -131,10 +132,14 @@ pub fn handler(ctx: Context<OnCall>, payload: Vec<u8>) -> Result<()> {
         &ctx.accounts.payer.to_account_info(),
         &ctx.accounts.metadata.to_account_info(),
         &ctx.accounts.master_edition.to_account_info(),
+        &ctx.accounts.token_program.to_account_info(),
+        &ctx.accounts.system_program.to_account_info(),
+        &ctx.accounts.rent.to_account_info(),
     )?;
 
     // Create or update nft_origin PDA
     let (_nft_origin_pda, nft_origin_bump) = derive_nft_origin_pda(&p.token_id);
+    
     let nft_origin = NftOrigin {
         origin_chain: p.origin_chain_id,
         origin_token_id: p.token_id,
@@ -143,10 +148,12 @@ pub fn handler(ctx: Context<OnCall>, payload: Vec<u8>) -> Result<()> {
         created_at: clock.unix_timestamp,
         bump: nft_origin_bump,
     };
+
+    // Initialize the nft_origin account using Anchor's account initialization
     let nft_origin_account = &mut ctx.accounts.nft_origin;
     **nft_origin_account = nft_origin;
 
-    // Emit event
+    // Emit cross-chain mint event
     emit!(CrossChainMintEvent {
         token_id: p.token_id,
         origin_chain: p.origin_chain_id,
@@ -155,15 +162,12 @@ pub fn handler(ctx: Context<OnCall>, payload: Vec<u8>) -> Result<()> {
         timestamp: clock.unix_timestamp,
     });
 
-    Ok(())
-}
+    msg!("Minted Universal NFT from cross-chain transfer");
+    msg!("Token ID: {}", hex::encode(&p.token_id[..8]));
+    msg!("Origin Chain: {}", p.origin_chain_id);
+    msg!("Recipient: {}", p.recipient);
 
-#[error_code]
-pub enum ErrorCode {
-    #[msg("Unauthorized gateway")] UnauthorizedGateway,
-    #[msg("Invalid payload")] InvalidPayload,
-    #[msg("Replay attack detected")] ReplayAttack,
-    #[msg("Replay PDA mismatch")] ReplayPdaMismatch,
+    Ok(())
 }
 
 #[event]
@@ -175,4 +179,14 @@ pub struct CrossChainMintEvent {
     pub timestamp: i64,
 }
 
-
+#[error_code]
+pub enum ErrorCode {
+    #[msg("Unauthorized gateway")]
+    UnauthorizedGateway,
+    #[msg("Invalid payload")]
+    InvalidPayload,
+    #[msg("Replay attack detected")]
+    ReplayAttack,
+    #[msg("Replay PDA mismatch")]
+    ReplayPdaMismatch,
+}
