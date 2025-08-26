@@ -28,10 +28,11 @@ fi
 # Required-ish (we provide sensible defaults for convenience)
 : "${GATEWAY_PROGRAM:=ZETAjseVjuFsxdRxo6MmTCvqFwb3ZHUx56Co3vCmGis}"
 : "${GATEWAY_PDA:=2f9SLuUNb7TNeM6gzBwT4ZjbL5ZyKzzHg1Ce9yiquEjj}"
-: "${ZC_UNIVERSAL_ADDR:=0x536a1F02F944Fa673E4Aa693a717Fd8F69D4c1f8}"
-: "${DEST_CHAIN:=7000}"
+: "${ZC_UNIVERSAL_ADDR:=5AE1702fBF1Db5E7238dC8De0dc28e46C3Dbd36A}"
+# Destination ZRC-20: '0' to stay on ZetaChain; or 20-byte hex (no 0x) or with 0x prefix
+: "${DEST_ZRC20:=0}"
 # Final recipient on destination chain (string). Override to your target.
-: "${FINAL_RECIPIENT:=0x4955a3F38ff86ae92A914445099caa8eA2B9bA32}"
+: "${FINAL_RECIPIENT:=0x0000000000000000000000000000000000000000}"
 
 # SOL deposit (in SOL) for ZetaChain gateway deposit_and_call gas; override via env
 : "${DEPOSIT_SOL:=0.02}"
@@ -43,7 +44,7 @@ fi
 : "${NFT_SYMBOL:=UNFT}"
 
 # Export so downstream tools (if any) can reference them
-export GATEWAY_PROGRAM GATEWAY_PDA ZC_UNIVERSAL_ADDR DEST_CHAIN FINAL_RECIPIENT
+export GATEWAY_PROGRAM GATEWAY_PDA ZC_UNIVERSAL_ADDR DEST_ZRC20 FINAL_RECIPIENT
 export SOLANA_URL METADATA_URI NFT_NAME NFT_SYMBOL DEPOSIT_SOL
 
 SOLANA_DIR="$ROOT_DIR/contracts/solana"
@@ -52,7 +53,7 @@ echo -e "${BLUE}🔧 Effective configuration:${NC}"
 echo -e "  GATEWAY_PROGRAM: ${YELLOW}$GATEWAY_PROGRAM${NC}"
 echo -e "  GATEWAY_PDA:     ${YELLOW}$GATEWAY_PDA${NC}"
 echo -e "  ZC_UNIVERSAL:    ${YELLOW}$ZC_UNIVERSAL_ADDR${NC}"
-echo -e "  DEST_CHAIN:      ${YELLOW}$DEST_CHAIN${NC}"
+echo -e "  DEST_ZRC20:      ${YELLOW}$DEST_ZRC20${NC}"
 echo -e "  FINAL_RECIPIENT: ${YELLOW}$FINAL_RECIPIENT${NC}"
 echo -e "  DEPOSIT_SOL:     ${YELLOW}$DEPOSIT_SOL SOL${NC}"
 echo -e "  SOLANA_URL:      ${YELLOW}$SOLANA_URL${NC}"
@@ -95,7 +96,7 @@ echo -e "${YELLOW}🆔 Token ID (hex): ${TOKEN_ID_HEX}${NC}"
 echo -e "${BLUE}🌉 Initiating transfer to ZetaChain (deposit_and_call via transfer)...${NC}"
 # Capture full output and exit code without aborting the script immediately
 set +e
-TRANSFER_OUT=$("${CLI_RUN[@]}" transfer "$TOKEN_ID_HEX" "$ZC_UNIVERSAL_ADDR" "$DEST_CHAIN" "$FINAL_RECIPIENT" "$DEPOSIT_SOL" 2>&1)
+TRANSFER_OUT=$("${CLI_RUN[@]}" transfer "$TOKEN_ID_HEX" "$ZC_UNIVERSAL_ADDR" "$DEST_ZRC20" "$FINAL_RECIPIENT" "$DEPOSIT_SOL" 2>&1)
 TRANSFER_RC=$?
 set -e
 

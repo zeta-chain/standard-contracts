@@ -211,7 +211,7 @@ export class UniversalNftCLI {
   async transferToZetachain(
     tokenIdHex: string,
     zcUniversalContractHex: string,
-    destinationChain: string,
+    destinationZrc20HexOrZero: string,
     finalRecipient: string,
     depositSol?: string
   ): Promise<void> {
@@ -220,10 +220,20 @@ export class UniversalNftCLI {
     if (tokenId.length !== 32) throw new Error(`tokenId must be 32 bytes hex (got ${tokenId.length})`);
     const receiver = Buffer.from(zcUniversalContractHex.replace(/^0x/, ''), 'hex');
     if (receiver.length !== 20) throw new Error(`zetachain universal contract must be 20 bytes hex (got ${receiver.length})`);
-    if (!/^\d+$/.test(destinationChain)) throw new Error("destinationChain must be an unsigned integer string");
-    const destChainBig = BigInt(destinationChain);
-    if (destChainBig < 0n || destChainBig > (1n << 64n) - 1n) throw new Error("destinationChain out of range for u64");
-    if (!finalRecipient || finalRecipient.length > 128) throw new Error("finalRecipient must be non-empty and <= 128 chars");
+    // destinationZrc20: accept '0' (stay on ZetaChain) or 20-byte hex address
+    const destRaw = destinationZrc20HexOrZero.trim();
+    let destinationZrc20: Buffer;
+    if (destRaw === '0' || /^0x?0+$/.test(destRaw)) {
+      destinationZrc20 = Buffer.alloc(20, 0);
+    } else {
+      const destBuf = Buffer.from(destRaw.replace(/^0x/, ''), 'hex');
+      if (destBuf.length !== 20) throw new Error(`destinationZrc20 must be 20 bytes hex or '0' (got ${destBuf.length})`);
+      destinationZrc20 = destBuf;
+    }
+    if (!finalRecipient) throw new Error("finalRecipient must be provided as a 20-byte EVM address (hex)");
+    const recRaw = finalRecipient.trim();
+    const recBuf = Buffer.from(recRaw.replace(/^0x/, ''), 'hex');
+    if (recBuf.length !== 20) throw new Error(`finalRecipient must be a 20-byte hex EVM address (got ${recBuf.length} bytes)`);
 
     // Convert deposit SOL to lamports, default 0.02 SOL if not provided
     const depositSolStr = depositSol ?? "0.02";
@@ -246,7 +256,7 @@ export class UniversalNftCLI {
     // Optional diagnostics to catch IDL/program mismatches
     const idlAddr = (idl as any)?.address;
     if (idlAddr) {
-      const idlInstr = (idl as any)?.instructions?.find((i: any) => i.name === 'transferToZetachain');
+      const idlInstr = (idl as any)?.instructions?.find((i: any) => i.name === 'transfer_to_zetachain' || i.name === 'transferToZetachain');
       console.log('IDL program address:', idlAddr);
       console.log('Loaded program address:', this.program.programId.toBase58());
       if (idlInstr) console.log('IDL transferToZetachain args:', idlInstr.args?.map((a: any) => `${a.name}:${JSON.stringify(a.type)}`));
@@ -255,7 +265,8 @@ export class UniversalNftCLI {
     // Ensure arrays are exact-sized
     const tokenIdArr = Array.from(tokenId);
     const receiverArr = Array.from(receiver);
-    if (tokenIdArr.length !== 32 || receiverArr.length !== 20) {
+    const destinationZrc20Arr = Array.from(destinationZrc20);
+    if (tokenIdArr.length !== 32 || receiverArr.length !== 20 || destinationZrc20Arr.length !== 20) {
       throw new Error('Invalid arg lengths after conversion');
     }
 
@@ -264,7 +275,7 @@ export class UniversalNftCLI {
         .transferToZetachain(
           tokenIdArr,
           receiverArr,
-          new BN(destChainBig.toString()),
+          destinationZrc20Arr,
           finalRecipient,
           new BN(lamportsBig.toString())
         )
@@ -367,11 +378,11 @@ async function main() {
         break;
       }
       case "transfer": {
-        const [tokenIdHex, zcUniversalContractHex, destChain, finalRecipient, depositSol] = args;
-        if (!tokenIdHex || !zcUniversalContractHex || !destChain || !finalRecipient) {
-          throw new Error("usage: transfer <tokenIdHex32> <zcUniversalContractHex20> <destChainU64> <finalRecipientStr> [depositSol default 0.02]");
+        const [tokenIdHex, zcUniversalContractHex, destZrc20, finalRecipient, depositSol] = args;
+        if (!tokenIdHex || !zcUniversalContractHex || destZrc20 == null || !finalRecipient) {
+          throw new Error("usage: transfer <tokenIdHex32> <zcUniversalContractHex20> <destZrc20Hex20|'0'> <finalRecipientStr> [depositSol default 0.02]");
         }
-        await cli.transferToZetachain(tokenIdHex, zcUniversalContractHex, destChain, finalRecipient, depositSol);
+        await cli.transferToZetachain(tokenIdHex, zcUniversalContractHex, destZrc20, finalRecipient, depositSol);
         break;
       }
       case "update-config": {
@@ -393,7 +404,7 @@ async function main() {
         await cli.balance();
         break;
       default:
-  console.log("Commands:\n  initialize <gatewayProgramPubkey> <gatewayPdaPubkey>\n  update-config <newGatewayProgramPubkey|- or empty> <newGatewayPdaPubkey|- or empty> [newAuthorityPubkey|-] [pause true|false|-]\n  mint <uri> [name] [symbol]\n  transfer <tokenIdHex32> <zcUniversalContractHex20> <destChainU64> <finalRecipient> [depositSol default 0.02]\n  status\n  origin <tokenIdHex32>\n  balance");
+  console.log("Commands:\n  initialize <gatewayProgramPubkey> <gatewayPdaPubkey>\n  update-config <newGatewayProgramPubkey|- or empty> <newGatewayPdaPubkey|- or empty> [newAuthorityPubkey|-] [pause true|false|-]\n  mint <uri> [name] [symbol]\n  transfer <tokenIdHex32> <zcUniversalContractHex20> <destZrc20Hex20|'0'> <finalRecipient> [depositSol default 0.02]\n  status\n  origin <tokenIdHex32>\n  balance");
     }
   } catch (e) {
     console.error("Error:", (e as Error).message);
