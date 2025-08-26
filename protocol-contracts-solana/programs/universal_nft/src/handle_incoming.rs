@@ -51,6 +51,8 @@ pub struct HandleIncoming<'info> {
     pub rent: Sysvar<'info, Rent>,
     /// CHECK: mint_authority PDA; will be derived programmatically
     pub mint_authority_pda: UncheckedAccount<'info>,
+    /// CHECK: token metadata program
+    pub token_metadata_program: UncheckedAccount<'info>,
 }
 
 pub fn handler(ctx: Context<HandleIncoming>, payload: Vec<u8>) -> Result<()> {
@@ -133,6 +135,7 @@ pub fn handler(ctx: Context<HandleIncoming>, payload: Vec<u8>) -> Result<()> {
         &ctx.accounts.mint_authority_pda.to_account_info(),
         &ctx.accounts.mint_authority_pda.to_account_info(),
         &ctx.accounts.metadata.to_account_info(),
+        &ctx.accounts.token_metadata_program.to_account_info(),
         &ctx.accounts.system_program.to_account_info(),
         &ctx.accounts.rent.to_account_info(),
         "UniversalNFT".to_string(),
@@ -147,7 +150,7 @@ pub fn handler(ctx: Context<HandleIncoming>, payload: Vec<u8>) -> Result<()> {
         &ctx.accounts.mint_authority_pda.to_account_info(),
         &ctx.accounts.metadata.to_account_info(),
         &ctx.accounts.master_edition.to_account_info(),
-        &ctx.accounts.token_program.to_account_info(),
+        &ctx.accounts.token_metadata_program.to_account_info(),
         &ctx.accounts.system_program.to_account_info(),
         &ctx.accounts.rent.to_account_info(),
     )?;

@@ -38,6 +38,7 @@ pub fn cpi_create_metadata_v3<'a>(
     mint_authority: &AccountInfo<'a>,
     update_authority: &AccountInfo<'a>,
     metadata: &AccountInfo<'a>,
+    token_metadata_program: &AccountInfo<'a>,
     system_program: &AccountInfo<'a>,
     rent: &AccountInfo<'a>,
     name: String,
@@ -65,7 +66,7 @@ pub fn cpi_create_metadata_v3<'a>(
     };
 
     let cpi_ctx = CpiContext::new(
-        system_program.to_account_info(),
+        token_metadata_program.to_account_info(),
         cpi_accounts,
     );
 
@@ -81,7 +82,7 @@ pub fn cpi_create_master_edition_v3<'a>(
     update_authority: &AccountInfo<'a>,
     metadata: &AccountInfo<'a>,
     master_edition: &AccountInfo<'a>,
-    token_program: &AccountInfo<'a>,
+    token_metadata_program: &AccountInfo<'a>,
     system_program: &AccountInfo<'a>,
     rent: &AccountInfo<'a>,
 ) -> Result<()> {
@@ -93,13 +94,13 @@ pub fn cpi_create_master_edition_v3<'a>(
         mint_authority: mint_authority.to_account_info(),
         payer: payer.to_account_info(),
         metadata: metadata.to_account_info(),
-        token_program: token_program.to_account_info(),
+        token_program: token_metadata_program.to_account_info(),
         system_program: system_program.to_account_info(),
         rent: rent.to_account_info(),
     };
 
     let cpi_ctx = CpiContext::new(
-        token_program.to_account_info(),
+        token_metadata_program.to_account_info(),
         cpi_accounts,
     );
 
