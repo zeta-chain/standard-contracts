@@ -63,10 +63,6 @@ pub struct OnCall<'info> {
     )]
     pub gateway_pda: UncheckedAccount<'info>,
 
-    /// CHECK: Verified against constant ID
-    #[account(constraint = metadata_program.key() == TOKEN_METADATA_PROGRAM_ID @ anchor_lang::error::ErrorCode::ConstraintAddress)]
-    pub metadata_program: UncheckedAccount<'info>,
-
     /// System program for account creation
     pub system_program: Program<'info, System>,
 
