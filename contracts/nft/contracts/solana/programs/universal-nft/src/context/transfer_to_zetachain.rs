@@ -36,21 +36,6 @@ pub struct TransferToZetachain<'info> {
     )]
     pub token_account: Account<'info, TokenAccount>,
     
-    /// Validated metadata account
-    /// CHECK: This account is validated to match the original metadata account stored in nft_origin
-    #[account(
-        mut,
-        constraint = metadata.key() == nft_origin.original_metadata @ crate::error::UniversalNftError::InvalidMetadata,
-        seeds = [
-            b"metadata",
-            TOKEN_METADATA_PROGRAM_ID.as_ref(),
-            mint.key().as_ref(),
-        ],
-        bump,
-        seeds::program = TOKEN_METADATA_PROGRAM_ID
-    )]
-    pub metadata: UncheckedAccount<'info>,
-    
     #[account(mut)]
     pub owner: Signer<'info>,
     

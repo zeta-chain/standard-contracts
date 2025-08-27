@@ -247,7 +247,6 @@ export class UniversalNftCLI {
     const nftOriginPda = this.deriveNftOriginPda(tokenId);
     const origin = await this.program.account.nftOrigin.fetch(nftOriginPda);
     const mint = origin.originalMint as PublicKey;
-    const metadataPda = origin.originalMetadata as PublicKey;
     const ata = await getAssociatedTokenAddress(mint, this.wallet.publicKey);
     const config = await this.program.account.universalNftConfig.fetch(configPda);
     const gatewayProgram = config.gatewayProgram as PublicKey;
@@ -284,7 +283,6 @@ export class UniversalNftCLI {
           nftOrigin: nftOriginPda,
           mint,
           tokenAccount: ata,
-          metadata: metadataPda,
           owner: this.wallet.publicKey,
           gatewayProgram,
           gatewayPda,
