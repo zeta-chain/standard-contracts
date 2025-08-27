@@ -37,15 +37,20 @@ echo "🚀 Deploying EVMUniversalNFT on BNB testnet (nft:deploy)..."
 CONNECTED_BNB=$(npx hardhat nft:deploy --name EVMUniversalNFT --network bsc_testnet --gateway 0x0c487a766110c85d301d96e33579c5b317fa4995 --json | jq -r '.contractAddress')
 echo "BNB testnet Universal NFT: $CONNECTED_BNB"
 
-# ZRC-20 references (can be paramaterized later)
+CONNECTED_SOLANA="0x48727a61636b6973564d4c436a774a6e7531364b766b6b4843735038726964735a36755176667a697952736e" # TODO: SET HEX OF SOLANA_PROGRAM_ID (e.g: HrzackisVMLCjwJnu16KvkkHCsP8ridsZ6uQvfziyRsn)
+
+# ZRC-20 references
 ZRC20_BASE=0x236b0DE675cC8F46AE186897fCCeFe3370C9eDeD
 ZRC20_BNB=0xd97B1de3619ed2c6BEb3860147E30cA8A7dC9891
+ZRC20_SOL=0xADF73ebA3Ebaa7254E859549A44c74eF7cff7501
 
-echo "🔗 Wiring connections (set-universal / set-connected)..."
-npx hardhat nft:set-universal --network base_sepolia --contract "$CONNECTED_BASE" --universal "$UNIVERSAL" --json
-npx hardhat nft:set-universal --network bsc_testnet --contract "$CONNECTED_BNB" --universal "$UNIVERSAL" --json
+echo "🔗 Wiring connections (set-connected / set-universal)..."
 npx hardhat nft:set-connected --network zeta_testnet --contract "$UNIVERSAL" --connected "$CONNECTED_BASE" --zrc20 "$ZRC20_BASE" --json
 npx hardhat nft:set-connected --network zeta_testnet --contract "$UNIVERSAL" --connected "$CONNECTED_BNB" --zrc20 "$ZRC20_BNB" --json
+npx hardhat nft:set-connected --network zeta_testnet --contract "$UNIVERSAL" --connected "$CONNECTED_SOLANA" --zrc20 "$ZRC20_SOL" --json
+
+npx hardhat nft:set-universal --network base_sepolia --contract "$CONNECTED_BASE" --universal "$UNIVERSAL" --json
+npx hardhat nft:set-universal --network bsc_testnet --contract "$CONNECTED_BNB" --universal "$UNIVERSAL" --json
 
 echo "✅ EVM side ready."
 
@@ -62,25 +67,32 @@ BNB_TOKEN_ID=$(echo "$BNB_MINT_JSON" | jq -r '.tokenId')
 echo "BNB minted tokenId: $BNB_TOKEN_ID"
 
 echo ""
-echo "🌉 Next: Transfer from EVM → ZetaChain → Solana devnet"
-echo "You need the ZRC-20 address of the Solana destination gas token on ZetaChain (export ZRC20_SOLANA)."
-echo "Example commands:"
-echo "  # Base → ZetaChain → Solana"
-echo "  ZRC20_SOLANA=0xYourZRC20Solana npx hardhat nft:transfer \\
-	--network base_sepolia \\
-	--contract \"$CONNECTED_BASE\" \\
-	--tokenId \"$BASE_TOKEN_ID\" \\
-	--destination \"$ZRC20_SOLANA\" \\
-	--gasAmount 0.1 \\
-	--json"
+echo "🌉 Transferring from Base Sepolia → Solana devnet"
+BASE_XFER_JSON=$(npx hardhat nft:transfer \
+	--network base_sepolia \
+	--contract "$CONNECTED_BASE" \
+	--token-id "$BASE_TOKEN_ID" \
+	--destination "$ZRC20_SOL" \
+	--gas-amount 0.005 \
+	--json)
+echo "$BASE_XFER_JSON" | jq -r '. | "🚀 Successfully transferred NFT to the contract.\n📜 Contract address: \(.contractAddress)\n🖼 NFT Contract address: \(.contractAddress)\n🆔 Token ID: \(.tokenId)\n🔗 Transaction hash: \(.transferTransactionHash)\n⛽ Gas used: \(.gasUsed)"'
+BASE_TX_HASH=$(echo "$BASE_XFER_JSON" | jq -r '.transferTransactionHash')
+echo "🔎 Inbound CCTX: https://zetachain-athens.blockpi.network/lcd/v1/public/zeta-chain/crosschain/inboundHashToCctxData/$BASE_TX_HASH"
+echo "🔎 Base Sepolia tx: https://sepolia.basescan.org/tx/$BASE_TX_HASH"
+
 echo ""
-echo "  # BNB → ZetaChain → Solana"
-echo "  ZRC20_SOLANA=0xYourZRC20Solana npx hardhat nft:transfer \\
-	--network bsc_testnet \\
-	--contract \"$CONNECTED_BNB\" \\
-	--tokenId \"$BNB_TOKEN_ID\" \\
-	--destination \"$ZRC20_SOLANA\" \\
-	--gasAmount 0.1 \\
-	--json"
+echo "🌉 Transferring from BNB Testnet → Solana devnet"
+BNB_XFER_JSON=$(npx hardhat nft:transfer \
+	--network bsc_testnet \
+	--contract "$CONNECTED_BNB" \
+	--token-id "$BNB_TOKEN_ID" \
+	--destination "$ZRC20_SOL" \
+	--gas-amount 0.005 \
+	--json)
+echo "$BNB_XFER_JSON" | jq -r '. | "🚀 Successfully transferred NFT to the contract.\n📜 Contract address: \(.contractAddress)\n🖼 NFT Contract address: \(.contractAddress)\n🆔 Token ID: \(.tokenId)\n🔗 Transaction hash: \(.transferTransactionHash)\n⛽ Gas used: \(.gasUsed)"'
+BNB_TX_HASH=$(echo "$BNB_XFER_JSON" | jq -r '.transferTransactionHash')
+echo "🔎 Inbound CCTX: https://zetachain-athens.blockpi.network/lcd/v1/public/zeta-chain/crosschain/inboundHashToCctxData/$BNB_TX_HASH"
+echo "🔎 BNB Testnet tx: https://testnet.bscscan.com/tx/$BNB_TX_HASH"
+
 echo ""
-echo "Note: The current transfer task uses an EVM address-type receiver. For Solana, the ZetaChain universal contract must encode the Solana recipient in its message. If your contract requires a 32-byte Solana recipient, use a dedicated task or adjust the contract call accordingly."
+echo "Note: For Solana, the Universal contract encodes the Solana recipient. Ensure your Universal program handles Solana recipient encoding as per your implementation."
