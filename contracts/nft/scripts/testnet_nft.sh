@@ -53,11 +53,11 @@ echo ""
 echo "🧪 Minting sample NFTs on Base / BNB (nft:mint)…"
 NFT_URI=${NFT_URI:-"https://example.com/nft/metadata.json"}
 
-BASE_MINT_JSON=$(npx hardhat nft:mint --network base_sepolia --contract "$CONNECTED_BASE" --tokenUri "$NFT_URI" --name EVMUniversalNFT --json)
+BASE_MINT_JSON=$(npx hardhat nft:mint --network base_sepolia --contract "$CONNECTED_BASE" --token-uri "$NFT_URI" --name EVMUniversalNFT --gas-limit "$GAS_LIMIT" --json)
 BASE_TOKEN_ID=$(echo "$BASE_MINT_JSON" | jq -r '.tokenId')
 echo "Base minted tokenId: $BASE_TOKEN_ID"
 
-BNB_MINT_JSON=$(npx hardhat nft:mint --network bsc_testnet --contract "$CONNECTED_BNB" --tokenUri "$NFT_URI" --name EVMUniversalNFT --json)
+BNB_MINT_JSON=$(npx hardhat nft:mint --network bsc_testnet --contract "$CONNECTED_BNB" --token-uri "$NFT_URI" --name EVMUniversalNFT --gas-limit "$GAS_LIMIT" --json)
 BNB_TOKEN_ID=$(echo "$BNB_MINT_JSON" | jq -r '.tokenId')
 echo "BNB minted tokenId: $BNB_TOKEN_ID"
 
