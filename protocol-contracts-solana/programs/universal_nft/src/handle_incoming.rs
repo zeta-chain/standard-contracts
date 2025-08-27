@@ -54,7 +54,8 @@ pub struct HandleIncoming<'info> {
     pub rent: Sysvar<'info, Rent>,
     /// CHECK: mint_authority PDA; will be derived programmatically
     pub mint_authority_pda: UncheckedAccount<'info>,
-    /// CHECK: token metadata program
+    /// CHECK: token metadata program (Metaplex)
+    #[account(address = mpl_token_metadata::ID)]
     pub token_metadata_program: UncheckedAccount<'info>,
 }
 
@@ -74,6 +75,10 @@ pub fn handler(ctx: Context<HandleIncoming>, payload: Vec<u8>) -> Result<()> {
     // Deserialize payload
     let p: CrossChainNftPayload = CrossChainNftPayload::try_from_slice(&payload)
         .map_err(|_| ErrorCode::InvalidPayload)?;
+    
+    // Fail fast: recipient must match payload, and URI must be within bounds
+    require_keys_eq!(ctx.accounts.recipient.key(), p.recipient, ErrorCode::RecipientMismatch);
+    require!(p.metadata_uri.len() <= NftOrigin::MAX_URI_LEN, ErrorCode::MetadataTooLong);
 
     // Derive mint authority PDA
     let (mint_authority_pda, mint_authority_bump) = Pubkey::find_program_address(
@@ -161,6 +166,7 @@ pub fn handler(ctx: Context<HandleIncoming>, payload: Vec<u8>) -> Result<()> {
         &ctx.accounts.metadata.to_account_info(),
         &ctx.accounts.master_edition.to_account_info(),
         &ctx.accounts.token_metadata_program.to_account_info(),
+        &ctx.accounts.token_program.to_account_info(),
         &ctx.accounts.system_program.to_account_info(),
         &ctx.accounts.rent.to_account_info(),
     )?;
@@ -189,8 +195,7 @@ pub fn handler(ctx: Context<HandleIncoming>, payload: Vec<u8>) -> Result<()> {
         )?;
     }
 
-    // Enforce recipient matches payload
-    require_keys_eq!(ctx.accounts.recipient.key(), p.recipient, ErrorCode::InvalidPayload);
+    // Recipient already enforced above
     let nft_origin = NftOrigin {
         origin_chain: p.origin_chain,
         origin_token_id: p.token_id,
@@ -247,6 +252,10 @@ pub enum ErrorCode {
     InvalidMasterEditionPda,
     #[msg("Invalid NftOrigin PDA")]
     NftOriginPdaMismatch,
+    #[msg("Recipient account does not match payload")]
+    RecipientMismatch,
+    #[msg("Metadata URI too long")]
+    MetadataTooLong,
     #[msg("Invalid Mint Authority PDA")]
     InvalidMintAuthorityPda,
 }

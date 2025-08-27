@@ -44,6 +44,11 @@ pub struct OnCall<'info> {
     pub nft_origin: UncheckedAccount<'info>,
     /// CHECK: PDA with gateway program id
     pub gateway_config: UncheckedAccount<'info>,
+    /// CHECK: expected gateway program (should match config.gateway_program)
+    pub gateway_program: UncheckedAccount<'info>,
+    /// CHECK: pinned gateway PDA expected to appear among current ix metas
+    #[account(mut)]
+    pub gateway_pda: UncheckedAccount<'info>,
     /// CHECK: Sysvar instructions for CPI caller verification
     #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
     pub instructions: UncheckedAccount<'info>,
@@ -56,7 +61,8 @@ pub struct OnCall<'info> {
     pub rent: Sysvar<'info, Rent>,
     /// CHECK: mint_authority PDA; will be derived programmatically
     pub mint_authority_pda: UncheckedAccount<'info>,
-    /// CHECK: token metadata program
+    /// CHECK: token metadata program (Metaplex)
+    #[account(address = mpl_token_metadata::ID)]
     pub token_metadata_program: UncheckedAccount<'info>,
 }
 
@@ -70,20 +76,34 @@ pub fn handler(ctx: Context<OnCall>, payload: Vec<u8>) -> Result<()> {
     let data = ctx.accounts.gateway_config.try_borrow_data()?;
     let cfg = GatewayConfig::try_from_slice(&data[8..]).map_err(|_| ErrorCode::UnauthorizedGateway)?;
 
-    // Verify the immediate CPI caller via Instructions sysvar (if applicable)
+    // Verify Gateway caller presence using Instructions sysvar (best-effort)
+    // Note: Robust pinning should additionally assert a pinned Gateway PDA among metas.
     use anchor_lang::solana_program::sysvar::instructions as sys_ix;
     let ix_sysvar = &ctx.accounts.instructions.to_account_info();
     if let Ok(cur_idx) = sys_ix::load_current_index_checked(ix_sysvar) {
-        if cur_idx > 0 {
-            let prev = sys_ix::load_instruction_at_checked((cur_idx - 1) as usize, ix_sysvar)
-                .map_err(|_| ErrorCode::UnauthorizedGateway)?;
-            require_keys_eq!(prev.program_id, cfg.gateway_program, ErrorCode::UnauthorizedGateway);
-        }
+        // Inspect the current top-level instruction (offset = cur_idx) if available; fall back to previous when needed
+        let candidate = sys_ix::load_instruction_at_checked(cur_idx as usize, ix_sysvar)
+            .or_else(|_| sys_ix::load_instruction_at_checked(cur_idx.saturating_sub(1) as usize, ix_sysvar))
+            .map_err(|_| ErrorCode::UnauthorizedGateway)?;
+        require_keys_eq!(candidate.program_id, cfg.gateway_program, ErrorCode::UnauthorizedGateway);
+        // Assert the pinned gateway PDA is present among metas and owned by the gateway program
+        let gw_pda_key = ctx.accounts.gateway_pda.key();
+        let has_pinned = candidate.accounts.iter().any(|m| m.pubkey == gw_pda_key);
+        require!(has_pinned, ErrorCode::UnauthorizedGateway);
     }
+
+    // Cross-check provided gateway program account matches config
+    require_keys_eq!(ctx.accounts.gateway_program.key(), cfg.gateway_program, ErrorCode::UnauthorizedGateway);
+    // Ensure provided gateway PDA is owned by the gateway program (basic ownership check)
+    require_keys_eq!(*ctx.accounts.gateway_pda.owner, cfg.gateway_program, ErrorCode::UnauthorizedGateway);
 
     // Deserialize payload
     let p: CrossChainNftPayload = CrossChainNftPayload::try_from_slice(&payload)
         .map_err(|_| ErrorCode::InvalidPayload)?;
+    
+    // Fail fast: recipient must match payload, and URI must be within bounds
+    require_keys_eq!(ctx.accounts.recipient.key(), p.recipient, ErrorCode::RecipientMismatch);
+    require!(p.metadata_uri.len() <= NftOrigin::MAX_URI_LEN, ErrorCode::MetadataTooLong);
 
     // Derive mint authority PDA
     let (mint_authority_pda, mint_authority_bump) = Pubkey::find_program_address(
@@ -127,19 +147,32 @@ pub fn handler(ctx: Context<OnCall>, payload: Vec<u8>) -> Result<()> {
     data[..8].copy_from_slice(&ReplayMarker::discriminator());
     marker.try_serialize(&mut &mut data[8..])?;
 
-    // Mint 1 token to recipient
-    anchor_spl::token::mint_to(
-        CpiContext::new_with_signer(
-            ctx.accounts.token_program.to_account_info(),
-            anchor_spl::token::MintTo {
-                mint: ctx.accounts.mint.to_account_info(),
-                to: ctx.accounts.recipient_token_account.to_account_info(),
-                authority: ctx.accounts.mint_authority_pda.to_account_info(),
-            },
-            &[&[b"mint_authority", ctx.accounts.mint.key().as_ref(), &[mint_authority_bump]]],
-        ),
-        1,
-    )?;
+    // Idempotent mint: enforce supply and decimals invariants
+    require!(ctx.accounts.mint.decimals == 0, ErrorCode::InvalidMint);
+    if ctx.accounts.mint.supply == 0 {
+        // Mint 1 token to recipient
+        anchor_spl::token::mint_to(
+            CpiContext::new_with_signer(
+                ctx.accounts.token_program.to_account_info(),
+                anchor_spl::token::MintTo {
+                    mint: ctx.accounts.mint.to_account_info(),
+                    to: ctx.accounts.recipient_token_account.to_account_info(),
+                    authority: ctx.accounts.mint_authority_pda.to_account_info(),
+                },
+                &[&[b"mint_authority", ctx.accounts.mint.key().as_ref(), &[mint_authority_bump]]],
+            ),
+            1,
+        )?;
+        // Reload and assert post-conditions
+        ctx.accounts.mint.reload()?;
+        ctx.accounts.recipient_token_account.reload()?;
+        require!(ctx.accounts.mint.supply == 1, ErrorCode::InvalidTokenSupply);
+        require!(ctx.accounts.recipient_token_account.amount == 1, ErrorCode::InvalidTokenAmount);
+    } else {
+        // Already minted: enforce idempotency
+        require!(ctx.accounts.mint.supply == 1, ErrorCode::InvalidTokenSupply);
+        require!(ctx.accounts.recipient_token_account.amount == 1, ErrorCode::InvalidTokenAmount);
+    }
 
     // Create Metaplex metadata and master edition
     // Validate MPL PDAs first
@@ -170,6 +203,7 @@ pub fn handler(ctx: Context<OnCall>, payload: Vec<u8>) -> Result<()> {
         &ctx.accounts.metadata.to_account_info(),
         &ctx.accounts.master_edition.to_account_info(),
         &ctx.accounts.token_metadata_program.to_account_info(),
+        &ctx.accounts.token_program.to_account_info(),
         &ctx.accounts.system_program.to_account_info(),
         &ctx.accounts.rent.to_account_info(),
     )?;
@@ -198,8 +232,7 @@ pub fn handler(ctx: Context<OnCall>, payload: Vec<u8>) -> Result<()> {
         )?;
     }
 
-    // Enforce recipient matches payload
-    require_keys_eq!(ctx.accounts.recipient.key(), p.recipient, ErrorCode::InvalidPayload);
+    // Recipient already enforced above
     let nft_origin = NftOrigin {
         origin_chain: p.origin_chain,
         origin_token_id: p.token_id,
@@ -246,6 +279,8 @@ pub enum ErrorCode {
     UnauthorizedGateway,
     #[msg("Invalid payload")]
     InvalidPayload,
+    #[msg("Metadata URI too long")]
+    MetadataTooLong,
     #[msg("Replay attack detected")]
     ReplayAttack,
     #[msg("Replay PDA mismatch")]
@@ -258,6 +293,14 @@ pub enum ErrorCode {
     NftOriginPdaMismatch,
     #[msg("Invalid Mint Authority PDA")]
     InvalidMintAuthorityPda,
+    #[msg("Recipient account does not match payload")]
+    RecipientMismatch,
+    #[msg("Invalid mint decimals")]
+    InvalidMint,
+    #[msg("Invalid token supply")]
+    InvalidTokenSupply,
+    #[msg("Invalid token amount")]
+    InvalidTokenAmount,
 }
 
 

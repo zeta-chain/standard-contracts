@@ -1,0 +1,86 @@
+{
+  "name": "solana-universal-nft",
+  "version": "1.0.0",
+  "description": "Solana Universal NFT Program for cross-chain NFT transfers",
+  "main": "index.js",
+  "scripts": {
+    "build": "anchor build",
+    "test": "anchor test",
+    "test:integration": "jest tests/",
+    "deploy:localnet": "anchor deploy --provider.cluster localnet",
+    "deploy:devnet": "anchor deploy --provider.cluster devnet",
+    "deploy:mainnet": "anchor deploy --provider.cluster mainnet",
+    "clean": "anchor clean",
+    "verify": "anchor verify",
+    "lint": "eslint . --ext .ts,.js",
+    "format": "prettier --write .",
+    "setup": "npm install && anchor build",
+    "start:validator": "solana-test-validator",
+    "airdrop": "solana airdrop 2",
+    "logs": "solana logs",
+    "cluster": "solana config get",
+    "cluster:localnet": "solana config set --url localhost",
+    "cluster:devnet": "solana config set --url devnet",
+    "cluster:mainnet": "solana config set --url mainnet-beta"
+  },
+  "keywords": [
+    "solana",
+    "nft",
+    "cross-chain",
+    "zetachain",
+    "anchor",
+    "blockchain",
+    "defi"
+  ],
+  "author": "ZetaChain Team",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/zeta-chain/standard-contracts.git"
+  },
+  "bugs": {
+    "url": "https://github.com/zeta-chain/standard-contracts/issues"
+  },
+  "homepage": "https://github.com/zeta-chain/standard-contracts#readme",
+  "devDependencies": {
+    "@coral-xyz/anchor": "^0.30.1",
+    "@solana/web3.js": "^1.90.0",
+    "@solana/spl-token": "^0.4.0",
+    "@metaplex-foundation/mpl-token-metadata": "^4.1.2",
+    "@types/jest": "^29.5.0",
+    "@types/node": "^20.0.0",
+    "jest": "^29.5.0",
+    "ts-jest": "^29.1.0",
+    "typescript": "^5.0.0",
+    "eslint": "^8.0.0",
+    "prettier": "^3.0.0",
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/parser": "^6.0.0"
+  },
+  "dependencies": {
+    "bs58": "^5.0.0",
+    "buffer": "^6.0.0"
+  },
+  "jest": {
+    "preset": "ts-jest",
+    "testEnvironment": "node",
+    "testMatch": [
+      "**/tests/**/*.test.ts",
+      "**/tests/**/*.spec.ts"
+    ],
+    "collectCoverageFrom": [
+      "tests/**/*.ts",
+      "!tests/**/*.d.ts"
+    ],
+    "setupFilesAfterEnv": [
+      "<rootDir>/tests/setup.ts"
+    ]
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
+  },
+  "config": {
+    "programId": "Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS"
+  }
+}

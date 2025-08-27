@@ -19,3 +19,8 @@ pub fn handle_incoming(ctx: Context<handle_incoming::HandleIncoming>, payload: V
 pub fn on_call(ctx: Context<on_call::OnCall>, payload: Vec<u8>) -> Result<()> {
     on_call::handler(ctx, payload)
 }
+
+pub use state::InitializeGatewayConfig;
+pub fn initialize_gateway_config(ctx: Context<InitializeGatewayConfig>) -> Result<()> {
+    state::initialize_gateway_config(ctx)
+}

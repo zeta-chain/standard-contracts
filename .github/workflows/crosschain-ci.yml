@@ -1,0 +1,109 @@
+name: Cross-chain NFT CI
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+jobs:
+  deploy-and-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      # Install Node.js
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      # Install Rust (for Solana/Anchor)
+      - name: Setup Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+
+      # Install Solana CLI
+      - name: Install Solana CLI
+        run: |
+          sh -c "$(curl -sSfL https://release.solana.com/stable/install)"
+          echo "$HOME/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
+          solana --version
+
+      # Install Anchor
+      - name: Install Anchor
+        run: |
+          cargo install --git https://github.com/coral-xyz/anchor avm --locked --force
+          avm install latest
+          avm use latest
+          anchor --version
+
+      # Install Node deps
+      - name: Install dependencies
+        run: |
+          cd contracts/nft
+          npm install
+
+      # Deploy to Base Sepolia (EVM)
+      - name: Deploy Universal NFT to Base Sepolia
+        run: |
+          cd contracts/nft
+          npx hardhat run scripts/deploy-base-sepolia.js --network base-sepolia
+        env:
+          PRIVATE_KEY: ${{ secrets.EVM_PRIVATE_KEY }}
+          RPC_URL: ${{ secrets.BASE_SEPOLIA_RPC }}
+
+      # Deploy to ZetaChain testnet
+      - name: Deploy Universal NFT to ZetaChain
+        run: |
+          cd contracts/nft
+          npx hardhat run scripts/deploy-zetachain.js --network zeta-testnet
+        env:
+          PRIVATE_KEY: ${{ secrets.EVM_PRIVATE_KEY }}
+          RPC_URL: ${{ secrets.ZETACHAIN_RPC }}
+
+      # Deploy to Solana Devnet
+      - name: Deploy Solana NFT program
+        run: |
+          echo '${{ secrets.SOLANA_KEYPAIR }}' > ~/.config/solana/id.json
+          cd protocol-contracts-solana
+          anchor build
+          anchor deploy --provider.cluster devnet
+        env:
+          SOLANA_RPC_URL: ${{ secrets.SOLANA_DEVNET_RPC }}
+
+      # Capture Solana deployment details
+      - name: Capture Solana deployment info
+        run: |
+          cd contracts/nft
+          node scripts/deploy-solana.js
+
+      # Run cross-chain NFT transfer tests
+      - name: Run cross-chain transfer tests
+        run: |
+          cd contracts/nft
+          node scripts/crosschain-test.js
+        env:
+          PRIVATE_KEY: ${{ secrets.EVM_PRIVATE_KEY }}
+          BASE_RPC: ${{ secrets.BASE_SEPOLIA_RPC }}
+          ZETA_RPC: ${{ secrets.ZETACHAIN_RPC }}
+          SOLANA_KEYPAIR: ${{ secrets.SOLANA_KEYPAIR }}
+          SOLANA_RPC: ${{ secrets.SOLANA_DEVNET_RPC }}
+
+      # Upload result file
+      - name: Upload results
+        uses: actions/upload-artifact@v3
+        with:
+          name: crosschain-results
+          path: contracts/nft/results.json
+
+      # Comment results on PR
+      - name: Comment results
+        uses: peter-evans/create-or-update-comment@v4
+        with:
+          issue-number: ${{ github.event.pull_request.number }}
+          body-file: contracts/nft/results.md

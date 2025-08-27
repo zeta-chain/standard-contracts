@@ -1,113 +1,126 @@
 # Solana Universal NFT Program
 
-A complete implementation of the Universal NFT protocol on Solana, enabling seamless cross-chain NFT transfers between ZetaChain, EVM chains, and Solana.
+A Solana program for creating and managing Universal NFTs that can be transferred across different blockchain networks through ZetaChain Gateway integration.
 
-## 🎯 Overview
+## 🚀 Features
 
-This program implements the Universal NFT standard on Solana, providing:
+- **Cross-Chain NFT Support**: Mint and transfer NFTs across different blockchain networks
+- **Metaplex Integration**: Full compatibility with Metaplex Token Metadata standard
+- **Security-First Design**: PDA-based account creation, replay protection, and gateway authentication
+- **ZetaChain Gateway Integration**: Seamless integration with ZetaChain's cross-chain infrastructure
+- **Comprehensive Error Handling**: Detailed error codes and validation
 
-- **Cross-chain NFT minting** with metadata preservation
-- **Burn-and-mint transfer mechanism** (no escrow)
-- **Collection support** - each new Universal NFT creates a separate collection
-- **Replay protection** for cross-chain messages
-- **Full Metaplex integration** for metadata and master editions
-- **ZetaChain gateway compatibility** for universal messaging
+## 📋 Prerequisites
+
+- Solana CLI (v1.18.14+)
+- Anchor Framework (v0.30.1+)
+- Node.js (v18+)
+- Rust (v1.70+)
 
 ## 🏗️ Architecture
 
-### Core Components
+### Program Structure
 
-1. **Mint Instruction** (`mint_new_nft`)
-   - Creates new SPL token mint
-   - Generates unique token ID using SHA256 hash
+```
+src/
+├── lib.rs                 # Main program entry point
+├── mint.rs               # NFT minting instruction
+├── handle_incoming.rs    # Cross-chain transfer handler
+├── on_call.rs           # Gateway entry point
+├── utils.rs             # Utility functions and CPI helpers
+├── state/               # Account state definitions
+│   ├── mod.rs
+│   ├── nft_origin.rs    # NFT origin tracking
+│   ├── replay.rs        # Replay protection
+│   └── gateway.rs       # Gateway configuration
+└── ix/                  # Instruction modules (legacy)
+    └── mod.rs
+```
+
+### Key Components
+
+1. **Mint Instruction** (`mint.rs`)
+   - Creates new NFTs on Solana
+   - Generates deterministic token IDs
    - Creates Metaplex metadata and master edition
-   - Stores origin information in `nft_origin` PDA
-   - Each NFT becomes its own collection
+   - Stores NFT origin information
 
-2. **Burn Instruction** (`burn_for_transfer`)
-   - Burns NFT for cross-chain transfer
-   - Creates replay protection via `replay_marker` PDA
-   - Prepares cross-chain message payload
-   - Emits transfer events
+2. **Cross-Chain Handler** (`handle_incoming.rs`)
+   - Processes incoming cross-chain transfers
+   - Validates gateway authentication
+   - Implements replay protection
+   - Restores NFTs from other chains
 
-3. **Handle Incoming** (`handle_incoming`)
-   - Processes cross-chain messages from other chains
-   - Mints new NFTs with preserved metadata
-   - Links to existing origin or creates new origin PDA
-   - Maintains cross-chain provenance
+3. **Gateway Integration** (`on_call.rs`)
+   - Entry point for ZetaChain Gateway calls
+   - Validates gateway configuration
+   - Routes to appropriate handlers
 
-### State Management
+4. **State Management**
+   - `NftOrigin`: Tracks NFT origin information
+   - `ReplayMarker`: Prevents replay attacks
+   - `GatewayConfig`: Gateway authentication
 
-- **`nft_origin` PDA**: Stores origin chain, token ID, mint, and metadata URI
-- **`replay_marker` PDA**: Prevents duplicate cross-chain message processing
-- **Token IDs**: Unique across all chains using SHA256 hash of mint + slot + timestamp
+## 🔧 Installation
+
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/zeta-chain/standard-contracts.git
+   cd standard-contracts/protocol-contracts-solana
+   ```
+
+2. **Install dependencies**
+   ```bash
+   # Install Rust dependencies
+   cargo build
+
+   # Install Node.js dependencies (if using tests)
+   npm install
+   ```
+
+3. **Configure Anchor**
+   ```bash
+   # Copy and configure Anchor.toml
+   cp Anchor.toml.example Anchor.toml
+   ```
 
 ## 🚀 Quick Start
 
-### Prerequisites
-
-- Solana CLI (latest stable)
-- Anchor CLI (`cargo install --git https://github.com/coral-xyz/anchor avm --locked`)
-- Node.js 18+
-
-### Installation
-
+### 1. Build the Program
 ```bash
-# Clone the repository
-git clone https://github.com/zeta-chain/standard-contracts.git
-cd standard-contracts/protocol-contracts-solana
-
-# Install dependencies
-npm install
-
-# Build the program
 anchor build
 ```
 
-### Testing
+### 2. Deploy to Localnet
+```bash
+# Start local validator
+solana-test-validator
 
+# Deploy program
+anchor deploy --provider.cluster localnet
+```
+
+### 3. Run Tests
 ```bash
 # Run unit tests
 anchor test
 
-# Run specific test
-anchor test --skip-local-validator
+# Run integration tests
+npm run test:integration
 ```
 
-## 🔗 Cross-chain Integration
+## 📖 Usage
 
-### Devnet Testing
-
-**⚠️ Important**: Due to potential Solana compatibility issues with the current version of ZetaChain localnet, **devnet testing is required** for Solana integration. Localnet testing is not required at this time.
-
-Run the devnet script to provision EVM contracts and deploy the Solana program:
-
-```bash
-cd ../../contracts/nft/scripts
-chmod +x devnet.sh
-./devnet.sh
-```
-
-This demonstrates the flows:
-1. Mint on Solana devnet → send to Base Sepolia
-2. Mint on ZetaChain testnet → send to Solana devnet
-3. Mint on Base Sepolia → send to Solana devnet
-4. ZetaChain → Base Sepolia → Solana → ZetaChain
-
-### Gateway Integration
-
-The program is designed to work with ZetaChain's universal messaging protocol:
-
-- **Outbound**: NFTs burned and cross-chain messages sent via gateway
-- **Inbound**: Cross-chain messages processed to mint new NFTs
-- **Verification**: Gateway signer verification for message authenticity
-
-## 📋 Instructions
-
-### Mint New NFT
+### Minting a New NFT
 
 ```typescript
-await program.methods
+import { Program } from "@coral-xyz/anchor";
+import { UniversalNft } from "./target/types/universal_nft";
+
+const program = anchor.workspace.UniversalNft as Program<UniversalNft>;
+
+// Mint new NFT
+const tx = await program.methods
   .mintNewNft("https://example.com/metadata.json")
   .accounts({
     payer: payer.publicKey,
@@ -126,89 +139,146 @@ await program.methods
   .rpc();
 ```
 
-### Burn for Transfer
+### Cross-Chain Transfer
 
 ```typescript
-await program.methods
-  .burnForTransfer(new anchor.BN(nonce))
-  .accounts({
-    owner: owner.publicKey,
-    mint: mint.publicKey,
-    ownerTokenAccount: ownerTokenAccount,
-    nftOrigin: nftOriginPda,
-    replayMarker: replayMarkerPda,
-    tokenProgram: TOKEN_PROGRAM_ID,
-    systemProgram: SystemProgram.programId,
-  })
-  .signers([owner])
-  .rpc();
-```
+// Handle incoming cross-chain transfer
+const payload = {
+  tokenId: new Uint8Array(32),
+  originChainId: new anchor.BN(1),
+  originMint: new PublicKey("..."),
+  recipient: recipient.publicKey,
+  metadataUri: "https://example.com/nft.json",
+  nonce: new anchor.BN(1),
+};
 
-### Handle Incoming Message
+const serializedPayload = serializePayload(payload);
 
-```typescript
-await program.methods
-  .handleIncoming(payloadBytes)
+const tx = await program.methods
+  .handleIncoming(serializedPayload)
   .accounts({
-    payer: payer.publicKey,
-    recipient: recipient.publicKey,
-    mint: newMint.publicKey,
-    metadata: newMetadataPda,
-    masterEdition: newMasterEditionPda,
-    recipientTokenAccount: newRecipientTokenAccount,
-    nftOrigin: newNftOriginPda,
-    gatewaySigner: gatewaySigner.publicKey,
-    tokenProgram: TOKEN_PROGRAM_ID,
-    associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
-    rent: SYSVAR_RENT_PUBKEY,
+    // ... account configuration
   })
-  .signers([payer, newMint])
   .rpc();
 ```
 
 ## 🔒 Security Features
 
-- **Replay Protection**: Nonce-based protection against duplicate messages
-- **Origin Verification**: PDA-based verification of NFT origins
-- **Access Control**: Proper signer validation and ownership checks
-- **Gateway Verification**: Integration with ZetaChain's trusted gateway system
+### 1. PDA-Based Account Creation
+- All program-owned accounts use PDAs for deterministic addressing
+- Prevents account spoofing and ensures data integrity
+
+### 2. Replay Protection
+- Unique nonce-based replay markers
+- Prevents duplicate cross-chain transfers
+- Secure nonce generation and validation
+
+### 3. Gateway Authentication
+- Validates gateway program configuration
+- Ensures only authorized gateways can call instructions
+- Configurable gateway program IDs
+
+### 4. Input Validation
+- Comprehensive payload validation
+- Metadata URI length limits
+- Account state verification
 
 ## 🧪 Testing
 
 ### Unit Tests
-
 ```bash
-# Run all tests
+# Run all unit tests
 anchor test
 
-# Run specific test file
-anchor test tests/universal_nft.ts
+# Run specific test
+anchor test --skip-local-validator test_mint_nft
 ```
 
 ### Integration Tests
-
-The test suite covers:
-- NFT minting with collection creation
-- Cross-chain burn operations
-- Incoming message processing
-- Replay protection
-- Collection separation verification
-
-### Localnet Integration
-
 ```bash
-# Start ZetaChain localnet
-yarn zetachain localnet start
+# Run integration tests
+npm run test:integration
 
-# Run Solana integration
-./localnet_solana.sh
+# Run with local validator
+anchor test --skip-local-validator
 ```
 
-## 📚 Documentation
+### Manual Testing
+```bash
+# Test mint instruction
+anchor run test-mint
 
-- **Architecture**: See `docs/solana_universal_nft_architecture.md`
-- **Security**: See `docs/security.md`
-- **API Reference**: Generated via `anchor build`
+# Test cross-chain transfer
+anchor run test-cross-chain
+```
+
+## 📊 Monitoring
+
+### Program Logs
+```bash
+# Monitor program logs
+solana logs <PROGRAM_ID>
+
+# Filter specific instructions
+solana logs <PROGRAM_ID> | grep "mint_new_nft"
+```
+
+### Transaction Monitoring
+```bash
+# Get transaction details
+solana confirm <SIGNATURE>
+
+# View account data
+solana account <ACCOUNT_ADDRESS>
+```
+
+## 🔗 ZetaChain Integration
+
+### Gateway Configuration
+```typescript
+const gatewayConfig = {
+  programId: "Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS",
+  gatewayProgram: "ZETA_GATEWAY_PROGRAM_ID",
+  // Additional configuration
+};
+```
+
+### Cross-Chain Message Format
+```typescript
+interface CrossChainNftPayload {
+  token_id: [u8; 32];
+  origin_chain_id: u16;
+  origin_mint: PublicKey;
+  recipient: PublicKey;
+  metadata_uri: string;
+  nonce: u64;
+}
+```
+
+## 🚨 Error Codes
+
+| Error Code | Description |
+|------------|-------------|
+| `MetadataTooLong` | Metadata URI exceeds maximum length |
+| `InvalidMetadataPda` | Invalid metadata PDA |
+| `InvalidMasterEditionPda` | Invalid master edition PDA |
+| `NftOriginPdaMismatch` | NFT origin PDA mismatch |
+| `UnauthorizedGateway` | Unauthorized gateway access |
+| `InvalidPayload` | Invalid cross-chain payload |
+| `ReplayAttack` | Replay attack detected |
+| `ReplayPdaMismatch` | Replay marker PDA mismatch |
+
+## 📈 Performance
+
+### Gas Optimization
+- Efficient PDA derivation algorithms
+- Minimal account creation overhead
+- Optimized CPI calls to Metaplex
+
+### Storage Optimization
+- Compact data structures
+- Efficient serialization
+- Minimal account space usage
 
 ## 🤝 Contributing
 
@@ -218,20 +288,35 @@ yarn zetachain localnet start
 4. Add tests for new functionality
 5. Submit a pull request
 
+### Development Guidelines
+- Follow Rust coding standards
+- Add comprehensive tests
+- Update documentation
+- Ensure security best practices
+
 ## 📄 License
 
-MIT License - see LICENSE file for details
-
-## 🔗 Links
-
-- [ZetaChain Documentation](https://www.zetachain.com/docs/)
-- [Universal NFT Standard](https://www.zetachain.com/docs/developers/standards/nft/)
-- [Solana Documentation](https://docs.solana.com/)
-- [Anchor Framework](https://www.anchor-lang.com/)
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## 🆘 Support
 
-For technical support and questions:
-- Join the [ZetaChain Discord](https://discord.gg/zetachain)
-- Open an issue on GitHub
-- Check the documentation and examples
+- **Documentation**: [Project Docs](https://docs.zeta.tech)
+- **Issues**: [GitHub Issues](https://github.com/zeta-chain/standard-contracts/issues)
+- **Community**: [Discord](https://discord.gg/zetachain)
+- **Email**: support@zeta.tech
+
+## 🔄 Changelog
+
+### v1.0.0 (Current)
+- Initial release
+- Cross-chain NFT support
+- ZetaChain Gateway integration
+- Comprehensive security features
+- Full Metaplex compatibility
+
+## 🙏 Acknowledgments
+
+- ZetaChain team for cross-chain infrastructure
+- Metaplex for NFT standards
+- Solana Labs for the Solana blockchain
+- Anchor team for the development framework
