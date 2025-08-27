@@ -76,10 +76,12 @@ pub fn address_to_hex_string(address: &[u8; 20]) -> String {
 ///   [0] receiver: 12 zero bytes + 20 byte address
 ///   [1] tokenId: 32-byte big-endian uint256
 ///   [2] offset to uri (uint256, from start of payload)
-///   [3] amount: 32-byte big-endian uint256 (can be ignored; `amount` also provided by gateway)
+///   [3] amount: 32-byte big-endian uint256
 ///   [4] sender: 12 zero bytes + 20 byte address
 /// - Tail at offset: uri length (uint256) + uri bytes + padding to 32 bytes
-pub fn decode_evm_abi_nft_message(data: &[u8]) -> Result<([u8; 32], [u8; 20], String, [u8; 20])> {
+///
+/// Returns: (token_id_be32, receiver_evm_20, uri, amount_u64, sender_evm_20)
+pub fn decode_evm_abi_nft_message(data: &[u8]) -> Result<([u8; 32], [u8; 20], String, u64, [u8; 20])> {
     // Need at least 5 words for head and one word for string length
     if data.len() < 32 * 6 {
         return Err(UniversalNftError::InvalidDataFormat.into());
@@ -108,6 +110,15 @@ pub fn decode_evm_abi_nft_message(data: &[u8]) -> Result<([u8; 32], [u8; 20], St
         return Err(UniversalNftError::InvalidDataFormat.into());
     }
 
+    // amount (word 3) -> require fits into u64 for Solana amounts
+    let amt_word = word(3);
+    if amt_word[..24].iter().any(|&b| b != 0) {
+        return Err(UniversalNftError::InvalidDataFormat.into());
+    }
+    let mut amt_u64_bytes = [0u8; 8];
+    amt_u64_bytes.copy_from_slice(&amt_word[24..32]);
+    let amount_u64 = u64::from_be_bytes(amt_u64_bytes);
+
     // sender (last 20 bytes of word 4)
     let mut sender = [0u8; 20];
     sender.copy_from_slice(&word(4)[12..32]);
@@ -129,5 +140,5 @@ pub fn decode_evm_abi_nft_message(data: &[u8]) -> Result<([u8; 32], [u8; 20], St
     let uri = String::from_utf8(uri_bytes.to_vec())
         .map_err(|_| UniversalNftError::InvalidDataFormat)?;
 
-    Ok((token_id, receiver, uri, sender))
+    Ok((token_id, receiver, uri, amount_u64, sender))
 }

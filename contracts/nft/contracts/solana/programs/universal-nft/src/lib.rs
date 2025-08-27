@@ -492,7 +492,12 @@ pub mod universal_nft {
         );
 
         // Decode message from ZEVM universal contract: (address receiver, uint256 tokenId, string uri, uint256 amount, address sender)
-        let (token_id, _receiver_evm, metadata_uri, _sender_evm) = util::cross_chain_helpers::decode_evm_abi_nft_message(&data)?;
+        let (token_id, _receiver_evm, metadata_uri, amount_in_msg, _sender_evm) = util::cross_chain_helpers::decode_evm_abi_nft_message(&data)?;
+        // Optional: sanity check that gateway-provided amount equals the amount in message (when present)
+        // We don't fail hard to preserve compatibility; log mismatch for observability.
+        if amount_in_msg != 0 && amount_in_msg != amount {
+            msg!("Warning: amount mismatch (gateway: {}, msg: {})", amount, amount_in_msg);
+        }
 
         // Derive origin PDA expected address from token_id only
         let (expected_origin_key, origin_bump) = Pubkey::find_program_address(
@@ -537,8 +542,8 @@ pub mod universal_nft {
                 &ctx.accounts.pda.to_account_info(),
                 &ctx.accounts.system_program.to_account_info(),
                 &ctx.accounts.rent.to_account_info(),
-                &name,
-                &symbol,
+                "",
+                "",
                 &metadata_uri,
                 Some(signer_seeds),
             )?;
