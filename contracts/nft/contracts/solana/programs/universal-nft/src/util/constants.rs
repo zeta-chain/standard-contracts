@@ -19,7 +19,7 @@ pub const MAX_COLLECTION_NAME_LENGTH: usize = 50;
 pub const NFT_ORIGIN_SEED: &[u8] = b"nft_origin";
 
 /// Seed for universal NFT config PDA
-pub const UNIVERSAL_NFT_CONFIG_SEED: &[u8] = b"universal_nft_config";
+pub const UNIVERSAL_NFT_CONFIG_SEED: &[u8] = b"connected";
 
 /// Seed for mint reservation ticket PDA
 pub const MINT_TICKET_SEED: &[u8] = b"mint_ticket";

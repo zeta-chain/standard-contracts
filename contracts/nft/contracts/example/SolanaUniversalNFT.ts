@@ -58,7 +58,7 @@ export class UniversalNftCLI {
 
   private deriveConfigPda(): PublicKey {
     return PublicKey.findProgramAddressSync(
-      [Buffer.from("universal_nft_config")],
+      [Buffer.from("connected")],
       this.program.programId
     )[0];
   }
