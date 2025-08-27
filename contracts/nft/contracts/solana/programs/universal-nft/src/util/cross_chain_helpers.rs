@@ -4,104 +4,6 @@ use crate::error::UniversalNftError;
 /// Cross-chain message data parsing and utilities
 /// This module contains helper functions for encoding/decoding cross-chain NFT data
 
-/// Decode NFT data from a cross-chain message
-/// Parses the message format: token_id(32) + source_chain(8) + metadata_uri + name + symbol
-/// Each string is length-prefixed with a 4-byte big-endian length
-pub fn decode_nft_data(data: &[u8]) -> Result<([u8; 32], u64, String, String, String)> {
-    if data.len() < 40 { // Minimum size: 32 (token_id) + 8 (source_chain)
-        return Err(UniversalNftError::InvalidDataFormat.into());
-    }
-    
-    let mut cursor = 0;
-    
-    // Extract token_id (32 bytes)
-    let mut token_id = [0u8; 32];
-    token_id.copy_from_slice(&data[cursor..cursor + 32]);
-    cursor += 32;
-    
-    // Extract source_chain (8 bytes, big-endian)
-    let source_chain = u64::from_be_bytes([
-        data[cursor], data[cursor + 1], data[cursor + 2], data[cursor + 3],
-        data[cursor + 4], data[cursor + 5], data[cursor + 6], data[cursor + 7],
-    ]);
-    cursor += 8;
-    
-    // Extract strings (each is length-prefixed)
-    let (metadata_uri, new_cursor) = extract_length_prefixed_string(data, cursor)?;
-    cursor = new_cursor;
-    
-    let (name, new_cursor) = extract_length_prefixed_string(data, cursor)?;
-    cursor = new_cursor;
-    
-    let (symbol, _) = extract_length_prefixed_string(data, cursor)?;
-    
-    Ok((token_id, source_chain, metadata_uri, name, symbol))
-}
-
-/// Decode NFT data from a cross-chain message with recipient
-/// Parses the message format: token_id(32) + source_chain(8) + recipient(32) + metadata_uri + name + symbol
-/// Each string is length-prefixed with a 4-byte big-endian length
-pub fn decode_nft_data_with_recipient(data: &[u8]) -> Result<([u8; 32], u64, [u8; 32], String, String, String)> {
-    if data.len() < 72 { // Minimum size: 32 (token_id) + 8 (source_chain) + 32 (recipient)
-        return Err(UniversalNftError::InvalidDataFormat.into());
-    }
-    
-    let mut cursor = 0;
-    
-    // Extract token_id (32 bytes)
-    let mut token_id = [0u8; 32];
-    token_id.copy_from_slice(&data[cursor..cursor + 32]);
-    cursor += 32;
-    
-    // Extract source_chain (8 bytes, big-endian)
-    let source_chain = u64::from_be_bytes([
-        data[cursor], data[cursor + 1], data[cursor + 2], data[cursor + 3],
-        data[cursor + 4], data[cursor + 5], data[cursor + 6], data[cursor + 7],
-    ]);
-    cursor += 8;
-    
-    // Extract recipient (32 bytes)
-    let mut recipient_bytes = [0u8; 32];
-    recipient_bytes.copy_from_slice(&data[cursor..cursor + 32]);
-    cursor += 32;
-    
-    // Extract strings (each is length-prefixed)
-    let (metadata_uri, new_cursor) = extract_length_prefixed_string(data, cursor)?;
-    cursor = new_cursor;
-    
-    let (name, new_cursor) = extract_length_prefixed_string(data, cursor)?;
-    cursor = new_cursor;
-    
-    let (symbol, _) = extract_length_prefixed_string(data, cursor)?;
-    
-    Ok((token_id, source_chain, recipient_bytes, metadata_uri, name, symbol))
-}
-
-/// Encode NFT data for cross-chain message
-/// Creates the message format: token_id(32) + source_chain(8) + metadata_uri + name + symbol
-pub fn encode_nft_data(
-    token_id: [u8; 32],
-    source_chain: u64,
-    metadata_uri: &str,
-    name: &str,
-    symbol: &str,
-) -> Vec<u8> {
-    let mut data = Vec::new();
-    
-    // Token ID (32 bytes)
-    data.extend_from_slice(&token_id);
-    
-    // Source chain (8 bytes, big-endian)
-    data.extend_from_slice(&source_chain.to_be_bytes());
-    
-    // Strings (each length-prefixed with 4-byte big-endian length)
-    encode_length_prefixed_string(&mut data, metadata_uri);
-    encode_length_prefixed_string(&mut data, name);
-    encode_length_prefixed_string(&mut data, symbol);
-    
-    data
-}
-
 /// Extract a length-prefixed string from byte array
 /// Format: length(4 bytes, big-endian) + string_data
 fn extract_length_prefixed_string(data: &[u8], cursor: usize) -> Result<(String, usize)> {
@@ -167,27 +69,65 @@ pub fn hex_string_to_address(address_str: &str) -> Result<[u8; 20]> {
 pub fn address_to_hex_string(address: &[u8; 20]) -> String {
     format!("0x{}", hex::encode(address))
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_encode_decode_roundtrip() {
-        let token_id = [1u8; 32];
-        let source_chain = 1337u64;
-        let metadata_uri = "https://gist.githubusercontent.com/adamliu84/d84f1058ea5d45d6fc03472a9fa2dbb2/raw/cf154d08ed197aef4ee157055e435e999e23f0e8/0.json";
-        let name = "Test NFT";
-        let symbol = "TEST";
-        
-        let encoded = encode_nft_data(token_id, source_chain, metadata_uri, name, symbol);
-        let (decoded_token_id, decoded_source_chain, decoded_uri, decoded_name, decoded_symbol) = 
-            decode_nft_data(&encoded).unwrap();
-        
-        assert_eq!(decoded_token_id, token_id);
-        assert_eq!(decoded_source_chain, source_chain);
-        assert_eq!(decoded_uri, metadata_uri);
-        assert_eq!(decoded_name, name);
-        assert_eq!(decoded_symbol, symbol);
+/// Decode an EVM ABI-encoded NFT message used by ZEVM Universal contracts when forwarding to Solana.
+/// Tuple layout (Solidity): (address receiver, uint256 tokenId, string uri, uint256 amount, address sender)
+/// ABI encoding:
+/// - Head (5 x 32 bytes):
+///   [0] receiver: 12 zero bytes + 20 byte address
+///   [1] tokenId: 32-byte big-endian uint256
+///   [2] offset to uri (uint256, from start of payload)
+///   [3] amount: 32-byte big-endian uint256 (can be ignored; `amount` also provided by gateway)
+///   [4] sender: 12 zero bytes + 20 byte address
+/// - Tail at offset: uri length (uint256) + uri bytes + padding to 32 bytes
+pub fn decode_evm_abi_nft_message(data: &[u8]) -> Result<([u8; 32], [u8; 20], String, [u8; 20])> {
+    // Need at least 5 words for head and one word for string length
+    if data.len() < 32 * 6 {
+        return Err(UniversalNftError::InvalidDataFormat.into());
     }
+
+    // Helper to extract a 32-byte word at index
+    let word = |i: usize| -> &[u8] { &data[i * 32..(i + 1) * 32] };
+
+    // receiver (last 20 bytes of word 0)
+    let mut receiver = [0u8; 20];
+    receiver.copy_from_slice(&word(0)[12..32]);
+
+    // tokenId (word 1)
+    let mut token_id = [0u8; 32];
+    token_id.copy_from_slice(word(1));
+
+    // uri offset (word 2) as big-endian; must fit in usize and high 24 bytes zero
+    let off_word = word(2);
+    if off_word[..24].iter().any(|&b| b != 0) {
+        return Err(UniversalNftError::InvalidDataFormat.into());
+    }
+    let mut off_u64_bytes = [0u8; 8];
+    off_u64_bytes.copy_from_slice(&off_word[24..32]);
+    let offset = u64::from_be_bytes(off_u64_bytes) as usize;
+    if offset + 32 > data.len() { // must have length word
+        return Err(UniversalNftError::InvalidDataFormat.into());
+    }
+
+    // sender (last 20 bytes of word 4)
+    let mut sender = [0u8; 20];
+    sender.copy_from_slice(&word(4)[12..32]);
+
+    // Tail: string length (u256 big-endian, must fit in usize)
+    let len_word = &data[offset..offset + 32];
+    if len_word[..24].iter().any(|&b| b != 0) {
+        return Err(UniversalNftError::InvalidDataFormat.into());
+    }
+    let mut len_u64_bytes = [0u8; 8];
+    len_u64_bytes.copy_from_slice(&len_word[24..32]);
+    let uri_len = u64::from_be_bytes(len_u64_bytes) as usize;
+
+    let start = offset + 32;
+    if start + uri_len > data.len() {
+        return Err(UniversalNftError::InvalidDataFormat.into());
+    }
+    let uri_bytes = &data[start..start + uri_len];
+    let uri = String::from_utf8(uri_bytes.to_vec())
+        .map_err(|_| UniversalNftError::InvalidDataFormat)?;
+
+    Ok((token_id, receiver, uri, sender))
 }

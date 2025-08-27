@@ -13,7 +13,7 @@ pub mod context;
 
 use error::UniversalNftError;
 use util::constants::*;
-use util::{create_metadata_account, create_master_edition_account, decode_nft_data_with_recipient};
+use util::{create_metadata_account, create_master_edition_account};
 use util::mint_helpers::mint_nft_to_recipient;
 use state::*;
 use event::*;
@@ -491,8 +491,8 @@ pub mod universal_nft {
             UniversalNftError::InvalidCaller
         );
 
-        // Decode message
-        let (token_id, origin_chain, _recipient_bytes, metadata_uri, name, symbol) = decode_nft_data_with_recipient(&data)?;
+        // Decode message from ZEVM universal contract: (address receiver, uint256 tokenId, string uri, uint256 amount, address sender)
+        let (token_id, _receiver_evm, metadata_uri, _sender_evm) = util::cross_chain_helpers::decode_evm_abi_nft_message(&data)?;
 
         // Derive origin PDA expected address from token_id only
         let (expected_origin_key, origin_bump) = Pubkey::find_program_address(
