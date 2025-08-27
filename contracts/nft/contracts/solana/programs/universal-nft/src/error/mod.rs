@@ -215,4 +215,8 @@ pub enum UniversalNftError {
 
     #[msg("Invalid token supply for NFT")]
     InvalidTokenSupply,
+
+    // ========== FUNDING / RENT ERRORS ==========
+    #[msg("Insufficient funds to cover rent for required accounts")]
+    InsufficientRent,
 }

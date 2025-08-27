@@ -532,6 +532,30 @@ pub mod universal_nft {
         let signer_seeds_raw = &[UNIVERSAL_NFT_CONFIG_SEED, &[ctx.accounts.pda.bump]];
         let signer_seeds: &[&[&[u8]]] = &[&signer_seeds_raw[..]];
 
+        // Preflight: ensure the provided amount is enough to cover rent for any accounts we may need to create.
+        // This avoids partial state and clearer errors.
+        {
+            let rent_sys = Rent::get()?;
+            let mut required_lamports: u64 = 0;
+            // Account size estimates; if already initialized, cost is zero
+            if ctx.accounts.metadata.data_is_empty() {
+                required_lamports = required_lamports
+                    .saturating_add(rent_sys.minimum_balance(EST_METADATA_ACCOUNT_SIZE));
+            }
+            if ctx.accounts.master_edition.data_is_empty() {
+                required_lamports = required_lamports
+                    .saturating_add(rent_sys.minimum_balance(EST_MASTER_EDITION_ACCOUNT_SIZE));
+            }
+            if ctx.accounts.nft_origin.data_is_empty() {
+                required_lamports = required_lamports
+                    .saturating_add(rent_sys.minimum_balance(NftOrigin::SPACE));
+            }
+            // Only enforce if we actually need to create something
+            if required_lamports > 0 {
+                require!(amount >= required_lamports, UniversalNftError::InsufficientRent);
+            }
+        }
+
         // 1) Ensure metadata + master edition exist first. This uses the program PDA as authority.
         // Doing this up front guarantees deterministic state and avoids partially-initialized origin records.
         if ctx.accounts.metadata.data_is_empty() {

@@ -81,6 +81,11 @@ pub const DEFAULT_PRIMARY_SALE_HAPPENED: bool = false;
 /// Is mutable flag for metadata
 pub const DEFAULT_IS_MUTABLE: bool = true;
 
+/// Estimated sizes (bytes) for Metaplex accounts used to preflight rent checks.
+/// These are conservative upper bounds to avoid partial state when funds are insufficient.
+pub const EST_METADATA_ACCOUNT_SIZE: usize = 1024; // conservative upper bound
+pub const EST_MASTER_EDITION_ACCOUNT_SIZE: usize = 512; // conservative upper bound
+
 // ========== GAS AND FEE CONSTANTS ==========
 // Removed gas limit constants since Solana -> ZetaChain doesn't require gas specification
 
