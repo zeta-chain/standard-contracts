@@ -185,7 +185,7 @@ describe("Universal NFT Program", () => {
     it("Should mint an NFT successfully", async () => {
       nftTokenAccount = await getAssociatedTokenAddress(
         nftMint.publicKey,
-        user.publicKey
+        authority.publicKey
       );
 
       const nftName = "Test NFT";
@@ -201,7 +201,7 @@ describe("Universal NFT Program", () => {
             nftMint: nftMint.publicKey,
             nftMetadata,
             nftTokenAccount,
-            owner: user.publicKey,
+            owner: authority.publicKey,
             authority: authority.publicKey,
             systemProgram: SystemProgram.programId,
             tokenProgram: TOKEN_PROGRAM_ID,
@@ -209,7 +209,7 @@ describe("Universal NFT Program", () => {
             metadataProgram: TOKEN_METADATA_PROGRAM_ID,
             rent: SYSVAR_RENT_PUBKEY,
           })
-          .signers([user, authority, nftMint])
+          .signers([authority, nftMint])
           .rpc();
 
         console.log("NFT minted. Transaction:", tx);
@@ -243,7 +243,7 @@ describe("Universal NFT Program", () => {
     before(async () => {
       // Setup NFT for cross-chain testing
       nftMint = Keypair.generate();
-      nftTokenAccount = await getAssociatedTokenAddress(nftMint.publicKey, user.publicKey);
+      nftTokenAccount = await getAssociatedTokenAddress(nftMint.publicKey, authority.publicKey);
       [nftStatePda] = PublicKey.findProgramAddressSync(
         [Buffer.from("nft_state"), nftMint.publicKey.toBuffer()],
         program.programId

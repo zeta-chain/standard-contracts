@@ -1,4 +1,6 @@
-import { createHash } from "crypto";
+// EIP-55 uses Keccak-256 (not SHA-256)
+import { keccak_256 } from "@noble/hashes/sha3";
+import { bytesToHex, utf8ToBytes } from "@noble/hashes/utils";
 
 /**
  * Normalizes an Ethereum address with EIP-55 checksum validation
@@ -7,8 +9,8 @@ import { createHash } from "crypto";
  * @throws Error if address is invalid
  */
 export function normalizeEthereumAddress(address: string): string {
-  // Remove 0x prefix if present and convert to lowercase
-  const cleanAddress = address.replace(/^0x/i, "").toLowerCase();
+  // Trim, remove 0x prefix if present, and lowercase
+  const cleanAddress = address.trim().replace(/^0x/i, "").toLowerCase();
   
   // Validate hex format (must be exactly 40 hex characters = 20 bytes)
   if (!/^[0-9a-f]{40}$/i.test(cleanAddress)) {
@@ -17,15 +19,9 @@ export function normalizeEthereumAddress(address: string): string {
     );
   }
   
-  // Validate not zero address (unless explicitly allowed)
-  if (cleanAddress === "0".repeat(40)) {
-    console.warn("⚠️  Using zero address - this should only be used for testing");
-  }
+  // Zero address policy is context-specific; allow but do not log here.
   
-  // Apply EIP-55 checksum
   const checksummedAddress = toChecksumAddress(cleanAddress);
-  console.log(`✅ Ethereum address normalized: ${checksummedAddress}`);
-  
   return checksummedAddress;
 }
 
@@ -35,18 +31,13 @@ export function normalizeEthereumAddress(address: string): string {
  * @returns Address with EIP-55 checksum
  */
 function toChecksumAddress(address: string): string {
-  const hash = createHash("sha256").update(address.toLowerCase()).digest("hex");
-  
-  let checksummedAddress = "0x";
-  for (let i = 0; i < address.length; i++) {
-    if (parseInt(hash[i], 16) >= 8) {
-      checksummedAddress += address[i].toUpperCase();
-    } else {
-      checksummedAddress += address[i].toLowerCase();
-    }
+  const lower = address.toLowerCase(); // 40 hex chars, no 0x
+  const hash = bytesToHex(keccak_256(utf8ToBytes(lower)));
+  let out = "0x";
+  for (let i = 0; i < lower.length; i++) {
+    out += parseInt(hash[i], 16) >= 8 ? lower[i].toUpperCase() : lower[i];
   }
-  
-  return checksummedAddress;
+  return out;
 }
 
 /**

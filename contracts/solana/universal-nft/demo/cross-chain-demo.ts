@@ -349,17 +349,17 @@ export class CrossChainNFTDemo {
       // Create NFT state PDA
       const [nftStatePDA] = PublicKey.findProgramAddressSync(
         [Buffer.from('nft_state'), nftMint.publicKey.toBuffer()],
-        PROGRAM_ID
+        this.config.programId
       );
       
       // Create gateway message PDA
       const [gatewayMessagePDA] = PublicKey.findProgramAddressSync(
         [
           Buffer.from('gateway_message'),
-          new BN(ZETACHAIN_CHAIN_ID).toArrayLike(Buffer, 'le', 8),
+          new BN(this.config.zetachainChainId).toArrayLike(Buffer, 'le', 8),
           new BN(1).toArrayLike(Buffer, 'le', 8) // nonce
         ],
-        PROGRAM_ID
+        this.config.programId
       );
       
       console.log('📍 NFT State PDA:', nftStatePDA.toString());
@@ -392,7 +392,7 @@ export class CrossChainNFTDemo {
       // Simulate burn_for_cross_chain instruction
       console.log('🔥 Burning NFT on Solana for cross-chain transfer...');
       
-      const destinationChainId = ZETACHAIN_CHAIN_ID;
+      const destinationChainId = this.config.zetachainChainId;
       const destinationAddress = getEvmAddressArray(this.zetaWallet.address);
       
       // Create burn message
@@ -483,4 +483,23 @@ export class CrossChainNFTDemo {
 }
 
 // Enhanced export with type definitions
-export { CrossChainNFTDemo, type CrossChainNftMetadata, CrossChainMessageType };\n\n// Execute demo if run directly (supports both CommonJS and ESM)\nconst isMainModule = typeof require !== 'undefined' && require.main === module;\nconst isESMMain = typeof process !== 'undefined' && process.argv[1] && \n  process.argv[1].endsWith('cross-chain-demo.ts');\n\nif (isMainModule || isESMMain) {\n  console.log('🚀 Starting Cross-Chain NFT Demo...');\n  const demo = new CrossChainNFTDemo();\n  demo.runCompleteDemo()\n    .then(() => {\n      console.log('✅ Demo completed successfully!');\n      process.exit(0);\n    })\n    .catch((error) => {\n      console.error('❌ Demo failed:', error);\n      process.exit(1);\n    });\n}
+export { CrossChainNFTDemo, type CrossChainNftMetadata, CrossChainMessageType };
+
+// Execute demo if run directly (supports both CommonJS and ESM)
+const isMainModule = typeof require !== 'undefined' && require.main === module;
+const isESMMain = typeof process !== 'undefined' && process.argv[1] && 
+  process.argv[1].endsWith('cross-chain-demo.ts');
+
+if (isMainModule || isESMMain) {
+  console.log('🚀 Starting Cross-Chain NFT Demo...');
+  const demo = new CrossChainNFTDemo();
+  demo.runCompleteDemo()
+    .then(() => {
+      console.log('✅ Demo completed successfully!');
+      process.exit(0);
+    })
+    .catch((error) => {
+      console.error('❌ Demo failed:', error);
+      process.exit(1);
+    });
+}

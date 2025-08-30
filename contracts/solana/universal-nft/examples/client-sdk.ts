@@ -107,8 +107,7 @@ export class UniversalNftClient {
    * Mint a new NFT
    */
   async mintNft(
-    owner: Keypair,
-    authority: Keypair,
+    ownerAuthority: Keypair,
     metadata: {
       name: string;
       symbol: string;
@@ -134,7 +133,7 @@ export class UniversalNftClient {
 
     const nftTokenAccount = await getAssociatedTokenAddress(
       nftMint.publicKey,
-      owner.publicKey
+      ownerAuthority.publicKey
     );
 
     const signature = await this.program.methods
@@ -145,15 +144,15 @@ export class UniversalNftClient {
         nftMint: nftMint.publicKey,
         nftMetadata,
         nftTokenAccount,
-        owner: owner.publicKey,
-        authority: authority.publicKey,
+        owner: ownerAuthority.publicKey,
+        authority: ownerAuthority.publicKey,
         systemProgram: SystemProgram.programId,
         tokenProgram: TOKEN_PROGRAM_ID,
         associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
         metadataProgram: TOKEN_METADATA_PROGRAM_ID,
         rent: SYSVAR_RENT_PUBKEY,
       })
-      .signers([owner, authority, nftMint])
+      .signers([ownerAuthority, nftMint])
       .rpc();
 
     return {
@@ -289,11 +288,12 @@ export class UniversalNftClient {
    * Helper: Format cross-chain history for display
    */
   formatCrossChainHistory(history: any[]): string {
-    return history.map((transfer, index) => {
-      const type = transfer.transferType.outbound ? "Outbound" : "Inbound";
-      const chainId = transfer.destinationChainId.toString();
+    return history.map((transfer: any, index) => {
+      const type = transfer.transferType?.outbound ? "Outbound" : "Inbound";
+      const chainId = (transfer.destinationChainId?.toNumber?.() ?? transfer.destinationChainId).toString();
       const address = Buffer.from(transfer.destinationAddress).toString('hex');
-      const timestamp = new Date(transfer.transferTimestamp * 1000).toISOString();
+      const ts = transfer.transferTimestamp?.toNumber ? transfer.transferTimestamp.toNumber() : transfer.transferTimestamp;
+      const timestamp = new Date(ts * 1000).toISOString();
       
       return `${index + 1}. ${type} to Chain ${chainId} (${address}) at ${timestamp}`;
     }).join('\n');
