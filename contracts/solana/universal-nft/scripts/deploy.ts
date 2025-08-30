@@ -146,8 +146,15 @@ async function updateTssAddress() {
   const provider = anchor.AnchorProvider.env();
   const program = anchor.workspace.UniversalNftProgram as Program<UniversalNftProgram>;
   
-  // Replace with actual TSS address from ZetaChain
-  const tssAddress = Array.from(Buffer.alloc(20)); // Placeholder
+  // Validate TSS address - never use zero address in production
+  const tssAddressEnv = process.env.TSS_ADDRESS;
+  if (!tssAddressEnv && !process.env.ALLOW_ZERO_TSS) {
+    throw new Error("TSS_ADDRESS env var is required. Set ALLOW_ZERO_TSS=1 for testing only.");
+  }
+  
+  const tssAddress = tssAddressEnv 
+    ? Array.from(Buffer.from(tssAddressEnv.replace('0x', ''), 'hex'))
+    : Array.from(Buffer.alloc(20)); // Only allowed with ALLOW_ZERO_TSS=1
   
   const [programConfigPda] = PublicKey.findProgramAddressSync(
     [Buffer.from("universal_nft_program")],

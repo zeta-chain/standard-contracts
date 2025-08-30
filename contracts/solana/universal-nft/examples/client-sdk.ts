@@ -256,21 +256,20 @@ export class UniversalNftClient {
    */
   async getNftsByOwner(ownerPublicKey: PublicKey): Promise<any[]> {
     // This would require indexing or scanning the blockchain
-    // In practice, you'd use a service like Helius, QuickNode, or the RPC getTokenAccountsByOwner
-    const accounts = await this.provider.connection.getTokenAccountsByOwner(
+    // In practice, you'd use a service like Helius, QuickNode, or the RPC getParsedTokenAccountsByOwner
+    const accounts = await this.provider.connection.getParsedTokenAccountsByOwner(
       ownerPublicKey,
       { programId: TOKEN_PROGRAM_ID }
     );
 
     const nfts = [];
     for (const account of accounts.value) {
-      const tokenAccount = await this.provider.connection.getTokenAccountBalance(
-        account.pubkey
-      );
-      
-      if (tokenAccount.value.uiAmount === 1 && tokenAccount.value.decimals === 0) {
+      // Use the parsed info instead of slicing raw bytes
+      const info: any = account.account.data.parsed.info;
+      const amount = info.tokenAmount;
+      if (amount.decimals === 0 && amount.uiAmount === 1) {
         // This might be an NFT, check if it has our NFT state
-        const mintPubkey = new PublicKey(account.account.data.slice(0, 32));
+        const mintPubkey = new PublicKey(info.mint);
         try {
           const nftState = await this.getNftState(mintPubkey);
           nfts.push({

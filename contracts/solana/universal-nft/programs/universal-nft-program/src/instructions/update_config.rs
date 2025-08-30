@@ -15,13 +15,24 @@ pub fn update_gateway_config(
     );
     
     if let Some(gateway_id) = new_gateway_program_id {
-        program_config.gateway_program_id = gateway_id;
-        msg!("Updated gateway program ID to: {}", gateway_id);
+        require!(gateway_id != Pubkey::default(), UniversalNftError::InvalidGatewayProgramId);
+        if program_config.gateway_program_id != gateway_id {
+            program_config.gateway_program_id = gateway_id;
+            msg!("Updated gateway program ID to: {}", gateway_id);
+        } else {
+            msg!("Gateway program ID unchanged");
+        }
     }
     
     if let Some(tss_addr) = new_tss_address {
-        program_config.tss_address = tss_addr;
-        msg!("Updated TSS address to: {:?}", tss_addr);
+        // Validate TSS address is not zero
+        require!(tss_addr != [0u8; 20], UniversalNftError::InvalidTssAddress);
+        if program_config.tss_address != tss_addr {
+            program_config.tss_address = tss_addr;
+            msg!("Updated TSS address to: {:?}", tss_addr);
+        } else {
+            msg!("TSS address unchanged");
+        }
     }
     
     msg!("Gateway configuration updated successfully");

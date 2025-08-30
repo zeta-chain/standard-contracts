@@ -5,17 +5,17 @@ resolution = true
 skip-lint = false
 
 [programs.localnet]
-universal_nft_program = "HmxFvdfMC5ibgqswhyWxgzdKLLuBPcPgS7MNShipU5MT"
+universal_nft_program = "Gc1BJg4sYAYGnKBStAHLTdVRLR3fA7DPc7t9G7vjKa1i"
 
 [programs.devnet]
-universal_nft_program = "HmxFvdfMC5ibgqswhyWxgzdKLLuBPcPgS7MNShipU5MT"
+universal_nft_program = "Gc1BJg4sYAYGnKBStAHLTdVRLR3fA7DPc7t9G7vjKa1i"
 
 [registry]
 url = "https://api.apr.dev"
 
 [provider]
-cluster = "Devnet"
-wallet = "~/.config/solana/id.json"
+cluster = "Localnet"
+# wallet provided via ANCHOR_WALLET or CLI flags
 
 [scripts]
 test = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.ts"

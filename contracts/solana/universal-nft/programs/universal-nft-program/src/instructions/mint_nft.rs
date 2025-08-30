@@ -97,6 +97,9 @@ pub fn mint_nft(
             final_creators.len() <= MAX_CREATOR_COUNT,
             UniversalNftError::CreatorVerificationFailed
         );
+        // Validate creator shares total 100%
+        let total_share: u8 = final_creators.iter().map(|c| c.share).sum();
+        require!(total_share == 100, UniversalNftError::CreatorVerificationFailed);
     }
 
     // Create NFT metadata with collection

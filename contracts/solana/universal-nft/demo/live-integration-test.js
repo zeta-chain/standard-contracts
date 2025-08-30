@@ -12,10 +12,14 @@ const SOLANA_CHAIN_ID = 7565164;
 const ZETACHAIN_CHAIN_ID = 7001;
 
 // Instruction discriminators (first 8 bytes of instruction data)
+const crypto = require('crypto');
+const sighash = (name) =>
+  crypto.createHash('sha256').update(`global:${name}`).digest().slice(0, 8);
+
 const INSTRUCTION_DISCRIMINATORS = {
-  INITIALIZE_PROGRAM: Buffer.from([175, 175, 109, 31, 13, 152, 155, 237]),
-  MINT_FROM_CROSS_CHAIN: Buffer.from([166, 141, 66, 199, 133, 251, 144, 221]),
-  ON_CALL: Buffer.from([102, 97, 191, 56, 124, 220, 2, 198]),
+  INITIALIZE_PROGRAM: sighash('initialize_program'),
+  MINT_FROM_CROSS_CHAIN: sighash('mint_from_cross_chain'),
+  ON_CALL: sighash('on_call'),
 };
 
 class LiveCrossChainIntegration {
@@ -74,10 +78,12 @@ class LiveCrossChainIntegration {
       const metadataBuffer = Buffer.from(metadataJson, 'utf8');
       
       // Create message buffer
+      const metaLen = Buffer.alloc(4);
+      metaLen.writeUInt32LE(metadataBuffer.length, 0);
       const message = Buffer.concat([
         Buffer.from([messageType]),
         recipient,
-        Buffer.alloc(4).fill(metadataBuffer.length), // Length prefix
+        metaLen,
         metadataBuffer
       ]);
       

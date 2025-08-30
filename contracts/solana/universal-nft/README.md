@@ -301,7 +301,7 @@ cargo build-sbf
 solana program deploy target/deploy/universal_nft_program.so
 
 # Verify deployment
-node test-deployment.js
+node demo/live-integration-test.js
 ```
 
 ### Quick Test (Devnet)
@@ -316,7 +316,7 @@ cd Universal-NFT-Program
 npm install
 
 # Run deployment verification test
-node test-deployment.js
+node demo/live-integration-test.js
 
 # Expected output:
 # ✅ Program is deployed and accessible  
@@ -370,4 +370,4 @@ This project is open source and available under the MIT License.
 
 ---
 
-**Note**: This implementation addresses all requirements from the ZetaChain Universal NFT bounty, including Solana-specific challenges (compute budget, rent exemption, token account creation, signer management), ZetaChain compatibility, and security best practices.# Universal-NFT-Program
+**Note**: This implementation addresses all requirements from the ZetaChain Universal NFT bounty, including Solana-specific challenges (compute budget, rent exemption, token account creation, signer management), ZetaChain compatibility, and security best practices.

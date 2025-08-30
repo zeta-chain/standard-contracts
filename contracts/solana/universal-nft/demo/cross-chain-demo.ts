@@ -62,14 +62,21 @@ export class CrossChainNFTDemo {
     
     // Load wallets (in production, these would be loaded securely)
     this.solanaWallet = Keypair.generate(); // In demo, generate new wallet
-    this.zetaWallet = new ethers.Wallet(
-      '0x' + '0'.repeat(64), // Demo private key - replace with real key
-      this.zetaProvider
-    );
     
-    // Initialize gateway contract
+    // Validate environment variables for security
+    const pk = process.env.DEMO_PRIVATE_KEY;
+    if (!pk || pk === '0x' + '0'.repeat(64)) {
+      throw new Error("DEMO_PRIVATE_KEY env var is required and cannot be the zero key");
+    }
+    this.zetaWallet = new ethers.Wallet(pk.startsWith("0x") ? pk : ("0x" + pk), this.zetaProvider);
+
+    // Initialize gateway contract with validated address
+    const gatewayAddr = process.env.DEMO_GATEWAY_ADDR;
+    if (!gatewayAddr || gatewayAddr === '0x0000000000000000000000000000000000000000') {
+      throw new Error("DEMO_GATEWAY_ADDR env var is required and cannot be the zero address");
+    }
     this.gatewayContract = new ethers.Contract(
-      '0x0000000000000000000000000000000000000000', // Demo gateway address
+      gatewayAddr,
       GATEWAY_ABI,
       this.zetaWallet
     );

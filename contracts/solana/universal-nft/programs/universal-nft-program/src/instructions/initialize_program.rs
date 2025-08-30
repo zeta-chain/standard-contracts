@@ -39,7 +39,11 @@ pub fn initialize_program(
         UniversalNftError::MetadataTooLong
     );
 
-    let clock = Clock::get()?;
+    // Validate gateway program ID is not default
+    require!(
+        gateway_program_id != Pubkey::default(),
+        UniversalNftError::InvalidGatewayProgramId
+    );
     
     program_config.authority = ctx.accounts.authority.key();
     program_config.gateway_program_id = gateway_program_id;
