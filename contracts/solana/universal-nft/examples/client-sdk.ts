@@ -13,7 +13,8 @@ import {
   ASSOCIATED_TOKEN_PROGRAM_ID,
   getAssociatedTokenAddress,
 } from "@solana/spl-token";
-import { MPL_TOKEN_METADATA_PROGRAM_ID } from "@metaplex-foundation/mpl-token-metadata";
+import { PROGRAM_ID as TOKEN_METADATA_PROGRAM_ID } from "@metaplex-foundation/mpl-token-metadata";
+import { getEvmAddressArray } from "../utils/address";
 
 /**
  * Universal NFT Client SDK
@@ -55,20 +56,20 @@ export class UniversalNftClient {
     const [collectionMetadata] = PublicKey.findProgramAddressSync(
       [
         Buffer.from("metadata"),
-        MPL_TOKEN_METADATA_PROGRAM_ID.toBuffer(),
+        TOKEN_METADATA_PROGRAM_ID.toBuffer(),
         collectionMint.publicKey.toBuffer(),
       ],
-      MPL_TOKEN_METADATA_PROGRAM_ID
+      TOKEN_METADATA_PROGRAM_ID
     );
 
     const [collectionMasterEdition] = PublicKey.findProgramAddressSync(
       [
         Buffer.from("metadata"),
-        MPL_TOKEN_METADATA_PROGRAM_ID.toBuffer(),
+        TOKEN_METADATA_PROGRAM_ID.toBuffer(),
         collectionMint.publicKey.toBuffer(),
         Buffer.from("edition"),
       ],
-      MPL_TOKEN_METADATA_PROGRAM_ID
+      TOKEN_METADATA_PROGRAM_ID
     );
 
     const collectionTokenAccount = await getAssociatedTokenAddress(
@@ -93,7 +94,7 @@ export class UniversalNftClient {
         systemProgram: SystemProgram.programId,
         tokenProgram: TOKEN_PROGRAM_ID,
         associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
-        metadataProgram: MPL_TOKEN_METADATA_PROGRAM_ID,
+        metadataProgram: TOKEN_METADATA_PROGRAM_ID,
         rent: SYSVAR_RENT_PUBKEY,
       })
       .signers([authority, collectionMint])
@@ -125,10 +126,10 @@ export class UniversalNftClient {
     const [nftMetadata] = PublicKey.findProgramAddressSync(
       [
         Buffer.from("metadata"),
-        MPL_TOKEN_METADATA_PROGRAM_ID.toBuffer(),
+        TOKEN_METADATA_PROGRAM_ID.toBuffer(),
         nftMint.publicKey.toBuffer(),
       ],
-      MPL_TOKEN_METADATA_PROGRAM_ID
+      TOKEN_METADATA_PROGRAM_ID
     );
 
     const nftTokenAccount = await getAssociatedTokenAddress(
@@ -149,7 +150,7 @@ export class UniversalNftClient {
         systemProgram: SystemProgram.programId,
         tokenProgram: TOKEN_PROGRAM_ID,
         associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
-        metadataProgram: MPL_TOKEN_METADATA_PROGRAM_ID,
+        metadataProgram: TOKEN_METADATA_PROGRAM_ID,
         rent: SYSVAR_RENT_PUBKEY,
       })
       .signers([owner, authority, nftMint])
@@ -181,10 +182,8 @@ export class UniversalNftClient {
       owner.publicKey
     );
 
-    // Convert hex address to bytes if it's a hex string
-    const addressBytes = destinationAddress.startsWith('0x') 
-      ? Array.from(Buffer.from(destinationAddress.slice(2), 'hex'))
-      : Array.from(Buffer.from(destinationAddress, 'utf8'));
+    // Convert and validate EVM address with checksum
+    const addressBytes = getEvmAddressArray(destinationAddress);
 
     const signature = await this.program.methods
       .burnForCrossChain(

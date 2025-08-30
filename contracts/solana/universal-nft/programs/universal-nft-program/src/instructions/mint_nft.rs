@@ -98,8 +98,12 @@ pub fn mint_nft(
             UniversalNftError::CreatorVerificationFailed
         );
         // Validate creator shares total 100%
-        let total_share: u8 = final_creators.iter().map(|c| c.share).sum();
-        require!(total_share == 100, UniversalNftError::CreatorVerificationFailed);
+        let total_share: u16 = final_creators.iter().map(|c| c.share as u16).sum();
+        require!(
+            // ensure no single share exceeds 100 and the combined total is exactly 100
+            final_creators.iter().all(|c| c.share <= 100) && total_share == 100,
+            UniversalNftError::CreatorVerificationFailed
+        );
     }
 
     // Create NFT metadata with collection
@@ -110,7 +114,7 @@ pub fn mint_nft(
 
     let data = DataV2 {
         name: name.clone(),
-        symbol,
+        symbol: symbol.clone(),
         uri: uri.clone(),
         seller_fee_basis_points: 0,
         creators: Some(final_creators),
@@ -144,7 +148,7 @@ pub fn mint_nft(
     // Calculate and store metadata hash
     let cross_chain_metadata = CrossChainNftMetadata {
         name,
-        symbol: ctx.accounts.nft_mint.key().to_string()[..10].to_string(),
+        symbol,
         uri,
         original_chain_id: SOLANA_CHAIN_ID,
         original_token_id: token_id.to_le_bytes().to_vec(),

@@ -12,6 +12,8 @@
     "deploy:devnet": "anchor deploy --provider.cluster devnet && ts-node scripts/deploy.ts deploy",
     "update-tss": "ts-node scripts/deploy.ts update-tss",
     "demo": "ts-node scripts/deploy.ts demo",
+    "demo:live": "ts-node demo/live-integration-test.ts",
+    "demo:cross-chain": "ts-node demo/cross-chain-demo.ts",
     "example": "ts-node examples/client-sdk.ts"
   },
   "dependencies": {

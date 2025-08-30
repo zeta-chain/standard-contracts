@@ -15,7 +15,8 @@ import {
   getAssociatedTokenAddress,
   createAssociatedTokenAccount,
 } from "@solana/spl-token";
-import { MPL_TOKEN_METADATA_PROGRAM_ID } from "@metaplex-foundation/mpl-token-metadata";
+import { PROGRAM_ID as TOKEN_METADATA_PROGRAM_ID } from "@metaplex-foundation/mpl-token-metadata";
+import { getEvmAddressArray } from "../utils/address";
 import { expect } from "chai";
 
 describe("Universal NFT Program", () => {
@@ -56,20 +57,20 @@ describe("Universal NFT Program", () => {
     [collectionMetadata] = PublicKey.findProgramAddressSync(
       [
         Buffer.from("metadata"),
-        MPL_TOKEN_METADATA_PROGRAM_ID.toBuffer(),
+        TOKEN_METADATA_PROGRAM_ID.toBuffer(),
         collectionMint.publicKey.toBuffer(),
       ],
-      MPL_TOKEN_METADATA_PROGRAM_ID
+      TOKEN_METADATA_PROGRAM_ID
     );
 
     [collectionMasterEdition] = PublicKey.findProgramAddressSync(
       [
         Buffer.from("metadata"),
-        MPL_TOKEN_METADATA_PROGRAM_ID.toBuffer(),
+        TOKEN_METADATA_PROGRAM_ID.toBuffer(),
         collectionMint.publicKey.toBuffer(),
         Buffer.from("edition"),
       ],
-      MPL_TOKEN_METADATA_PROGRAM_ID
+      TOKEN_METADATA_PROGRAM_ID
     );
 
     collectionTokenAccount = await getAssociatedTokenAddress(
@@ -102,7 +103,7 @@ describe("Universal NFT Program", () => {
             systemProgram: SystemProgram.programId,
             tokenProgram: TOKEN_PROGRAM_ID,
             associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
-            metadataProgram: MPL_TOKEN_METADATA_PROGRAM_ID,
+            metadataProgram: TOKEN_METADATA_PROGRAM_ID,
             rent: SYSVAR_RENT_PUBKEY,
           })
           .signers([authority, collectionMint])
@@ -143,7 +144,7 @@ describe("Universal NFT Program", () => {
             systemProgram: SystemProgram.programId,
             tokenProgram: TOKEN_PROGRAM_ID,
             associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
-            metadataProgram: MPL_TOKEN_METADATA_PROGRAM_ID,
+            metadataProgram: TOKEN_METADATA_PROGRAM_ID,
             rent: SYSVAR_RENT_PUBKEY,
           })
           .signers([authority])
@@ -169,10 +170,10 @@ describe("Universal NFT Program", () => {
       [nftMetadata] = PublicKey.findProgramAddressSync(
         [
           Buffer.from("metadata"),
-          MPL_TOKEN_METADATA_PROGRAM_ID.toBuffer(),
+          TOKEN_METADATA_PROGRAM_ID.toBuffer(),
           nftMint.publicKey.toBuffer(),
         ],
-        MPL_TOKEN_METADATA_PROGRAM_ID
+        TOKEN_METADATA_PROGRAM_ID
       );
 
       [nftStatePda] = PublicKey.findProgramAddressSync(
@@ -205,7 +206,7 @@ describe("Universal NFT Program", () => {
             systemProgram: SystemProgram.programId,
             tokenProgram: TOKEN_PROGRAM_ID,
             associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
-            metadataProgram: MPL_TOKEN_METADATA_PROGRAM_ID,
+            metadataProgram: TOKEN_METADATA_PROGRAM_ID,
             rent: SYSVAR_RENT_PUBKEY,
           })
           .signers([user, authority, nftMint])
@@ -237,7 +238,7 @@ describe("Universal NFT Program", () => {
     let nftTokenAccount: PublicKey;
     let nftStatePda: PublicKey;
     const destinationChainId = 1; // Ethereum chain ID
-    const destinationAddress = Buffer.from("0x742C4883a7De56b4D90f8F6f1F6c6b8D8b4d4b42");
+    const destinationAddress = getEvmAddressArray("0x742C4883a7De56b4D90f8F6f1F6c6b8D8b4d4b42");
 
     before(async () => {
       // Setup NFT for cross-chain testing
@@ -252,10 +253,10 @@ describe("Universal NFT Program", () => {
       const [nftMetadata] = PublicKey.findProgramAddressSync(
         [
           Buffer.from("metadata"),
-          MPL_TOKEN_METADATA_PROGRAM_ID.toBuffer(),
+          TOKEN_METADATA_PROGRAM_ID.toBuffer(),
           nftMint.publicKey.toBuffer(),
         ],
-        MPL_TOKEN_METADATA_PROGRAM_ID
+        TOKEN_METADATA_PROGRAM_ID
       );
 
       await program.methods
@@ -271,7 +272,7 @@ describe("Universal NFT Program", () => {
           systemProgram: SystemProgram.programId,
           tokenProgram: TOKEN_PROGRAM_ID,
           associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
-          metadataProgram: MPL_TOKEN_METADATA_PROGRAM_ID,
+          metadataProgram: TOKEN_METADATA_PROGRAM_ID,
           rent: SYSVAR_RENT_PUBKEY,
         })
         .signers([user, authority, nftMint])
@@ -283,7 +284,7 @@ describe("Universal NFT Program", () => {
         const tx = await program.methods
           .burnForCrossChain(
             new anchor.BN(destinationChainId),
-            Array.from(destinationAddress)
+            destinationAddress
           )
           .accounts({
             programConfig: programConfigPda,

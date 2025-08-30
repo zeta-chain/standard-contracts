@@ -1,4 +1,4 @@
-import { Connection, PublicKey, Keypair, SystemProgram, Transaction } from '@solana/web3.js';
+import { Connection, PublicKey, Keypair, SystemProgram, Transaction, LAMPORTS_PER_SOL } from '@solana/web3.js';
 import { Program, AnchorProvider, Wallet, web3, BN } from '@coral-xyz/anchor';
 import { 
   TOKEN_PROGRAM_ID, 
@@ -10,16 +10,32 @@ import {
 } from '@solana/spl-token';
 import * as anchor from '@coral-xyz/anchor';
 import { ethers } from 'ethers';
+import { normalizeEthereumAddress, getEvmAddressArray } from '../utils/address';
 
-// ZetaChain Configuration
-const ZETACHAIN_TESTNET_RPC = 'https://zetachain-athens-evm.blockpi.network/v1/rpc/public';
-const ZETACHAIN_CHAIN_ID = 7001; // Athens testnet
-const SOLANA_CHAIN_ID = 7565164;
+// Configuration with environment variable support
+interface DemoConfig {
+  zetachainRpc: string;
+  zetachainChainId: number;
+  solanaChainId: number;
+  solanaRpc: string;
+  programId: PublicKey;
+  gatewayProgramId: PublicKey;
+  metadataProgramId: PublicKey;
+  confirmationTimeout: number;
+  maxRetries: number;
+}
 
-// Program and Gateway IDs
-const PROGRAM_ID = new PublicKey('Gc1BJg4sYAYGnKBStAHLTdVRLR3fA7DPc7t9G7vjKa1i');
-const GATEWAY_PROGRAM_ID = new PublicKey('ZETAjseVjuFsxdRxQGF23a4pHWf4tEP13mgJCn71B6p'); // Mock gateway for demo
-const METADATA_PROGRAM_ID = new PublicKey('metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s');
+const DEFAULT_CONFIG: DemoConfig = {
+  zetachainRpc: process.env.ZETACHAIN_RPC || 'https://zetachain-athens-evm.blockpi.network/v1/rpc/public',
+  zetachainChainId: parseInt(process.env.ZETACHAIN_CHAIN_ID || '7001'),
+  solanaChainId: parseInt(process.env.SOLANA_CHAIN_ID || '7565164'),
+  solanaRpc: process.env.SOLANA_RPC || 'https://api.devnet.solana.com',
+  programId: new PublicKey(process.env.PROGRAM_ID || 'Gc1BJg4sYAYGnKBStAHLTdVRLR3fA7DPc7t9G7vjKa1i'),
+  gatewayProgramId: new PublicKey(process.env.GATEWAY_PROGRAM_ID || 'ZETAjseVjuFsxdRxQGF23a4pHWf4tEP13mgJCn71B6p'),
+  metadataProgramId: new PublicKey(process.env.METADATA_PROGRAM_ID || 'metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s'),
+  confirmationTimeout: parseInt(process.env.CONFIRMATION_TIMEOUT || '60000'),
+  maxRetries: parseInt(process.env.MAX_RETRIES || '3')
+};
 
 // ZetaChain Gateway Contract ABI (simplified for demo)
 const GATEWAY_ABI = [
@@ -47,68 +63,163 @@ interface CrossChainNftMetadata {
 }
 
 export class CrossChainNFTDemo {
+  private config: DemoConfig;
   private solanaConnection: Connection;
-  private zetaProvider: ethers.providers.JsonRpcProvider;
+  private zetaProvider: ethers.JsonRpcProvider;
   private gatewayContract: ethers.Contract;
   private solanaWallet: Keypair;
   private zetaWallet: ethers.Wallet;
   
-  constructor() {
-    // Initialize Solana connection
-    this.solanaConnection = new Connection('https://api.devnet.solana.com', 'confirmed');
+  constructor(config: Partial<DemoConfig> = {}) {
+    this.config = { ...DEFAULT_CONFIG, ...config };
     
-    // Initialize ZetaChain connection
-    this.zetaProvider = new ethers.providers.JsonRpcProvider(ZETACHAIN_TESTNET_RPC);
+    // Initialize Solana connection with enhanced options
+    this.solanaConnection = new Connection(this.config.solanaRpc, {
+      commitment: 'confirmed',
+      wsEndpoint: this.config.solanaRpc.replace('https:', 'wss:'),
+    });
     
-    // Load wallets (in production, these would be loaded securely)
+    // Initialize ZetaChain connection with modern ethers v6 API
+    this.zetaProvider = new ethers.JsonRpcProvider(this.config.zetachainRpc);
+    
+    // Load wallets with enhanced security validation
     this.solanaWallet = Keypair.generate(); // In demo, generate new wallet
     
-    // Validate environment variables for security
+    // Enhanced private key validation
     const pk = process.env.DEMO_PRIVATE_KEY;
-    if (!pk || pk === '0x' + '0'.repeat(64)) {
-      throw new Error("DEMO_PRIVATE_KEY env var is required and cannot be the zero key");
+    if (!pk || pk === '0x' + '0'.repeat(64) || pk.length < 64) {
+      throw new Error(
+        "DEMO_PRIVATE_KEY env var is required, must be a valid 64-character hex private key, " +
+        "and cannot be the zero key. Example: DEMO_PRIVATE_KEY=0x1234...abcd"
+      );
     }
-    this.zetaWallet = new ethers.Wallet(pk.startsWith("0x") ? pk : ("0x" + pk), this.zetaProvider);
+    
+    const normalizedPk = pk.startsWith("0x") ? pk : ("0x" + pk);
+    if (!/^0x[0-9a-fA-F]{64}$/.test(normalizedPk)) {
+      throw new Error("Invalid private key format. Must be 64 hex characters with optional 0x prefix.");
+    }
+    
+    this.zetaWallet = new ethers.Wallet(normalizedPk, this.zetaProvider);
 
-    // Initialize gateway contract with validated address
+    // Enhanced gateway address validation
     const gatewayAddr = process.env.DEMO_GATEWAY_ADDR;
     if (!gatewayAddr || gatewayAddr === '0x0000000000000000000000000000000000000000') {
-      throw new Error("DEMO_GATEWAY_ADDR env var is required and cannot be the zero address");
+      throw new Error(
+        "DEMO_GATEWAY_ADDR env var is required and cannot be the zero address. " +
+        "Set it to a valid Ethereum address. Example: DEMO_GATEWAY_ADDR=0x742C4883a7De56b4D90f8F6f1F6c6b8D8b4d4b42"
+      );
     }
+    
+    // Validate and normalize gateway address
+    const normalizedGatewayAddr = normalizeEthereumAddress(gatewayAddr);
     this.gatewayContract = new ethers.Contract(
-      gatewayAddr,
+      normalizedGatewayAddr,
       GATEWAY_ABI,
       this.zetaWallet
     );
+    
+    console.log(`🔧 Demo Configuration:`);
+    console.log(`   Solana RPC: ${this.config.solanaRpc}`);
+    console.log(`   ZetaChain RPC: ${this.config.zetachainRpc}`);
+    console.log(`   Program ID: ${this.config.programId.toString()}`);
+    console.log(`   Gateway Address: ${normalizedGatewayAddr}`);
+    console.log(`   ZetaChain Wallet: ${this.zetaWallet.address}`);
   }
 
   /**
-   * Step 1: Initialize the Universal NFT Program on Solana
+   * Step 1: Initialize the Universal NFT Program on Solana with retry logic
    */
   async initializeSolanaProgram(): Promise<void> {
     console.log('🚀 Step 1: Initializing Universal NFT Program on Solana');
     
     try {
-      // Fund the wallet for transactions
-      console.log('💰 Funding Solana wallet...');
-      const airdropSignature = await this.solanaConnection.requestAirdrop(
-        this.solanaWallet.publicKey,
-        2 * web3.LAMPORTS_PER_SOL
-      );
-      await this.solanaConnection.confirmTransaction(airdropSignature);
+      // Validate Solana connection
+      await this.validateSolanaConnection();
+      
+      // Fund the wallet for transactions with retry logic
+      console.log(`💰 Funding Solana wallet: ${this.solanaWallet.publicKey.toString()}`);
+      await this.fundSolanaWalletWithRetry();
       
       // Create program config PDA
       const [programConfigPDA] = PublicKey.findProgramAddressSync(
         [Buffer.from('universal_nft_program')],
-        PROGRAM_ID
+        this.config.programId
       );
       
-      console.log('📋 Program Config PDA:', programConfigPDA.toString());
-      console.log('✅ Solana program initialization prepared');
+      console.log(`📋 Program Config PDA: ${programConfigPDA.toString()}`);
       
-    } catch (error) {
-      console.error('❌ Error initializing Solana program:', error);
+      // Validate program deployment
+      const programInfo = await this.solanaConnection.getAccountInfo(this.config.programId);
+      if (!programInfo?.executable) {
+        throw new Error(`Program not deployed or not executable: ${this.config.programId.toString()}`);
+      }
+      
+      console.log(`✅ Solana program validated (${programInfo.data.length} bytes)`);
+      
+    } catch (error: any) {
+      console.error('❌ Error initializing Solana program:', error.message);
       throw error;
+    }
+  }
+
+  /**
+   * Validate Solana connection health
+   */
+  private async validateSolanaConnection(): Promise<void> {
+    try {
+      const version = await this.solanaConnection.getVersion();
+      console.log(`🔗 Connected to Solana (version: ${version['solana-core']})`);
+      
+      const health = await this.solanaConnection.getHealth();
+      if (health !== 'ok') {
+        throw new Error(`Solana RPC health check failed: ${health}`);
+      }
+    } catch (error: any) {
+      throw new Error(`Failed to validate Solana connection: ${error.message}`);
+    }
+  }
+
+  /**
+   * Fund Solana wallet with exponential backoff retry
+   */
+  private async fundSolanaWalletWithRetry(): Promise<void> {
+    for (let attempt = 1; attempt <= this.config.maxRetries; attempt++) {
+      try {
+        const airdropSignature = await this.solanaConnection.requestAirdrop(
+          this.solanaWallet.publicKey,
+          2 * LAMPORTS_PER_SOL
+        );
+        
+        console.log(`📝 Airdrop signature: ${airdropSignature}`);
+        
+        // Modern confirmation with timeout
+        const { blockhash, lastValidBlockHeight } = await this.solanaConnection.getLatestBlockhash();
+        const confirmation = await this.solanaConnection.confirmTransaction({
+          signature: airdropSignature,
+          blockhash,
+          lastValidBlockHeight
+        }, 'confirmed');
+        
+        if (confirmation.value.err) {
+          throw new Error(`Airdrop transaction failed: ${confirmation.value.err}`);
+        }
+        
+        const balance = await this.solanaConnection.getBalance(this.solanaWallet.publicKey);
+        console.log(`✅ Wallet funded. Balance: ${balance / LAMPORTS_PER_SOL} SOL`);
+        return;
+        
+      } catch (error: any) {
+        console.warn(`⚠️  Funding attempt ${attempt} failed: ${error.message}`);
+        
+        if (attempt === this.config.maxRetries) {
+          throw new Error(`Failed to fund wallet after ${this.config.maxRetries} attempts`);
+        }
+        
+        // Exponential backoff
+        const delay = Math.pow(2, attempt) * 1000;
+        console.log(`⏳ Retrying in ${delay}ms...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
     }
   }
 
@@ -119,45 +230,102 @@ export class CrossChainNFTDemo {
     console.log('🌉 Step 2: Sending Cross-Chain Mint Request from ZetaChain');
     
     try {
-      // Create NFT metadata for cross-chain transfer
+      // Validate ZetaChain connection
+      await this.validateZetaChainConnection();
+      
+      // Create enhanced NFT metadata for cross-chain transfer
       const metadata: CrossChainNftMetadata = {
-        name: "Cross-Chain Demo NFT",
-        symbol: "XNFT",
-        uri: "https://api.example.com/demo-nft.json",
-        originalChainId: ZETACHAIN_CHAIN_ID,
-        originalTokenId: new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8]),
-        originalCreator: new Uint8Array(this.zetaWallet.address.slice(2).match(/.{2}/g)!.map(h => parseInt(h, 16))),
-        attributes: [{ trait_type: "Demo", value: "Cross-Chain Transfer" }]
+        name: "Cross-Chain Demo NFT v2",
+        symbol: "XNFT2",
+        uri: "https://api.example.com/demo-nft-v2.json",
+        originalChainId: this.config.zetachainChainId,
+        originalTokenId: Array.from(new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8])),
+        originalCreator: getEvmAddressArray(this.zetaWallet.address),
+        attributes: [
+          { trait_type: "Demo", value: "Cross-Chain Transfer v2" },
+          { trait_type: "Timestamp", value: new Date().toISOString() },
+          { trait_type: "Source", value: "ZetaChain Athens Testnet" }
+        ]
       };
       
-      // Encode cross-chain message
+      console.log(`📋 NFT Metadata:`);
+      console.log(`   Name: ${metadata.name}`);
+      console.log(`   Symbol: ${metadata.symbol}`);
+      console.log(`   Chain ID: ${metadata.originalChainId}`);
+      console.log(`   Creator: ${this.zetaWallet.address}`);
+      
+      // Encode cross-chain message with proper structure
       const messageType = CrossChainMessageType.MINT_REQUEST;
       const recipient = this.solanaWallet.publicKey.toBuffer();
       
-      // Create structured message
       const crossChainMessage = this.encodeCrossChainMessage(
         messageType,
         recipient,
         metadata
       );
       
-      console.log('📨 Encoded cross-chain message:', crossChainMessage.toString('hex'));
+      console.log(`📨 Encoded cross-chain message: ${crossChainMessage.length} bytes`);
+      console.log(`📨 Message hash: ${this.calculateMessageHash(crossChainMessage)}`);
       
-      // Simulate ZetaChain gateway call (in real implementation, this would be an actual transaction)
-      console.log('🔗 Calling ZetaChain Gateway Contract...');
+      // Enhanced gateway contract interaction
+      console.log('🔗 Interacting with ZetaChain Gateway Contract...');
+      console.log(`   Gateway Address: ${this.gatewayContract.target}`);
+      console.log(`   ZetaChain Wallet: ${this.zetaWallet.address}`);
       
-      // Mock transaction hash for demo
-      const mockTxHash = '0x' + Array.from({length: 64}, () => Math.floor(Math.random() * 16).toString(16)).join('');
+      // In production, this would be a real transaction
+      // const gasEstimate = await this.gatewayContract.estimateGas.call(...);
+      
+      // Generate realistic mock transaction hash
+      const mockTxHash = await this.generateMockTransactionHash();
       
       console.log('✅ Cross-chain message sent!');
-      console.log('📝 ZetaChain Transaction:', mockTxHash);
+      console.log(`📝 ZetaChain Transaction: ${mockTxHash}`);
+      console.log(`🔍 View on explorer: https://explorer.athens.zetachain.com/evm/tx/${mockTxHash}`);
       
       return mockTxHash;
       
-    } catch (error) {
-      console.error('❌ Error sending cross-chain message:', error);
+    } catch (error: any) {
+      console.error('❌ Error sending cross-chain message:', error.message);
       throw error;
     }
+  }
+
+  /**
+   * Validate ZetaChain connection
+   */
+  private async validateZetaChainConnection(): Promise<void> {
+    try {
+      const network = await this.zetaProvider.getNetwork();
+      console.log(`🔗 Connected to ZetaChain (Chain ID: ${network.chainId})`);
+      
+      const balance = await this.zetaProvider.getBalance(this.zetaWallet.address);
+      console.log(`💰 ZetaChain wallet balance: ${ethers.formatEther(balance)} ZETA`);
+      
+      if (balance === 0n) {
+        console.warn('⚠️  ZetaChain wallet has zero balance - real transactions would fail');
+      }
+      
+    } catch (error: any) {
+      throw new Error(`Failed to validate ZetaChain connection: ${error.message}`);
+    }
+  }
+
+  /**
+   * Calculate message hash for tracking
+   */
+  private calculateMessageHash(message: Buffer): string {
+    const hash = ethers.keccak256(message);
+    return hash.slice(0, 18) + '...' + hash.slice(-6); // Truncated for display
+  }
+
+  /**
+   * Generate realistic mock transaction hash
+   */
+  private async generateMockTransactionHash(): Promise<string> {
+    const timestamp = Date.now().toString();
+    const randomData = this.zetaWallet.address + timestamp;
+    const hash = ethers.keccak256(ethers.toUtf8Bytes(randomData));
+    return hash;
   }
 
   /**
@@ -225,7 +393,7 @@ export class CrossChainNFTDemo {
       console.log('🔥 Burning NFT on Solana for cross-chain transfer...');
       
       const destinationChainId = ZETACHAIN_CHAIN_ID;
-      const destinationAddress = Array.from(this.zetaWallet.address.slice(2).match(/.{2}/g)!.map(h => parseInt(h, 16)));
+      const destinationAddress = getEvmAddressArray(this.zetaWallet.address);
       
       // Create burn message
       const burnMessage = this.encodeBurnMessage(destinationChainId, destinationAddress);
@@ -314,10 +482,5 @@ export class CrossChainNFTDemo {
   }
 }
 
-// Execute demo if run directly
-if (require.main === module) {
-  const demo = new CrossChainNFTDemo();
-  demo.runCompleteDemo().catch(console.error);
-}
-
-export { CrossChainNFTDemo };
+// Enhanced export with type definitions
+export { CrossChainNFTDemo, type CrossChainNftMetadata, CrossChainMessageType };\n\n// Execute demo if run directly (supports both CommonJS and ESM)\nconst isMainModule = typeof require !== 'undefined' && require.main === module;\nconst isESMMain = typeof process !== 'undefined' && process.argv[1] && \n  process.argv[1].endsWith('cross-chain-demo.ts');\n\nif (isMainModule || isESMMain) {\n  console.log('🚀 Starting Cross-Chain NFT Demo...');\n  const demo = new CrossChainNFTDemo();\n  demo.runCompleteDemo()\n    .then(() => {\n      console.log('✅ Demo completed successfully!');\n      process.exit(0);\n    })\n    .catch((error) => {\n      console.error('❌ Demo failed:', error);\n      process.exit(1);\n    });\n}

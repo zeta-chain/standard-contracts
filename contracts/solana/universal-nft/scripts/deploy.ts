@@ -14,7 +14,8 @@ import {
   ASSOCIATED_TOKEN_PROGRAM_ID,
   getAssociatedTokenAddress,
 } from "@solana/spl-token";
-import { MPL_TOKEN_METADATA_PROGRAM_ID } from "@metaplex-foundation/mpl-token-metadata";
+import { PROGRAM_ID as TOKEN_METADATA_PROGRAM_ID } from "@metaplex-foundation/mpl-token-metadata";
+import { getEvmAddressArray } from "../utils/address";
 
 async function deployUniversalNftProgram() {
   console.log("🚀 Starting Universal NFT Program deployment...");
@@ -36,8 +37,45 @@ async function deployUniversalNftProgram() {
   console.log("📋 Program ID:", program.programId.toString());
   console.log("👤 Authority:", wallet.publicKey.toString());
 
-  // ZetaChain gateway program ID (replace with actual gateway program ID for devnet)
-  const gatewayProgramId = new PublicKey("GatewayProgramIdPlaceholder1111111111111111111");
+  // ZetaChain gateway program ID validation
+  const gatewayProgramIdEnv = process.env.GATEWAY_PROGRAM_ID;
+  if (!gatewayProgramIdEnv) {
+    throw new Error(
+      "GATEWAY_PROGRAM_ID environment variable is required. " +
+      "Set it to the actual ZetaChain gateway program ID for your target network."
+    );
+  }
+  
+  let gatewayProgramId: PublicKey;
+  try {
+    gatewayProgramId = new PublicKey(gatewayProgramIdEnv);
+    console.log(`✅ Gateway Program ID validated: ${gatewayProgramId.toString()}`);
+  } catch (error) {
+    throw new Error(
+      `Invalid GATEWAY_PROGRAM_ID format: "${gatewayProgramIdEnv}". ` +
+      "Must be a valid Solana public key (base58 encoded, 32 bytes)."
+    );
+  }
+  
+  // Additional validation: ensure it's not a placeholder or obviously invalid key
+  const placeholderPatterns = [
+    /placeholder/i,
+    /111111+/,
+    /000000+/,
+    /test/i
+  ];
+  
+  const gatewayProgramIdStr = gatewayProgramId.toString();
+  const isPlaceholder = placeholderPatterns.some(pattern => 
+    pattern.test(gatewayProgramIdStr)
+  );
+  
+  if (isPlaceholder) {
+    throw new Error(
+      `Gateway Program ID appears to be a placeholder: "${gatewayProgramIdStr}". ` +
+      "Please set a valid ZetaChain gateway program ID."
+    );
+  }
 
   // Derive PDAs
   const [programConfigPda, programConfigBump] = PublicKey.findProgramAddressSync(
@@ -50,20 +88,20 @@ async function deployUniversalNftProgram() {
   const [collectionMetadata] = PublicKey.findProgramAddressSync(
     [
       Buffer.from("metadata"),
-      MPL_TOKEN_METADATA_PROGRAM_ID.toBuffer(),
+      TOKEN_METADATA_PROGRAM_ID.toBuffer(),
       collectionMint.publicKey.toBuffer(),
     ],
-    MPL_TOKEN_METADATA_PROGRAM_ID
+    TOKEN_METADATA_PROGRAM_ID
   );
 
   const [collectionMasterEdition] = PublicKey.findProgramAddressSync(
     [
       Buffer.from("metadata"),
-      MPL_TOKEN_METADATA_PROGRAM_ID.toBuffer(),
+      TOKEN_METADATA_PROGRAM_ID.toBuffer(),
       collectionMint.publicKey.toBuffer(),
       Buffer.from("edition"),
     ],
-    MPL_TOKEN_METADATA_PROGRAM_ID
+    TOKEN_METADATA_PROGRAM_ID
   );
 
   const collectionTokenAccount = await getAssociatedTokenAddress(
@@ -96,7 +134,7 @@ async function deployUniversalNftProgram() {
         systemProgram: SystemProgram.programId,
         tokenProgram: TOKEN_PROGRAM_ID,
         associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
-        metadataProgram: MPL_TOKEN_METADATA_PROGRAM_ID,
+        metadataProgram: TOKEN_METADATA_PROGRAM_ID,
         rent: SYSVAR_RENT_PUBKEY,
       })
       .signers([collectionMint])
@@ -152,9 +190,44 @@ async function updateTssAddress() {
     throw new Error("TSS_ADDRESS env var is required. Set ALLOW_ZERO_TSS=1 for testing only.");
   }
   
-  const tssAddress = tssAddressEnv 
-    ? Array.from(Buffer.from(tssAddressEnv.replace('0x', ''), 'hex'))
-    : Array.from(Buffer.alloc(20)); // Only allowed with ALLOW_ZERO_TSS=1
+  let tssAddress: number[];
+  if (tssAddressEnv) {
+    // Enhanced TSS address validation
+    const normalizedAddress = tssAddressEnv.toLowerCase();
+    
+    // Check if it starts with 0x and remove it
+    const hexAddress = normalizedAddress.startsWith('0x') 
+      ? normalizedAddress.slice(2) 
+      : normalizedAddress;
+    
+    // Validate hex format (must be exactly 40 hex characters = 20 bytes)
+    if (!/^[0-9a-f]{40}$/i.test(hexAddress)) {
+      throw new Error(
+        `Invalid TSS address format: must be 40 hex characters (20 bytes). Got: ${hexAddress.length} characters`
+      );
+    }
+    
+    // Convert to buffer and validate 20-byte length
+    const addressBuffer = Buffer.from(hexAddress, 'hex');
+    if (addressBuffer.length !== 20) {
+      throw new Error(
+        `TSS address must be exactly 20 bytes. Got: ${addressBuffer.length} bytes`
+      );
+    }
+    
+    // Validate not zero address (all zeros)
+    const isZeroAddress = addressBuffer.every(byte => byte === 0);
+    if (isZeroAddress && !process.env.ALLOW_ZERO_TSS) {
+      throw new Error("Zero address not allowed in production. Set ALLOW_ZERO_TSS=1 for testing only.");
+    }
+    
+    console.log(`✅ TSS address validated: 0x${hexAddress}`);
+    tssAddress = Array.from(addressBuffer);
+  } else {
+    // Use zero address only in test mode
+    console.log("⚠️  Using zero TSS address (test mode only)");
+    tssAddress = Array.from(Buffer.alloc(20));
+  }
   
   const [programConfigPda] = PublicKey.findProgramAddressSync(
     [Buffer.from("universal_nft_program")],
@@ -203,10 +276,10 @@ async function demonstrateCrossChainFlow() {
   const [nftMetadata] = PublicKey.findProgramAddressSync(
     [
       Buffer.from("metadata"),
-      MPL_TOKEN_METADATA_PROGRAM_ID.toBuffer(),
+      TOKEN_METADATA_PROGRAM_ID.toBuffer(),
       nftMint.publicKey.toBuffer(),
     ],
-    MPL_TOKEN_METADATA_PROGRAM_ID
+    TOKEN_METADATA_PROGRAM_ID
   );
 
   console.log("🎨 Minting demonstration NFT...");
@@ -234,13 +307,13 @@ async function demonstrateCrossChainFlow() {
 
   // Step 2: Burn for cross-chain transfer
   const destinationChainId = 1; // Ethereum
-  const destinationAddress = Buffer.from("742C4883a7De56b4D90f8F6f1F6c6b8D8b4d4b42", "hex");
+  const destinationAddress = getEvmAddressArray("0x742C4883a7De56b4D90f8F6f1F6c6b8D8b4d4b42");
 
   console.log("🔥 Burning NFT for cross-chain transfer...");
   const burnTx = await program.methods
     .burnForCrossChain(
       new anchor.BN(destinationChainId),
-      Array.from(destinationAddress)
+      destinationAddress
     )
     .accounts({
       programConfig: programConfigPda,
