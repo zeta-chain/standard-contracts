@@ -1,0 +1,204 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="solanaGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#9945FF;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#14F195;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="zetaGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#00D4AA;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#00B894;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="evmGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#627EEA;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#4B6EF5;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1200" height="800" fill="#0D1B2A"/>
+
+  <!-- Title -->
+  <text x="600" y="30" text-anchor="middle" fill="#FFFFFF" font-size="24" font-weight="bold">
+    Universal NFT Program - Cross-Chain Architecture
+  </text>
+
+  <!-- Solana Section -->
+  <g id="solana-section">
+    <!-- Solana Background -->
+    <rect x="50" y="80" width="350" height="650" rx="15" fill="url(#solanaGradient)" opacity="0.1" stroke="url(#solanaGradient)" stroke-width="2"/>
+    <text x="225" y="110" text-anchor="middle" fill="#FFFFFF" font-size="18" font-weight="bold">Solana Blockchain</text>
+
+    <!-- Universal NFT Program -->
+    <rect x="70" y="130" width="310" height="200" rx="10" fill="url(#solanaGradient)" opacity="0.2" stroke="#9945FF" stroke-width="1"/>
+    <text x="225" y="155" text-anchor="middle" fill="#FFFFFF" font-size="16" font-weight="bold">Universal NFT Program</text>
+    
+    <!-- Program Components -->
+    <rect x="90" y="170" width="90" height="50" rx="5" fill="#9945FF" stroke="#FFFFFF" stroke-width="1"/>
+    <text x="135" y="190" text-anchor="middle" fill="#FFFFFF" font-size="10">Program Config</text>
+    <text x="135" y="205" text-anchor="middle" fill="#FFFFFF" font-size="10">PDA</text>
+
+    <rect x="195" y="170" width="90" height="50" rx="5" fill="#9945FF" stroke="#FFFFFF" stroke-width="1"/>
+    <text x="240" y="190" text-anchor="middle" fill="#FFFFFF" font-size="10">NFT State</text>
+    <text x="240" y="205" text-anchor="middle" fill="#FFFFFF" font-size="10">PDA</text>
+
+    <rect x="300" y="170" width="90" height="50" rx="5" fill="#9945FF" stroke="#FFFFFF" stroke-width="1"/>
+    <text x="345" y="190" text-anchor="middle" fill="#FFFFFF" font-size="10">Gateway Msg</text>
+    <text x="345" y="205" text-anchor="middle" fill="#FFFFFF" font-size="10">PDA</text>
+
+    <!-- Instructions -->
+    <rect x="90" y="240" width="270" height="70" rx="5" fill="#9945FF" opacity="0.3" stroke="#FFFFFF" stroke-width="1"/>
+    <text x="225" y="260" text-anchor="middle" fill="#FFFFFF" font-size="12" font-weight="bold">Core Instructions</text>
+    <text x="135" y="280" text-anchor="middle" fill="#FFFFFF" font-size="9">mint_nft</text>
+    <text x="225" y="280" text-anchor="middle" fill="#FFFFFF" font-size="9">burn_for_cross_chain</text>
+    <text x="315" y="280" text-anchor="middle" fill="#FFFFFF" font-size="9">mint_from_cross_chain</text>
+    <text x="135" y="295" text-anchor="middle" fill="#FFFFFF" font-size="9">on_call</text>
+    <text x="225" y="295" text-anchor="middle" fill="#FFFFFF" font-size="9">on_revert</text>
+    <text x="315" y="295" text-anchor="middle" fill="#FFFFFF" font-size="9">initialize_program</text>
+
+    <!-- SPL Programs -->
+    <rect x="70" y="360" width="310" height="120" rx="10" fill="#14F195" opacity="0.2" stroke="#14F195" stroke-width="1"/>
+    <text x="225" y="385" text-anchor="middle" fill="#FFFFFF" font-size="16" font-weight="bold">SPL Programs Integration</text>
+    
+    <rect x="90" y="400" width="80" height="40" rx="5" fill="#14F195" stroke="#FFFFFF" stroke-width="1"/>
+    <text x="130" y="415" text-anchor="middle" fill="#000000" font-size="9">SPL Token</text>
+    <text x="130" y="428" text-anchor="middle" fill="#000000" font-size="9">Program</text>
+
+    <rect x="185" y="400" width="80" height="40" rx="5" fill="#14F195" stroke="#FFFFFF" stroke-width="1"/>
+    <text x="225" y="415" text-anchor="middle" fill="#000000" font-size="9">Associated</text>
+    <text x="225" y="428" text-anchor="middle" fill="#000000" font-size="9">Token Program</text>
+
+    <rect x="280" y="400" width="80" height="40" rx="5" fill="#14F195" stroke="#FFFFFF" stroke-width="1"/>
+    <text x="320" y="415" text-anchor="middle" fill="#000000" font-size="9">Metaplex</text>
+    <text x="320" y="428" text-anchor="middle" fill="#000000" font-size="9">Metadata</text>
+
+    <!-- Gateway Integration -->
+    <rect x="70" y="500" width="310" height="80" rx="10" fill="#FFA500" opacity="0.2" stroke="#FFA500" stroke-width="1"/>
+    <text x="225" y="525" text-anchor="middle" fill="#FFFFFF" font-size="16" font-weight="bold">Gateway Integration</text>
+    
+    <rect x="140" y="540" width="170" height="30" rx="5" fill="#FFA500" stroke="#FFFFFF" stroke-width="1"/>
+    <text x="225" y="560" text-anchor="middle" fill="#000000" font-size="11">ZetaChain Gateway CPI</text>
+
+    <!-- Security Features -->
+    <rect x="70" y="600" width="310" height="80" rx="10" fill="#FF4757" opacity="0.2" stroke="#FF4757" stroke-width="1"/>
+    <text x="225" y="625" text-anchor="middle" fill="#FFFFFF" font-size="16" font-weight="bold">Security Features</text>
+    <text x="135" y="645" text-anchor="middle" fill="#FFFFFF" font-size="9">TSS Verification</text>
+    <text x="225" y="645" text-anchor="middle" fill="#FFFFFF" font-size="9">Replay Protection</text>
+    <text x="315" y="645" text-anchor="middle" fill="#FFFFFF" font-size="9">Authority Control</text>
+    <text x="135" y="660" text-anchor="middle" fill="#FFFFFF" font-size="9">ECDSA Recovery</text>
+    <text x="225" y="660" text-anchor="middle" fill="#FFFFFF" font-size="9">Message Integrity</text>
+    <text x="315" y="660" text-anchor="middle" fill="#FFFFFF" font-size="9">State Consistency</text>
+  </g>
+
+  <!-- ZetaChain Section -->
+  <g id="zetachain-section">
+    <rect x="450" y="80" width="300" height="300" rx="15" fill="url(#zetaGradient)" opacity="0.1" stroke="url(#zetaGradient)" stroke-width="2"/>
+    <text x="600" y="110" text-anchor="middle" fill="#FFFFFF" font-size="18" font-weight="bold">ZetaChain Network</text>
+
+    <!-- Universal Contract -->
+    <rect x="470" y="130" width="120" height="80" rx="10" fill="#00D4AA" stroke="#FFFFFF" stroke-width="1"/>
+    <text x="530" y="155" text-anchor="middle" fill="#000000" font-size="12" font-weight="bold">Universal Contract</text>
+    <text x="530" y="175" text-anchor="middle" fill="#000000" font-size="9">Cross-chain Hub</text>
+    <text x="530" y="190" text-anchor="middle" fill="#000000" font-size="9">Message Routing</text>
+
+    <!-- TSS Validators -->
+    <rect x="610" y="130" width="120" height="80" rx="10" fill="#00D4AA" stroke="#FFFFFF" stroke-width="1"/>
+    <text x="670" y="155" text-anchor="middle" fill="#000000" font-size="12" font-weight="bold">TSS Validators</text>
+    <text x="670" y="175" text-anchor="middle" fill="#000000" font-size="9">Signature Generation</text>
+    <text x="670" y="190" text-anchor="middle" fill="#000000" font-size="9">Security Consensus</text>
+
+    <!-- Protocol Features -->
+    <rect x="470" y="230" width="260" height="120" rx="10" fill="#00D4AA" opacity="0.3" stroke="#FFFFFF" stroke-width="1"/>
+    <text x="600" y="255" text-anchor="middle" fill="#FFFFFF" font-size="14" font-weight="bold">Protocol Features</text>
+    <text x="530" y="280" text-anchor="middle" fill="#FFFFFF" font-size="10">Cross-chain Messaging</text>
+    <text x="670" y="280" text-anchor="middle" fill="#FFFFFF" font-size="10">Asset Bridging</text>
+    <text x="530" y="300" text-anchor="middle" fill="#FFFFFF" font-size="10">State Verification</text>
+    <text x="670" y="300" text-anchor="middle" fill="#FFFFFF" font-size="10">Error Handling</text>
+    <text x="600" y="320" text-anchor="middle" fill="#FFFFFF" font-size="10">Consensus Mechanisms</text>
+  </g>
+
+  <!-- Other Chains Section -->
+  <g id="other-chains-section">
+    <rect x="800" y="80" width="350" height="500" rx="15" fill="url(#evmGradient)" opacity="0.1" stroke="url(#evmGradient)" stroke-width="2"/>
+    <text x="975" y="110" text-anchor="middle" fill="#FFFFFF" font-size="18" font-weight="bold">Connected Chains</text>
+
+    <!-- Ethereum -->
+    <rect x="820" y="130" width="140" height="100" rx="10" fill="#627EEA" stroke="#FFFFFF" stroke-width="1"/>
+    <text x="890" y="155" text-anchor="middle" fill="#FFFFFF" font-size="14" font-weight="bold">Ethereum</text>
+    <text x="890" y="175" text-anchor="middle" fill="#FFFFFF" font-size="10">Connected Contract</text>
+    <text x="890" y="190" text-anchor="middle" fill="#FFFFFF" font-size="10">ERC-721 Standard</text>
+    <text x="890" y="205" text-anchor="middle" fill="#FFFFFF" font-size="10">Cross-chain Ready</text>
+
+    <!-- BNB Chain -->
+    <rect x="980" y="130" width="140" height="100" rx="10" fill="#F3BA2F" stroke="#FFFFFF" stroke-width="1"/>
+    <text x="1050" y="155" text-anchor="middle" fill="#000000" font-size="14" font-weight="bold">BNB Chain</text>
+    <text x="1050" y="175" text-anchor="middle" fill="#000000" font-size="10">Connected Contract</text>
+    <text x="1050" y="190" text-anchor="middle" fill="#000000" font-size="10">BEP-721 Standard</text>
+    <text x="1050" y="205" text-anchor="middle" fill="#000000" font-size="10">High Throughput</text>
+
+    <!-- Polygon -->
+    <rect x="820" y="250" width="140" height="100" rx="10" fill="#8247E5" stroke="#FFFFFF" stroke-width="1"/>
+    <text x="890" y="275" text-anchor="middle" fill="#FFFFFF" font-size="14" font-weight="bold">Polygon</text>
+    <text x="890" y="295" text-anchor="middle" fill="#FFFFFF" font-size="10">Connected Contract</text>
+    <text x="890" y="310" text-anchor="middle" fill="#FFFFFF" font-size="10">Layer 2 Scaling</text>
+    <text x="890" y="325" text-anchor="middle" fill="#FFFFFF" font-size="10">Low Gas Fees</text>
+
+    <!-- Other EVM -->
+    <rect x="980" y="250" width="140" height="100" rx="10" fill="#34495E" stroke="#FFFFFF" stroke-width="1"/>
+    <text x="1050" y="275" text-anchor="middle" fill="#FFFFFF" font-size="14" font-weight="bold">Other Chains</text>
+    <text x="1050" y="295" text-anchor="middle" fill="#FFFFFF" font-size="10">Avalanche</text>
+    <text x="1050" y="310" text-anchor="middle" fill="#FFFFFF" font-size="10">Arbitrum</text>
+    <text x="1050" y="325" text-anchor="middle" fill="#FFFFFF" font-size="10">Optimism</text>
+
+    <!-- Cross-Chain Features -->
+    <rect x="820" y="380" width="300" height="180" rx="10" fill="#2C3E50" opacity="0.8" stroke="#FFFFFF" stroke-width="1"/>
+    <text x="970" y="405" text-anchor="middle" fill="#FFFFFF" font-size="16" font-weight="bold">Cross-Chain Capabilities</text>
+    
+    <text x="870" y="430" text-anchor="middle" fill="#FFFFFF" font-size="11">✅ Asset Transfer</text>
+    <text x="1070" y="430" text-anchor="middle" fill="#FFFFFF" font-size="11">✅ Metadata Sync</text>
+    <text x="870" y="450" text-anchor="middle" fill="#FFFFFF" font-size="11">✅ Ownership Tracking</text>
+    <text x="1070" y="450" text-anchor="middle" fill="#FFFFFF" font-size="11">✅ State Consistency</text>
+    <text x="870" y="470" text-anchor="middle" fill="#FFFFFF" font-size="11">✅ Error Recovery</text>
+    <text x="1070" y="470" text-anchor="middle" fill="#FFFFFF" font-size="11">✅ Gas Optimization</text>
+    <text x="970" y="500" text-anchor="middle" fill="#FFFFFF" font-size="11">✅ Universal Token IDs</text>
+    <text x="970" y="520" text-anchor="middle" fill="#FFFFFF" font-size="11">✅ Cross-chain Provenance</text>
+    <text x="970" y="540" text-anchor="middle" fill="#FFFFFF" font-size="11">✅ Secure Messaging</text>
+  </g>
+
+  <!-- Cross-Chain Arrows -->
+  <g id="cross-chain-connections">
+    <!-- Solana to ZetaChain -->
+    <path d="M 400 400 Q 425 350 450 350" stroke="#00D4AA" stroke-width="3" fill="none" marker-end="url(#arrowhead)"/>
+    <text x="425" y="340" text-anchor="middle" fill="#00D4AA" font-size="9">Gateway CPI</text>
+    
+    <!-- ZetaChain to Solana -->
+    <path d="M 450 300 Q 425 250 400 250" stroke="#9945FF" stroke-width="3" fill="none" marker-end="url(#arrowhead)"/>
+    <text x="425" y="240" text-anchor="middle" fill="#9945FF" font-size="9">TSS Message</text>
+
+    <!-- ZetaChain to Other Chains -->
+    <path d="M 750 250 Q 775 200 800 200" stroke="#627EEA" stroke-width="3" fill="none" marker-end="url(#arrowhead)"/>
+    <text x="775" y="190" text-anchor="middle" fill="#627EEA" font-size="9">Multi-chain</text>
+  </g>
+
+  <!-- Arrow marker definition -->
+  <defs>
+    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#FFFFFF"/>
+    </marker>
+  </defs>
+
+  <!-- Status Info -->
+  <rect x="450" y="420" width="300" height="160" rx="10" fill="#2C3E50" opacity="0.9" stroke="#FFFFFF" stroke-width="1"/>
+  <text x="600" y="445" text-anchor="middle" fill="#FFFFFF" font-size="16" font-weight="bold">Deployment Status</text>
+  
+  <text x="600" y="470" text-anchor="middle" fill="#00D4AA" font-size="12" font-weight="bold">✅ LIVE ON SOLANA DEVNET</text>
+  <text x="600" y="490" text-anchor="middle" fill="#FFFFFF" font-size="10">Program ID: Gc1BJg4sYAYGnKBStAHLTdVRLR3fA7DPc7t9G7vjKa1i</text>
+  <text x="600" y="510" text-anchor="middle" fill="#FFFFFF" font-size="10">Status: Deployed &amp; Tested</text>
+  <text x="600" y="530" text-anchor="middle" fill="#FFFFFF" font-size="10">Size: 540KB compiled binary</text>
+  <text x="600" y="550" text-anchor="middle" fill="#14F195" font-size="11">Ready for Cross-Chain NFT Transfers</text>
+
+  <!-- Footer -->
+  <text x="600" y="780" text-anchor="middle" fill="#FFFFFF" font-size="12" opacity="0.7">
+    Universal NFT Program - Enabling Seamless Cross-Chain NFT Ecosystem
+  </text>
+</svg>
