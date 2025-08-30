@@ -1,6 +1,7 @@
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::instruction::AccountMeta;
-use anchor_spl::token::{self, Burn};
+use anchor_spl::associated_token::get_associated_token_address;
+use anchor_spl::token::{self, Burn, TransferChecked};
 
 declare_id!("HrzackisVMLCjwJnu16KvkkHCsP8ridsZ6uQvfziyRsn");
 
@@ -475,8 +476,11 @@ pub mod universal_nft {
             .find(|ai| ai.key() == ix_sysvar)
             .ok_or(UniversalNftError::InvalidCaller)?;
         
+        // Validate the current outer instruction (0) is executed by the configured gateway program.
+        // Using 0 prevents a spoof where an attacker includes a gateway instruction earlier in the
+        // same transaction and then directly calls into this program.
         let current_ix = anchor_lang::solana_program::sysvar::instructions::get_instruction_relative(
-            -1,
+            0,
             ix_account,
         ).map_err(|_| UniversalNftError::InvalidCaller)?;
         
@@ -492,12 +496,14 @@ pub mod universal_nft {
         );
 
         // Decode message from ZEVM universal contract: (address receiver, uint256 tokenId, string uri, uint256 amount, address sender)
-        let (token_id, _receiver_evm, metadata_uri, amount_in_msg, _sender_evm) = util::cross_chain_helpers::decode_evm_abi_nft_message(&data)?;
+        let (token_id, _receiver_evm, metadata_uri, amount_in_msg, sender_evm) = util::cross_chain_helpers::decode_evm_abi_nft_message(&data)?;
         // Optional: sanity check that gateway-provided amount equals the amount in message (when present)
         // We don't fail hard to preserve compatibility; log mismatch for observability.
         if amount_in_msg != 0 && amount_in_msg != amount {
             msg!("Warning: amount mismatch (gateway: {}, msg: {})", amount, amount_in_msg);
         }
+        // Defensive consistency check: ensure the provided sender matches the one encoded in the message
+        require!(sender == sender_evm, UniversalNftError::InvalidDataFormat);
 
         // Derive origin PDA expected address from token_id only
         let (expected_origin_key, origin_bump) = Pubkey::find_program_address(
@@ -515,6 +521,9 @@ pub mod universal_nft {
         // Sanity checks for token accounts
         require_keys_eq!(ctx.accounts.pda_ata.owner, ctx.accounts.pda.key(), UniversalNftError::InvalidProgram);
         require_keys_eq!(ctx.accounts.pda_ata.mint, ctx.accounts.mint_account.key(), UniversalNftError::InvalidProgram);
+        
+        // Expect NFT mint (decimals == 0)
+        require!(ctx.accounts.mint_account.decimals == 0, UniversalNftError::InvalidMint);
         
         // Enforce ATA derivation without requiring associated_token_program account in context
         let expected_ata = anchor_spl::associated_token::get_associated_token_address(
@@ -643,14 +652,33 @@ pub mod universal_nft {
             data_ref[..tmp.len()].copy_from_slice(&tmp);
         }
 
-        // 3) Mint 1 to program_ata using config PDA as authority
-        mint_nft_to_recipient(
-            &ctx.accounts.mint_account,
-            &ctx.accounts.pda_ata,
-            &ctx.accounts.pda.to_account_info(),
-            &ctx.accounts.token_program,
-            Some(signer_seeds),
-        )?;
+        // 3) Transfer the newly minted NFT from program ATA to the recipient's ATA
+        let recipient = ctx.accounts.recipient.to_account_info();
+        let recipient_ata = ctx.accounts.recipient_ata.to_account_info();
+
+        // Validate recipient ATA derivation
+        let expected_recipient_ata = get_associated_token_address(&recipient.key(), &ctx.accounts.mint_account.key());
+        require_keys_eq!(expected_recipient_ata, recipient_ata.key(), UniversalNftError::InvalidRecipientAddress);
+    
+        // Ensure the provided recipient_ata account is actually an SPL Token account (if initialized)
+        require_keys_eq!(*recipient_ata.owner, ctx.accounts.token_program.key(), UniversalNftError::InvalidRecipientAddress);
+        
+        // Ensure we have at least 1 token to transfer from the PDA's ATA
+        require!(ctx.accounts.pda_ata.amount >= 1, UniversalNftError::InvalidTokenAmount);
+
+        // Transfer 1 token (decimals = 0) from program ATA -> recipient ATA, signed by config PDA
+        let signer_seeds: &[&[&[u8]]] = &[&[UNIVERSAL_NFT_CONFIG_SEED, &[ctx.accounts.pda.bump]]];
+        let xfer_ctx = CpiContext::new_with_signer(
+            ctx.accounts.token_program.to_account_info(),
+            TransferChecked {
+                from: ctx.accounts.pda_ata.to_account_info(),
+                mint: ctx.accounts.mint_account.to_account_info(),
+                to: recipient_ata.to_account_info(),
+                authority: ctx.accounts.pda.to_account_info(),
+            },
+            signer_seeds,
+        );
+        token::transfer_checked(xfer_ctx, 1, 0)?;
 
         // Update origin flags (mark returned to Solana regardless of prior state)
         origin_data.mark_to_solana(clock.unix_timestamp);
@@ -669,7 +697,7 @@ pub mod universal_nft {
         emit!(NftMinted {
             mint: ctx.accounts.mint_account.key(),
             token_id,
-            owner: ctx.accounts.pda.key(),
+            owner: recipient.key(),
             uri: origin_data.original_uri.clone(),
             timestamp: clock.unix_timestamp
         });

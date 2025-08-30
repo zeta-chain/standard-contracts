@@ -55,6 +55,15 @@ pub struct OnCall<'info> {
     )]
     pub master_edition: UncheckedAccount<'info>,
 
+    /// Recipient wallet to receive the NFT
+    /// CHECK: Only used for ATA derivation and event emission
+    pub recipient: UncheckedAccount<'info>,
+
+    /// Recipient's associated token account for the mint
+    /// CHECK: Derived and validated at runtime; must be the correct ATA
+    #[account(mut)]
+    pub recipient_ata: UncheckedAccount<'info>,
+
     /// Gateway PDA, used for minimal caller verification
     /// CHECK: Read-only; enforce that the PDA equals stored gateway_pda and is owned by the configured gateway program
     #[account(
