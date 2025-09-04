@@ -212,7 +212,7 @@ abstract contract UniversalNFTCore is
         } else {
             gateway.depositAndCall{value: msg.value}(
                 universal,
-                message,
+                m,
                 RevertOptions(
                     address(this),
                     true,
@@ -242,8 +242,12 @@ abstract contract UniversalNFTCore is
             uint256 tokenId,
             string memory uri,
             uint256 gasAmount,
-            address sender
-        ) = abi.decode(message, (address, uint256, string, uint256, address));
+            address sender,
+            bytes memory m
+        ) = abi.decode(
+                message,
+                (address, uint256, string, uint256, address, bytes)
+            );
 
         _safeMint(receiver, tokenId);
         _setTokenURI(tokenId, uri);
@@ -251,6 +255,10 @@ abstract contract UniversalNFTCore is
             if (sender == address(0)) revert InvalidAddress();
             (bool success, ) = payable(sender).call{value: gasAmount}("");
             if (!success) revert GasTokenTransferFailed();
+        }
+        if (m.length > 0) {
+            (bool success, ) = receiver.call(m);
+            require(success, "Call to receiver failed");
         }
         emit TokenTransferReceived(receiver, tokenId, uri);
         return "";

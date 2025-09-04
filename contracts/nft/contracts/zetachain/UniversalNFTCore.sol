@@ -154,7 +154,8 @@ abstract contract UniversalNFTCore is
             tokenId,
             uri,
             0,
-            msg.sender
+            msg.sender,
+            ""
         );
 
         _burn(tokenId);
@@ -223,7 +224,7 @@ abstract contract UniversalNFTCore is
         address destination,
         bytes memory message
     ) public payable {
-        _transferAndCall(tokenId, receiver, destination, message);
+        // _transferAndCall(tokenId, receiver, destination, message);
     }
 
     /**
@@ -240,67 +241,57 @@ abstract contract UniversalNFTCore is
         address destination,
         bytes memory message
     ) internal virtual nonReentrant {
-        if (msg.value == 0) revert ZeroMsgValue();
-        if (receiver == address(0)) revert InvalidAddress();
-
-        string memory uri = tokenURI(tokenId);
-        bytes memory message = abi.encode(
-            receiver,
-            tokenId,
-            uri,
-            0,
-            msg.sender
-        );
-
-        _burn(tokenId);
-        emit TokenTransfer(receiver, destination, tokenId, uri);
-
-        (address gasZRC20, uint256 gasFee) = IZRC20(destination)
-            .withdrawGasFeeWithGasLimit(gasLimitAmount);
-        if (destination != gasZRC20) revert InvalidAddress();
-
-        address WZETA = gateway.zetaToken();
-        IWETH9(WZETA).deposit{value: msg.value}();
-        if (!IWETH9(WZETA).approve(uniswapRouter, msg.value)) {
-            revert ApproveFailed();
-        }
-
-        uint256 out = SwapHelperLib.swapTokensForExactTokens(
-            uniswapRouter,
-            WZETA,
-            gasFee,
-            gasZRC20,
-            msg.value
-        );
-
-        uint256 remaining = msg.value - out;
-        if (remaining > 0) {
-            IWETH9(WZETA).withdraw(remaining);
-            (bool success, ) = msg.sender.call{value: remaining}("");
-            if (!success) revert TransferFailed();
-        }
-
-        CallOptions memory callOptions = CallOptions(gasLimitAmount, false);
-
-        RevertOptions memory revertOptions = RevertOptions(
-            address(this),
-            true,
-            address(this),
-            abi.encode(receiver, tokenId, uri, msg.sender),
-            gasLimitAmount
-        );
-
-        if (!IZRC20(gasZRC20).approve(address(gateway), gasFee)) {
-            revert ApproveFailed();
-        }
-
-        gateway.call(
-            connected[destination],
-            destination,
-            message,
-            callOptions,
-            revertOptions
-        );
+        // if (msg.value == 0) revert ZeroMsgValue();
+        // if (receiver == address(0)) revert InvalidAddress();
+        // string memory uri = tokenURI(tokenId);
+        // bytes memory message = abi.encode(
+        //     receiver,
+        //     tokenId,
+        //     uri,
+        //     0,
+        //     msg.sender
+        // );
+        // _burn(tokenId);
+        // emit TokenTransfer(receiver, destination, tokenId, uri);
+        // (address gasZRC20, uint256 gasFee) = IZRC20(destination)
+        //     .withdrawGasFeeWithGasLimit(gasLimitAmount);
+        // if (destination != gasZRC20) revert InvalidAddress();
+        // address WZETA = gateway.zetaToken();
+        // IWETH9(WZETA).deposit{value: msg.value}();
+        // if (!IWETH9(WZETA).approve(uniswapRouter, msg.value)) {
+        //     revert ApproveFailed();
+        // }
+        // uint256 out = SwapHelperLib.swapTokensForExactTokens(
+        //     uniswapRouter,
+        //     WZETA,
+        //     gasFee,
+        //     gasZRC20,
+        //     msg.value
+        // );
+        // uint256 remaining = msg.value - out;
+        // if (remaining > 0) {
+        //     IWETH9(WZETA).withdraw(remaining);
+        //     (bool success, ) = msg.sender.call{value: remaining}("");
+        //     if (!success) revert TransferFailed();
+        // }
+        // CallOptions memory callOptions = CallOptions(gasLimitAmount, false);
+        // RevertOptions memory revertOptions = RevertOptions(
+        //     address(this),
+        //     true,
+        //     address(this),
+        //     abi.encode(receiver, tokenId, uri, msg.sender),
+        //     gasLimitAmount
+        // );
+        // if (!IZRC20(gasZRC20).approve(address(gateway), gasFee)) {
+        //     revert ApproveFailed();
+        // }
+        // gateway.call(
+        //     connected[destination],
+        //     destination,
+        //     message,
+        //     callOptions,
+        //     revertOptions
+        // );
     }
 
     /**
@@ -364,7 +355,7 @@ abstract contract UniversalNFTCore is
                 connected[destination],
                 out - gasFee,
                 destination,
-                abi.encode(receiver, tokenId, uri, out - gasFee, sender),
+                abi.encode(receiver, tokenId, uri, out - gasFee, sender, m),
                 CallOptions(gasLimitAmount, false),
                 RevertOptions(
                     address(this),
