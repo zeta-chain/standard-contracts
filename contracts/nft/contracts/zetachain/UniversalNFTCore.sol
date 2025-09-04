@@ -209,6 +209,101 @@ abstract contract UniversalNFTCore is
     }
 
     /**
+     * @notice Transfers an NFT to a connected chain.
+     * @dev This function accepts native ZETA tokens as gas fees, which are swapped
+     *      for the corresponding ZRC-20 gas token of the destination chain. The NFT is then
+     *      transferred to the destination chain using the ZetaChain Gateway.
+     * @param tokenId The ID of the NFT to transfer.
+     * @param receiver Address of the recipient on the destination chain.
+     * @param destination Address of the ZRC-20 gas token for the destination chain.
+     */
+    function transferAndCall(
+        uint256 tokenId,
+        address receiver,
+        address destination,
+        bytes memory message
+    ) public payable {
+        _transferAndCall(tokenId, receiver, destination, message);
+    }
+
+    /**
+     * @notice Internal function that handles the core logic for cross-chain NFT transfer.
+     * @dev This function can be overridden by child contracts to add custom functionality.
+     *      It handles the gas fee calculation, token swaps, and cross-chain transfer logic.
+     * @param tokenId The ID of the NFT to transfer.
+     * @param receiver Address of the recipient on the destination chain.
+     * @param destination Address of the ZRC-20 gas token for the destination chain.
+     */
+    function _transferAndCall(
+        uint256 tokenId,
+        address receiver,
+        address destination,
+        bytes memory message
+    ) internal virtual nonReentrant {
+        if (msg.value == 0) revert ZeroMsgValue();
+        if (receiver == address(0)) revert InvalidAddress();
+
+        string memory uri = tokenURI(tokenId);
+        bytes memory message = abi.encode(
+            receiver,
+            tokenId,
+            uri,
+            0,
+            msg.sender
+        );
+
+        _burn(tokenId);
+        emit TokenTransfer(receiver, destination, tokenId, uri);
+
+        (address gasZRC20, uint256 gasFee) = IZRC20(destination)
+            .withdrawGasFeeWithGasLimit(gasLimitAmount);
+        if (destination != gasZRC20) revert InvalidAddress();
+
+        address WZETA = gateway.zetaToken();
+        IWETH9(WZETA).deposit{value: msg.value}();
+        if (!IWETH9(WZETA).approve(uniswapRouter, msg.value)) {
+            revert ApproveFailed();
+        }
+
+        uint256 out = SwapHelperLib.swapTokensForExactTokens(
+            uniswapRouter,
+            WZETA,
+            gasFee,
+            gasZRC20,
+            msg.value
+        );
+
+        uint256 remaining = msg.value - out;
+        if (remaining > 0) {
+            IWETH9(WZETA).withdraw(remaining);
+            (bool success, ) = msg.sender.call{value: remaining}("");
+            if (!success) revert TransferFailed();
+        }
+
+        CallOptions memory callOptions = CallOptions(gasLimitAmount, false);
+
+        RevertOptions memory revertOptions = RevertOptions(
+            address(this),
+            true,
+            address(this),
+            abi.encode(receiver, tokenId, uri, msg.sender),
+            gasLimitAmount
+        );
+
+        if (!IZRC20(gasZRC20).approve(address(gateway), gasFee)) {
+            revert ApproveFailed();
+        }
+
+        gateway.call(
+            connected[destination],
+            destination,
+            message,
+            callOptions,
+            revertOptions
+        );
+    }
+
+    /**
      * @notice Handles cross-chain NFT transfers.
      * @dev This function is called by the Gateway contract upon receiving a message.
      *      If the destination is ZetaChain, mint an NFT and set its URI.
@@ -234,13 +329,21 @@ abstract contract UniversalNFTCore is
             address receiver,
             uint256 tokenId,
             string memory uri,
-            address sender
-        ) = abi.decode(message, (address, address, uint256, string, address));
+            address sender,
+            bytes memory m
+        ) = abi.decode(
+                message,
+                (address, address, uint256, string, address, bytes)
+            );
 
         if (destination == address(0)) {
             _safeMint(receiver, tokenId);
             _setTokenURI(tokenId, uri);
             emit TokenTransferReceived(receiver, tokenId, uri);
+            if (m.length > 0) {
+                (bool success, ) = receiver.call(m);
+                if (!success) revert TransferFailed();
+            }
         } else {
             (address gasZRC20, uint256 gasFee) = IZRC20(destination)
                 .withdrawGasFeeWithGasLimit(gasLimitAmount);

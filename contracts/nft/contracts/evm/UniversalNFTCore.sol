@@ -141,7 +141,8 @@ abstract contract UniversalNFTCore is
             receiver,
             tokenId,
             uri,
-            msg.sender
+            msg.sender,
+            ""
         );
 
         _burn(tokenId);
@@ -152,6 +153,61 @@ abstract contract UniversalNFTCore is
                 universal,
                 message,
                 RevertOptions(address(this), false, universal, message, 0)
+            );
+        } else {
+            gateway.depositAndCall{value: msg.value}(
+                universal,
+                message,
+                RevertOptions(
+                    address(this),
+                    true,
+                    universal,
+                    abi.encode(receiver, tokenId, uri, msg.sender),
+                    gasLimitAmount
+                )
+            );
+        }
+    }
+
+    function transferAndCall(
+        uint256 tokenId,
+        address receiver,
+        address destination,
+        bytes memory message
+    ) external payable {
+        _transferAndCall(tokenId, receiver, destination, message);
+    }
+
+    function _transferAndCall(
+        uint256 tokenId,
+        address receiver,
+        address destination,
+        bytes memory message
+    ) internal virtual nonReentrant {
+        if (receiver == address(0)) revert InvalidAddress();
+
+        if (destination == address(0) && msg.value > 0) {
+            revert TransferToZetaChainRequiresNoGas();
+        }
+
+        string memory uri = tokenURI(tokenId);
+        bytes memory m = abi.encode(
+            destination,
+            receiver,
+            tokenId,
+            uri,
+            msg.sender,
+            message
+        );
+
+        _burn(tokenId);
+        emit TokenTransfer(destination, receiver, tokenId, uri);
+
+        if (destination == address(0)) {
+            gateway.call(
+                universal,
+                m,
+                RevertOptions(address(this), false, universal, m, 0)
             );
         } else {
             gateway.depositAndCall{value: msg.value}(
