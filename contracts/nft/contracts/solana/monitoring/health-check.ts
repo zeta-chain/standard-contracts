@@ -1,6 +1,8 @@
 import { Connection, PublicKey, AccountInfo, ParsedAccountData } from '@solana/web3.js';
-import { Program, AnchorProvider, BN } from '@project-serum/anchor';
+import { Program, AnchorProvider, BN } from '@coral-xyz/anchor';
 import { TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID } from '@solana/spl-token';
+import { createHash } from 'crypto';
+import bs58 from 'bs58';
 
 // Types for monitoring data
 interface HealthMetrics {
@@ -844,6 +846,13 @@ class UniversalNFTHealthMonitor {
   }
 
   // Utility methods for account health checks
+  private getDiscriminator(accountName: string): string {
+    const hash = createHash('sha256');
+    hash.update(`account:${accountName}`);
+    const discriminator = hash.digest().slice(0, 8);
+    return bs58.encode(discriminator);
+  }
+
   private async getAllCollections(): Promise<any[]> {
     // Implementation would use getProgramAccounts to fetch all collection accounts
     try {
@@ -852,12 +861,12 @@ class UniversalNFTHealthMonitor {
           {
             memcmp: {
               offset: 0,
-              bytes: 'collection' // This would be the discriminator
+              bytes: this.getDiscriminator('Collection')
             }
           }
         ]
       });
-      return accounts;
+      return [...accounts];
     } catch (error) {
       console.error('Failed to fetch collections:', error);
       return [];
@@ -872,12 +881,12 @@ class UniversalNFTHealthMonitor {
           {
             memcmp: {
               offset: 0,
-              bytes: 'nft_origin' // This would be the discriminator
+              bytes: this.getDiscriminator('NftOrigin')
             }
           }
         ]
       });
-      return accounts;
+      return [...accounts];
     } catch (error) {
       console.error('Failed to fetch NFT origins:', error);
       return [];
@@ -892,12 +901,12 @@ class UniversalNFTHealthMonitor {
           {
             memcmp: {
               offset: 0,
-              bytes: 'connected' // This would be the discriminator
+              bytes: this.getDiscriminator('Connected')
             }
           }
         ]
       });
-      return accounts;
+      return [...accounts];
     } catch (error) {
       console.error('Failed to fetch connected chains:', error);
       return [];

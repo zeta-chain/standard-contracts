@@ -14,8 +14,6 @@ lerna-debug.log*
 !.yarn/sdks
 !.yarn/versions
 .pnp.*
-yarn.lock
-package-lock.json
 
 # Environment files
 .env
@@ -64,7 +62,7 @@ access_token
 deployment*.json
 
 # OpenZeppelin upgrades
-.openzeppelin
+# .openzeppelin - tracking upgrade manifests for deployment history
 
 # IDE and editor files
 .vscode/
