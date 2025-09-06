@@ -5,7 +5,7 @@ use anchor_spl::{
 };
 
 use crate::state::Collection;
-use crate::{CollectionInitialized, TOKEN_METADATA_PROGRAM_ID};
+use crate::{CollectionInitialized, TOKEN_METADATA_PROGRAM_ID, UniversalNftError};
 
 /// Initialize a new Universal NFT collection compatible with ZetaChain
 #[allow(dead_code)]
@@ -17,6 +17,11 @@ pub fn initialize_collection(
     tss_address: [u8; 20],
 ) -> Result<()> {
     let collection = &mut ctx.accounts.collection;
+    // Enforce canonical limits (adjust to struct caps)
+    require!(name.len() <= 32, UniversalNftError::InvalidNameLength);
+    require!(symbol.len() <= 10, UniversalNftError::InvalidSymbolLength);
+    require!(uri.len() <= 200, UniversalNftError::InvalidUriLength);
+    
     let collection_key = collection.key();
     collection.authority = ctx.accounts.authority.key();
     collection.name = name.clone();

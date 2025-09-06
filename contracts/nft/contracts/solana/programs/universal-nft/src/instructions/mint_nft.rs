@@ -22,7 +22,7 @@ use mpl_token_metadata::{
 };
 
 use crate::state::{Collection, NftOrigin};
-use crate::UniversalNftError;
+use crate::{UniversalNftError, get_current_chain_id};
 
 /// Enhanced mint_nft function that implements the NFT Origin system for new Solana mints
 pub fn mint_nft(
@@ -77,10 +77,11 @@ pub fn mint_nft(
 
     // Initialize NFT Origin data with collection's next token ID
     let token_id = collection.next_token_id;
+    let current_chain_id = get_current_chain_id();
     let nft_origin = &mut ctx.accounts.nft_origin;
     nft_origin.token_id = token_id;
     nft_origin.collection = collection_key;
-    nft_origin.chain_of_origin = 103; // Solana devnet - adjust based on network
+    nft_origin.chain_of_origin = current_chain_id;
     nft_origin.created_at = clock.unix_timestamp;
     nft_origin.metadata_uri = uri.clone();
     nft_origin.bump = ctx.bumps.nft_origin;
@@ -150,7 +151,7 @@ pub fn mint_nft(
         recipient: ctx.accounts.recipient.key(),
         name,
         uri: uri.clone(),
-        origin_chain: 103, // Solana devnet
+        origin_chain: current_chain_id,
         is_solana_native: true,
     });
 
@@ -158,7 +159,7 @@ pub fn mint_nft(
         token_id,
         original_mint: mint_pubkey,
         collection: collection_key,
-        origin_chain: 103,
+        origin_chain: current_chain_id,
         metadata_uri: uri.clone(),
     });
 

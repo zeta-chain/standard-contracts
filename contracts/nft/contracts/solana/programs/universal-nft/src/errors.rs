@@ -26,4 +26,22 @@ pub enum UniversalNftError {
     ContractAddressNotSet,
     #[msg("Rent exemption failed")]
     RentExemptionFailed,
+    #[msg("Invalid name length")]
+    InvalidNameLength,
+    #[msg("Invalid symbol length")]
+    InvalidSymbolLength,
+    #[msg("Invalid URI length")]
+    InvalidUriLength,
+    #[msg("Invalid token ID")]
+    InvalidTokenId,
+    #[msg("Invalid signature")]
+    InvalidSignature,
+    #[msg("Invalid destination chain")]
+    InvalidDestinationChain,
+    #[msg("Unsupported chain")]
+    UnsupportedChain,
+    #[msg("Invalid recipient address")]
+    InvalidRecipientAddress,
+    #[msg("Insufficient gas amount")]
+    InsufficientGasAmount,
 }

@@ -1,11 +1,12 @@
 use anchor_lang::prelude::*;
+use anchor_lang::system_program::{transfer, Transfer};
 use anchor_spl::{
     associated_token::AssociatedToken,
     token::{mint_to, Mint, MintTo, Token, TokenAccount},
 };
 
 use crate::state::Collection;
-use crate::{TokenTransferReverted, UniversalNftError, ZETACHAIN_GATEWAY_PROGRAM_ID, TOKEN_METADATA_PROGRAM_ID};
+use crate::{TokenTransferReverted, UniversalNftError, ZETACHAIN_GATEWAY_PROGRAM_ID, TOKEN_METADATA_PROGRAM_ID, GATEWAY_PDA_SEED};
 
 /// Handle failed cross-chain transfers by minting NFT back to original sender
 pub fn on_revert(
@@ -16,9 +17,25 @@ pub fn on_revert(
     refund_amount: u64,
 ) -> Result<()> {
 
-    // Verify the caller is the gateway program
+    // Verify the caller is the gateway program and validate PDA
     require!(
         ctx.accounts.gateway.key() == ZETACHAIN_GATEWAY_PROGRAM_ID,
+        UniversalNftError::UnauthorizedGateway
+    );
+    
+    // Derive expected gateway PDA and verify it matches
+    let (expected_gateway_pda, _) = Pubkey::find_program_address(
+        &[GATEWAY_PDA_SEED],
+        &ZETACHAIN_GATEWAY_PROGRAM_ID,
+    );
+    require!(
+        ctx.accounts.gateway_pda.key() == expected_gateway_pda,
+        UniversalNftError::UnauthorizedGateway
+    );
+    
+    // Verify gateway PDA is owned by the gateway program
+    require!(
+        ctx.accounts.gateway_pda.owner == &ZETACHAIN_GATEWAY_PROGRAM_ID,
         UniversalNftError::UnauthorizedGateway
     );
     
@@ -50,14 +67,30 @@ pub fn on_revert(
     
     mint_to(cpi_ctx.with_signer(signer_seeds), 1)?;
     
-    // Handle refund if applicable
+    // Handle refund if applicable using System Program CPI
     if refund_amount > 0 {
-        // Transfer SOL refund to original sender
-        let lamports = ctx.accounts.payer.lamports();
-        if lamports >= refund_amount {
-            **ctx.accounts.payer.lamports.borrow_mut() -= refund_amount;
-            **ctx.accounts.original_sender.lamports.borrow_mut() += refund_amount;
-        }
+        // Get rent to ensure payer remains rent-exempt
+        let rent = Rent::get()?;
+        let payer_account_data_len = ctx.accounts.payer.to_account_info().data_len();
+        let minimum_balance = rent.minimum_balance(payer_account_data_len);
+        
+        // Assert payer has sufficient balance and will remain rent-exempt
+        require!(
+            ctx.accounts.payer.lamports() >= minimum_balance + refund_amount,
+            UniversalNftError::InsufficientGasAmount
+        );
+        
+        // Construct CPI context for system program transfer
+        let cpi_ctx = CpiContext::new(
+            ctx.accounts.system_program.to_account_info(),
+            Transfer {
+                from: ctx.accounts.payer.to_account_info(),
+                to: ctx.accounts.original_sender.to_account_info(),
+            },
+        );
+        
+        // Execute the transfer via System Program CPI
+        transfer(cpi_ctx, refund_amount)?;
     }
     
     msg!(
