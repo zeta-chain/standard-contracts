@@ -1,6 +1,7 @@
 {
   "name": "solana-universal-nft",
   "version": "0.1.0",
+  "type": "module",
   "description": "Solana Universal NFT program for cross-chain transfers via ZetaChain",
   "main": "index.js",
   "scripts": {

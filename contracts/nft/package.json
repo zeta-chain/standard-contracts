@@ -6,7 +6,15 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "lint:fix": "npx eslint . --ext .js,.ts --fix",
-    "lint": "npx eslint . --ext .js,.ts"
+    "lint": "npx eslint . --ext .js,.ts",
+    "deploy:all": "ts-node scripts/deploy-all-networks.ts",
+    "deploy:base-sepolia": "npx hardhat deploy --network base_sepolia",
+    "deploy:zetachain": "npx hardhat deploy --network zetachain_testnet",
+    "deploy:solana-devnet": "cd contracts/solana && npm run deploy-devnet",
+    "configure:cross-chain": "ts-node scripts/configure-cross-chain.ts",
+    "test:cross-chain-transfers": "ts-node scripts/test-cross-chain-transfers.ts",
+    "verify:deployment": "ts-node scripts/verify-deployment.ts",
+    "status:deployment": "ts-node scripts/check-deployment-status.ts"
   },
   "keywords": [],
   "author": "",

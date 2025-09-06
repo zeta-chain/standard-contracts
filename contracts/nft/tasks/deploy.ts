@@ -1,11 +1,13 @@
 import { task } from "hardhat/config";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { ethers } from "ethers";
+import "@nomiclabs/hardhat-ethers";
+import "@openzeppelin/hardhat-upgrades";
 
 const DEFAULT_GAS_LIMIT = "1000000";
 
 const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
-  const { isAddress } = hre.ethers.utils;
+  const { isAddress } = ethers.utils;
   const network = hre.network.name;
 
   let signer;

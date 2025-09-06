@@ -1,6 +1,6 @@
 import { task } from "hardhat/config";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
-import { EVMUniversalNFT } from "@/typechain-types";
+// import { EVMUniversalNFT } from "@/typechain-types";
 import { ethers } from "ethers";
 
 const DEFAULT_GAS_LIMIT = "300000";
@@ -27,7 +27,7 @@ const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
     throw new Error("Invalid Ethereum address provided.");
   }
 
-  const contract: EVMUniversalNFT = await hre.ethers.getContractAt(
+  const contract: any = await hre.ethers.getContractAt(
     "EVMUniversalNFT",
     args.contract,
     signer

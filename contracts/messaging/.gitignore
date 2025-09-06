@@ -14,6 +14,47 @@ artifacts
 out
 cache_forge
 
+# Solana/Anchor build artifacts
+target/
+.anchor/
+test-ledger/
+*.so
+*.d
+*.rlib
+
+# Development scripts and logs
+localnet.sh
+demo-cycle.sh
+*-validator.log
+localnet-start.log
+anvil.log
+
+# Development keypairs and configs
+program-keypair.json
+*-keypair.json
+localnet.json
 access_token
 
-localnet.json
+# Deployment files
+deployment*.json
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+Thumbs.db
+ehthumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
+
+# Test artifacts
+test-results/
+coverage-reports/
