@@ -49,7 +49,6 @@ test-ledger/
 deployment*.json
 
 # Development scripts and logs
-localnet.sh
 demo-cycle.sh
 *-validator.log
 localnet-start.log
