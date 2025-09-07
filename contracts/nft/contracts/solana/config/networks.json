@@ -1,0 +1,372 @@
+{
+  "networks": {
+    "devnet": {
+      "endpoint": "https://api.devnet.solana.com",
+      "programId": "6RfVUT361yLWutQFXBdBmNCCFxiaj5XjC4LS7XrQYuke",
+      "gatewayProgramId": "GatewayAddress111111111111111111111111111",
+      "tssAddress": "0x1234567890123456789012345678901234567890",
+      "commitment": "confirmed",
+      "skipPreflight": false,
+      "maxRetries": 3,
+      "confirmTimeout": 60000,
+      "supportedChains": {
+        "ethereum": {
+          "chainId": 11155111,
+          "name": "Ethereum Sepolia",
+          "contractAddress": "0x742d35Cc6634C0532925a3b8D4C9db96C4b5Da5e",
+          "rpcUrl": "https://sepolia.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161",
+          "blockExplorer": "https://sepolia.etherscan.io",
+          "nativeCurrency": {
+            "name": "Sepolia Ether",
+            "symbol": "ETH",
+            "decimals": 18
+          }
+        },
+        "bsc": {
+          "chainId": 97,
+          "name": "BSC Testnet",
+          "contractAddress": "0x8b1f4432F943c465A973FeDC6d7aa50Fc96f1f65",
+          "rpcUrl": "https://data-seed-prebsc-1-s1.binance.org:8545",
+          "blockExplorer": "https://testnet.bscscan.com",
+          "nativeCurrency": {
+            "name": "Binance Coin",
+            "symbol": "BNB",
+            "decimals": 18
+          }
+        },
+        "base": {
+          "chainId": 84532,
+          "name": "Base Sepolia",
+          "contractAddress": "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0",
+          "rpcUrl": "https://sepolia.base.org",
+          "blockExplorer": "https://sepolia-explorer.base.org",
+          "nativeCurrency": {
+            "name": "Ether",
+            "symbol": "ETH",
+            "decimals": 18
+          }
+        },
+        "polygon": {
+          "chainId": 80001,
+          "name": "Polygon Mumbai",
+          "contractAddress": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
+          "rpcUrl": "https://rpc-mumbai.maticvigil.com",
+          "blockExplorer": "https://mumbai.polygonscan.com",
+          "nativeCurrency": {
+            "name": "MATIC",
+            "symbol": "MATIC",
+            "decimals": 18
+          }
+        },
+        "zetachain": {
+          "chainId": 7001,
+          "name": "ZetaChain Athens Testnet",
+          "contractAddress": "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512",
+          "rpcUrl": "https://zetachain-athens-evm.blockpi.network/v1/rpc/public",
+          "blockExplorer": "https://athens3.explorer.zetachain.com",
+          "nativeCurrency": {
+            "name": "ZETA",
+            "symbol": "ZETA",
+            "decimals": 18
+          }
+        }
+      }
+    },
+    "testnet": {
+      "endpoint": "https://api.testnet.solana.com",
+      "programId": "6RfVUT361yLWutQFXBdBmNCCFxiaj5XjC4LS7XrQYuke",
+      "gatewayProgramId": "GatewayAddress111111111111111111111111111",
+      "tssAddress": "0x5678901234567890123456789012345678901234",
+      "commitment": "confirmed",
+      "skipPreflight": false,
+      "maxRetries": 3,
+      "confirmTimeout": 60000,
+      "supportedChains": {
+        "ethereum": {
+          "chainId": 5,
+          "name": "Ethereum Goerli",
+          "contractAddress": "0x742d35Cc6634C0532925a3b8D4C9db96C4b5Da5e",
+          "rpcUrl": "https://goerli.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161",
+          "blockExplorer": "https://goerli.etherscan.io",
+          "nativeCurrency": {
+            "name": "Goerli Ether",
+            "symbol": "ETH",
+            "decimals": 18
+          }
+        },
+        "bsc": {
+          "chainId": 97,
+          "name": "BSC Testnet",
+          "contractAddress": "0x8b1f4432F943c465A973FeDC6d7aa50Fc96f1f65",
+          "rpcUrl": "https://data-seed-prebsc-1-s1.binance.org:8545",
+          "blockExplorer": "https://testnet.bscscan.com",
+          "nativeCurrency": {
+            "name": "Binance Coin",
+            "symbol": "BNB",
+            "decimals": 18
+          }
+        },
+        "base": {
+          "chainId": 84531,
+          "name": "Base Goerli",
+          "contractAddress": "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0",
+          "rpcUrl": "https://goerli.base.org",
+          "blockExplorer": "https://goerli-explorer.base.org",
+          "nativeCurrency": {
+            "name": "Ether",
+            "symbol": "ETH",
+            "decimals": 18
+          }
+        },
+        "polygon": {
+          "chainId": 80001,
+          "name": "Polygon Mumbai",
+          "contractAddress": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
+          "rpcUrl": "https://rpc-mumbai.maticvigil.com",
+          "blockExplorer": "https://mumbai.polygonscan.com",
+          "nativeCurrency": {
+            "name": "MATIC",
+            "symbol": "MATIC",
+            "decimals": 18
+          }
+        },
+        "zetachain": {
+          "chainId": 7001,
+          "name": "ZetaChain Athens Testnet",
+          "contractAddress": "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512",
+          "rpcUrl": "https://zetachain-athens-evm.blockpi.network/v1/rpc/public",
+          "blockExplorer": "https://athens3.explorer.zetachain.com",
+          "nativeCurrency": {
+            "name": "ZETA",
+            "symbol": "ZETA",
+            "decimals": 18
+          }
+        }
+      }
+    },
+    "mainnet": {
+      "endpoint": "https://api.mainnet-beta.solana.com",
+      "programId": "6RfVUT361yLWutQFXBdBmNCCFxiaj5XjC4LS7XrQYuke",
+      "gatewayProgramId": "GatewayAddress111111111111111111111111111",
+      "tssAddress": "0x70e967acFcC17c3941E87562161406d41676FD83",
+      "commitment": "finalized",
+      "skipPreflight": false,
+      "maxRetries": 5,
+      "confirmTimeout": 120000,
+      "supportedChains": {
+        "ethereum": {
+          "chainId": 1,
+          "name": "Ethereum Mainnet",
+          "contractAddress": "0x742d35Cc6634C0532925a3b8D4C9db96C4b5Da5e",
+          "rpcUrl": "https://mainnet.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161",
+          "blockExplorer": "https://etherscan.io",
+          "nativeCurrency": {
+            "name": "Ether",
+            "symbol": "ETH",
+            "decimals": 18
+          }
+        },
+        "bsc": {
+          "chainId": 56,
+          "name": "BNB Smart Chain",
+          "contractAddress": "0x8b1f4432F943c465A973FeDC6d7aa50Fc96f1f65",
+          "rpcUrl": "https://bsc-dataseed1.binance.org",
+          "blockExplorer": "https://bscscan.com",
+          "nativeCurrency": {
+            "name": "Binance Coin",
+            "symbol": "BNB",
+            "decimals": 18
+          }
+        },
+        "base": {
+          "chainId": 8453,
+          "name": "Base",
+          "contractAddress": "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0",
+          "rpcUrl": "https://mainnet.base.org",
+          "blockExplorer": "https://basescan.org",
+          "nativeCurrency": {
+            "name": "Ether",
+            "symbol": "ETH",
+            "decimals": 18
+          }
+        },
+        "polygon": {
+          "chainId": 137,
+          "name": "Polygon",
+          "contractAddress": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
+          "rpcUrl": "https://polygon-rpc.com",
+          "blockExplorer": "https://polygonscan.com",
+          "nativeCurrency": {
+            "name": "MATIC",
+            "symbol": "MATIC",
+            "decimals": 18
+          }
+        },
+        "arbitrum": {
+          "chainId": 42161,
+          "name": "Arbitrum One",
+          "contractAddress": "0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9",
+          "rpcUrl": "https://arb1.arbitrum.io/rpc",
+          "blockExplorer": "https://arbiscan.io",
+          "nativeCurrency": {
+            "name": "Ether",
+            "symbol": "ETH",
+            "decimals": 18
+          }
+        },
+        "optimism": {
+          "chainId": 10,
+          "name": "Optimism",
+          "contractAddress": "0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9",
+          "rpcUrl": "https://mainnet.optimism.io",
+          "blockExplorer": "https://optimistic.etherscan.io",
+          "nativeCurrency": {
+            "name": "Ether",
+            "symbol": "ETH",
+            "decimals": 18
+          }
+        },
+        "zetachain": {
+          "chainId": 7000,
+          "name": "ZetaChain Mainnet",
+          "contractAddress": "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512",
+          "rpcUrl": "https://zetachain-evm.blockpi.network/v1/rpc/public",
+          "blockExplorer": "https://explorer.zetachain.com",
+          "nativeCurrency": {
+            "name": "ZETA",
+            "symbol": "ZETA",
+            "decimals": 18
+          }
+        }
+      }
+    },
+    "localnet": {
+      "endpoint": "http://localhost:8899",
+      "programId": "6RfVUT361yLWutQFXBdBmNCCFxiaj5XjC4LS7XrQYuke",
+      "gatewayProgramId": "GatewayAddress111111111111111111111111111",
+      "tssAddress": "0x0000000000000000000000000000000000000000",
+      "commitment": "processed",
+      "skipPreflight": true,
+      "maxRetries": 1,
+      "confirmTimeout": 30000,
+      "supportedChains": {
+        "ethereum": {
+          "chainId": 31337,
+          "name": "Hardhat Local",
+          "contractAddress": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
+          "rpcUrl": "http://localhost:8545",
+          "blockExplorer": "http://localhost:8545",
+          "nativeCurrency": {
+            "name": "Ether",
+            "symbol": "ETH",
+            "decimals": 18
+          }
+        },
+        "zetachain": {
+          "chainId": 1337,
+          "name": "ZetaChain Local",
+          "contractAddress": "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512",
+          "rpcUrl": "http://localhost:8546",
+          "blockExplorer": "http://localhost:8546",
+          "nativeCurrency": {
+            "name": "ZETA",
+            "symbol": "ZETA",
+            "decimals": 18
+          }
+        }
+      }
+    }
+  },
+  "monitoring": {
+    "healthCheckInterval": 30000,
+    "alertThresholds": {
+      "errorRate": 0.05,
+      "latency": 5000,
+      "failedTransactions": 10,
+      "memoryUsage": 0.8,
+      "cpuUsage": 0.7,
+      "diskUsage": 0.9
+    },
+    "metrics": {
+      "enabled": true,
+      "port": 9090,
+      "endpoint": "/metrics",
+      "collectInterval": 15000
+    },
+    "logging": {
+      "level": "info",
+      "format": "json",
+      "maxFiles": 10,
+      "maxSize": "100MB"
+    },
+    "alerts": {
+      "webhook": {
+        "enabled": false,
+        "url": "",
+        "timeout": 5000
+      },
+      "email": {
+        "enabled": false,
+        "smtp": {
+          "host": "",
+          "port": 587,
+          "secure": false,
+          "auth": {
+            "user": "",
+            "pass": ""
+          }
+        },
+        "from": "",
+        "to": []
+      },
+      "slack": {
+        "enabled": false,
+        "webhookUrl": "",
+        "channel": "#alerts"
+      }
+    }
+  },
+  "security": {
+    "tssValidation": {
+      "enabled": true,
+      "requiredSignatures": 1,
+      "signatureTimeout": 300000
+    },
+    "rateLimiting": {
+      "enabled": true,
+      "windowMs": 60000,
+      "maxRequests": 100
+    },
+    "cors": {
+      "enabled": true,
+      "origins": ["http://localhost:3000", "https://app.zetachain.com"],
+      "methods": ["GET", "POST"],
+      "allowedHeaders": ["Content-Type", "Authorization"]
+    }
+  },
+  "features": {
+    "crossChainTransfers": true,
+    "nftOriginTracking": true,
+    "metadataValidation": true,
+    "eventMonitoring": true,
+    "automaticRetries": true,
+    "batchOperations": false,
+    "advancedMetrics": true
+  },
+  "defaults": {
+    "gasSettings": {
+      "priorityFee": 1000,
+      "maxFee": 10000,
+      "computeUnits": 200000
+    },
+    "timeouts": {
+      "transaction": 60000,
+      "confirmation": 30000,
+      "retry": 5000
+    },
+    "pagination": {
+      "defaultLimit": 50,
+      "maxLimit": 1000
+    }
+  }
+}
