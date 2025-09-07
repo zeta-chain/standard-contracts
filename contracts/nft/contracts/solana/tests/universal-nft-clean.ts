@@ -28,7 +28,7 @@ describe("universal-nft-clean", () => {
   const collectionName = "Test Universal NFT";
   const collectionSymbol = "TUNFT";
   const collectionUri = "https://example.com/collection.json";
-  const gatewayAddress = new PublicKey("GatewayAddress111111111111111111111111111");
+  const gatewayAddress = new PublicKey("ZETAjseVjuFsxdRxo6MmTCvqFwb3ZHUx56Co3vCmGis");
   const TOKEN_METADATA_PROGRAM_ID = new PublicKey("metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s");
 
   before(async () => {

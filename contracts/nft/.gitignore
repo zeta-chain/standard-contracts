@@ -58,6 +58,15 @@ program-keypair.json
 localnet.json
 access_token
 
+# Additional Solana secrets
+id.json
+wallet.json
+authority.json
+deploy-keypair.json
+program-id.json
+*.pem
+*.key
+
 # Deployment files
 deployment*.json
 

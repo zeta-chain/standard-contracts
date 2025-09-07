@@ -31,7 +31,7 @@ pub fn set_connected(
     );
     
     require!(
-        crate::state::is_supported_chain(chain_id_u64),
+        crate::is_supported_chain(chain_id_u64),
         UniversalNftError::UnsupportedChain
     );
 
@@ -64,6 +64,7 @@ pub fn set_connected(
 pub struct SetConnectedContext<'info> {
     /// Collection account that owns the connected mapping
     #[account(
+        has_one = authority,
         seeds = [b"collection", collection.authority.as_ref(), collection.name.as_bytes()],
         bump = collection.bump
     )]
@@ -75,7 +76,7 @@ pub struct SetConnectedContext<'info> {
 
     /// Connected account that stores the chain_id -> contract_address mapping
     #[account(
-        init,
+        init_if_needed,
         payer = authority,
         space = 8 + Connected::INIT_SPACE,
         seeds = [b"connected", collection.key().as_ref(), chain_id.as_slice()],

@@ -2,14 +2,19 @@ use anchor_lang::prelude::*;
 use anchor_lang::solana_program::{
     instruction::Instruction,
     keccak,
-    system_program,
 };
 use std::convert::TryInto;
+use anchor_spl::token::spl_token;
+use anchor_spl::associated_token::spl_associated_token_account;
 
 // Optional Metaplex imports - ensure the dependency exists in Cargo.toml
 use mpl_token_metadata::{
-    instruction as mpl_instruction,
-    state::{Creator, DataV2},
+    instructions::{
+        CreateMetadataAccountV3Builder,
+        CreateMasterEditionV3Builder,
+        UpdateMetadataAccountV2Builder
+    },
+    types::{Creator, DataV2},
     ID as TOKEN_METADATA_PROGRAM_ID,
 };
 
@@ -30,15 +35,6 @@ pub fn calculate_rent_exemption(account_size: usize, rent: &Rent) -> u64 {
     rent.minimum_balance(account_size)
 }
 
-/// Validate Solana address format
-pub fn validate_solana_address(address_bytes: &[u8]) -> Result<Pubkey> {
-    if address_bytes.len() != 32 {
-        return Err(error!(crate::UniversalNftError::InvalidRecipient));
-    }
-    
-    Pubkey::try_from(address_bytes)
-        .map_err(|_| error!(crate::UniversalNftError::InvalidRecipient))
-}
 
 /// Generate deterministic token ID based on collection and metadata
 /// Uses keccak256 for cross-platform deterministic hashing
@@ -136,32 +132,41 @@ pub struct OriginMessage {
     pub is_solana_native: bool,  // flag indicating Solana native origin
 }
 
-/// Convert ABI-encoded message from EVM chains to Solana format
+/// Robust ABI decoder for cross-chain messages
 /// EVM message format: (address destination, address receiver, uint256 tokenId, string uri, address sender)
 pub fn decode_abi_message(abi_data: &[u8]) -> Result<EvmMessage> {
-    // Simplified ABI decoding - in production, use a proper ABI decoder
-    if abi_data.len() < 160 {  // Minimum size for the expected tuple
+    // Validate minimum message length
+    if abi_data.len() < 160 {
         return Err(error!(crate::UniversalNftError::InvalidMessage));
     }
     
     let mut offset = 0;
     
-    // Skip function selector (4 bytes) if present
-    if abi_data.len() > 4 && abi_data[0..4] == [0x00, 0x00, 0x00, 0x00] {
-        offset += 4;
+    // Skip function selector if present (first 4 bytes)
+    if abi_data.len() >= 164 && abi_data[0..4] != [0u8; 4] {
+        offset = 4;
     }
     
-    // Extract destination (32 bytes, but only last 20 are used for address)
+    // Ensure we have enough data after potential selector
+    if abi_data.len() < offset + 160 {
+        return Err(error!(crate::UniversalNftError::InvalidMessage));
+    }
+    
+    // Extract destination address (32 bytes, use last 20 bytes for EVM compatibility)
     let destination = if offset + 32 <= abi_data.len() {
-        abi_data[offset + 12..offset + 32].to_vec()
+        let addr_bytes = &abi_data[offset..offset + 32];
+        // Use last 20 bytes for EVM address compatibility
+        addr_bytes[12..32].to_vec()
     } else {
         return Err(error!(crate::UniversalNftError::InvalidMessage));
     };
     offset += 32;
     
-    // Extract receiver (32 bytes, but only last 20 are used for EVM address)
+    // Extract receiver address (32 bytes, use last 20 bytes for EVM compatibility)
     let receiver = if offset + 32 <= abi_data.len() {
-        abi_data[offset + 12..offset + 32].to_vec()
+        let addr_bytes = &abi_data[offset..offset + 32];
+        // Use last 20 bytes for EVM address compatibility
+        addr_bytes[12..32].to_vec()
     } else {
         return Err(error!(crate::UniversalNftError::InvalidMessage));
     };
@@ -245,7 +250,7 @@ pub fn encode_abi_message(message: &EvmMessage) -> Result<Vec<u8>> {
     encoded.extend_from_slice(&token_id_bytes);
     
     // URI offset (32 bytes) - points to after sender field
-    let uri_offset = 128u32; // 4 * 32 bytes
+    let uri_offset = 160u32; // 5 * 32 bytes (destination + receiver + token_id + uri_offset + sender)
     let mut offset_bytes = vec![0u8; 32];
     offset_bytes[28..].copy_from_slice(&uri_offset.to_be_bytes());
     encoded.extend_from_slice(&offset_bytes);
@@ -274,8 +279,9 @@ pub fn encode_abi_message(message: &EvmMessage) -> Result<Vec<u8>> {
 pub fn evm_to_solana_message(evm_msg: &EvmMessage, chain_id: u64) -> Result<SolanaMessage> {
     // Convert receiver address to Solana Pubkey
     let recipient = if evm_msg.receiver.len() == 32 {
-        Pubkey::try_from(evm_msg.receiver.as_slice())
-            .map_err(|_| error!(crate::UniversalNftError::InvalidRecipient))?
+        let mut arr = [0u8; 32];
+        arr.copy_from_slice(&evm_msg.receiver);
+        Pubkey::new_from_array(arr)
     } else {
         // For EVM addresses, we need a mapping or conversion strategy
         // This is a simplified approach - in production, use proper address mapping
@@ -283,8 +289,9 @@ pub fn evm_to_solana_message(evm_msg: &EvmMessage, chain_id: u64) -> Result<Sola
     };
     
     let sender = if evm_msg.sender.len() == 32 {
-        Pubkey::try_from(evm_msg.sender.as_slice())
-            .map_err(|_| error!(crate::UniversalNftError::InvalidRecipient))?
+        let mut arr = [0u8; 32];
+        arr.copy_from_slice(&evm_msg.sender);
+        Pubkey::new_from_array(arr)
     } else {
         // For EVM addresses, create a derived Solana address
         // This is a simplified approach
@@ -305,62 +312,6 @@ pub fn evm_to_solana_message(evm_msg: &EvmMessage, chain_id: u64) -> Result<Sola
 // ENHANCED GAS FEE CALCULATION
 // ============================================================================
 
-/// Enhanced gas fee calculation with dynamic pricing
-pub fn calculate_gas_fee(destination_chain: u64, gas_amount: u64) -> Result<u64> {
-    // Base gas costs per chain (in lamports) - updated with more accurate estimates
-    let base_gas_per_unit: u64 = match destination_chain {
-        // Mainnet chains
-        1 => 200,           // Ethereum - highest gas
-        56 => 50,           // BSC - lower gas
-        137 => 80,          // Polygon - moderate gas
-        8453 => 120,        // Base - L2 gas
-        42161 => 100,       // Arbitrum - L2 gas
-        10 => 100,          // Optimism - L2 gas
-        7000 => 30,         // ZetaChain - lowest gas
-        
-        // Testnet chains
-        11155111 => 150,    // Ethereum Sepolia
-        97 => 40,           // BSC Testnet
-        80001 => 60,        // Polygon Mumbai
-        84532 => 100,       // Base Sepolia
-        421614 => 80,       // Arbitrum Sepolia
-        11155420 => 80,     // Optimism Sepolia
-        7001 => 25,         // ZetaChain Testnet
-        
-        _ => 100,           // Default gas for unknown chains
-    };
-    
-    // Calculate total fee with overflow protection
-    let total_fee = base_gas_per_unit
-        .checked_mul(gas_amount)
-        .ok_or(error!(crate::UniversalNftError::InsufficientGasAmount))?;
-    
-    // Apply network congestion multiplier (simplified)
-    let congestion_multiplier = get_congestion_multiplier(destination_chain);
-    let adjusted_fee = total_fee
-        .checked_mul(congestion_multiplier)
-        .ok_or(error!(crate::UniversalNftError::InsufficientGasAmount))?
-        .checked_div(100)
-        .ok_or(error!(crate::UniversalNftError::InsufficientGasAmount))?;
-    
-    // Ensure minimum gas fee (0.01 SOL)
-    let min_fee = 10_000_000;
-    
-    // Ensure maximum gas fee (1 SOL) to prevent excessive costs
-    let max_fee = 1_000_000_000;
-    
-    Ok(adjusted_fee.max(min_fee).min(max_fee))
-}
-
-/// Get congestion multiplier based on chain (simplified implementation)
-fn get_congestion_multiplier(chain_id: u64) -> u64 {
-    match chain_id {
-        1 | 11155111 => 150,    // Ethereum often congested
-        56 | 97 => 110,         // BSC moderate congestion
-        137 | 80001 => 120,     // Polygon moderate congestion
-        _ => 100,               // Default no multiplier
-    }
-}
 
 // ============================================================================
 // CHAIN VALIDATION HELPERS
@@ -478,25 +429,31 @@ pub fn validate_address_for_chain(address: &[u8], chain_id: u64) -> Result<()> {
 }
 
 /// Convert address bytes to appropriate format for chain
+/// WARNING: This function should only be used when explicit cross-chain address conversion is intended
 pub fn format_address_for_chain(address: &[u8], chain_id: u64) -> Result<Vec<u8>> {
     validate_address_for_chain(address, chain_id)?;
     
     match chain_id {
-        // EVM chains - ensure 20 bytes
+        // EVM chains - require exact 20-byte addresses to avoid ambiguous conversion
         1 | 56 | 137 | 8453 | 42161 | 10 | 11155111 | 97 | 80001 | 84532 | 421614 | 11155420 => {
             if address.len() == 20 {
                 Ok(address.to_vec())
             } else {
-                // Convert from Solana to Ethereum format
-                let solana_pubkey = Pubkey::try_from(address)
-                    .map_err(|_| error!(crate::UniversalNftError::InvalidRecipient))?;
-                Ok(solana_to_ethereum_address(&solana_pubkey).to_vec())
+                // Reject ambiguous 32->20 byte conversion to prevent address confusion
+                // If cross-chain conversion is needed, use explicit conversion functions
+                return Err(error!(crate::UniversalNftError::InvalidRecipient));
             }
         },
         // ZetaChain - preserve original format
         7000 | 7001 => Ok(address.to_vec()),
         _ => Err(error!(crate::UniversalNftError::UnsupportedChain)),
     }
+}
+
+/// Explicit Solana to Ethereum address conversion for cross-chain messaging
+/// This function should be used only when intentional cross-chain address derivation is needed
+pub fn convert_solana_to_evm_address(solana_address: &Pubkey) -> [u8; 20] {
+    solana_to_ethereum_address(solana_address)
 }
 
 // ============================================================================
@@ -515,20 +472,23 @@ pub fn validate_metadata_uri(uri: &str) -> Result<()> {
         "https://",
         "http://",
         "ipfs://",
-        "ar://",           // Arweave
-        "data:",           // Data URIs
+        "ar://",
+        "data:",
+        "blob:",
     ];
     
-    if !valid_schemes.iter().any(|scheme| uri.starts_with(scheme)) {
+    let has_valid_scheme = valid_schemes.iter().any(|scheme| uri.starts_with(scheme));
+    if !has_valid_scheme {
         return Err(error!(crate::UniversalNftError::InvalidMessage));
     }
     
-    // Additional validation for IPFS
-    if uri.starts_with("ipfs://") {
-        let hash_part = &uri[7..];
-        if hash_part.len() < 46 || hash_part.len() > 100 {
-            return Err(error!(crate::UniversalNftError::InvalidMessage));
-        }
+    // Additional validation for specific schemes
+    if uri.starts_with("ipfs://") && uri.len() < 12 {
+        return Err(error!(crate::UniversalNftError::InvalidMessage));
+    }
+    
+    if uri.starts_with("ar://") && uri.len() < 10 {
+        return Err(error!(crate::UniversalNftError::InvalidMessage));
     }
     
     // Check for potentially malicious content
@@ -538,6 +498,53 @@ pub fn validate_metadata_uri(uri: &str) -> Result<()> {
     }
     
     Ok(())
+}
+
+/// Serialize gateway call data using canonical format
+pub fn serialize_gateway_call_data(
+    destination_chain_id: u64,
+    destination_address: &[u8],
+    message: &[u8],
+    gas_fee: u64,
+) -> Result<Vec<u8>> {
+    let mut instruction_data = Vec::new();
+    
+    // Serialize instruction parameters in canonical format
+    instruction_data.extend_from_slice(&destination_chain_id.to_le_bytes());
+    instruction_data.extend_from_slice(&(destination_address.len() as u32).to_le_bytes());
+    instruction_data.extend_from_slice(destination_address);
+    instruction_data.extend_from_slice(&(message.len() as u32).to_le_bytes());
+    instruction_data.extend_from_slice(message);
+    instruction_data.extend_from_slice(&gas_fee.to_le_bytes());
+    
+    Ok(instruction_data)
+}
+
+/// Create metadata instruction for collection or NFT
+pub fn create_metadata_instruction(
+    metadata_program_id: &Pubkey,
+    metadata_account: &Pubkey,
+    mint: &Pubkey,
+    mint_authority: &Pubkey,
+    payer: &Pubkey,
+    update_authority: &Pubkey,
+    data: mpl_token_metadata::types::DataV2,
+    is_mutable: bool,
+    update_authority_is_signer: bool,
+) -> Result<anchor_lang::solana_program::instruction::Instruction> {
+    // Use the new instruction builder pattern from mpl-token-metadata 4.1.2
+    let create_metadata_ix = CreateMetadataAccountV3Builder::new()
+        .metadata(*metadata_account)
+        .mint(*mint)
+        .mint_authority(*mint_authority)
+        .payer(*payer)
+        .update_authority(*update_authority, update_authority_is_signer)
+        .payer(*payer)
+        .system_program(anchor_lang::system_program::ID)
+        .is_mutable(is_mutable)
+        .instruction();
+    
+    Ok(create_metadata_ix)
 }
 
 /// Create standardized metadata JSON structure
@@ -797,7 +804,7 @@ pub fn derive_metadata_pda(mint: &Pubkey) -> (Pubkey, u8) {
 /// Create Metaplex metadata creation instruction (DataV2) using mpl-token-metadata
 /// This returns the CPI instruction that can be invoked to create metadata on-chain.
 #[allow(clippy::too_many_arguments)]
-pub fn create_metadata_instruction(
+pub fn create_metadata_instruction_v2(
     metadata_account: &Pubkey,
     mint: &Pubkey,
     mint_authority: &Pubkey,
@@ -820,17 +827,17 @@ pub fn create_metadata_instruction(
         uses: None,
     };
 
-    mpl_instruction::create_metadata_accounts_v2(
-        TOKEN_METADATA_PROGRAM_ID,
-        *metadata_account,
-        *mint,
-        *mint_authority,
-        *payer,
-        *update_authority,
-        data,
-        true,  // is_mutable
-        false, // update_authority_is_signer (we pass update_authority as signer in CPI)
-    )
+    // Use the new instruction builder pattern
+    CreateMetadataAccountV3Builder::new()
+        .metadata(*metadata_account)
+        .mint(*mint)
+        .mint_authority(*mint_authority)
+        .payer(*payer)
+        .update_authority(*update_authority, false)
+        .system_program(anchor_lang::system_program::ID)
+        .rent(Some(anchor_lang::solana_program::sysvar::rent::ID))
+        .is_mutable(true)
+        .instruction()
 }
 
 /// Create master edition instruction for NFT uniqueness
@@ -843,16 +850,19 @@ pub fn create_master_edition_instruction(
     metadata_account: &Pubkey,
     max_supply: Option<u64>,
 ) -> Instruction {
-    mpl_instruction::create_master_edition_v3(
-        TOKEN_METADATA_PROGRAM_ID,
-        *edition_account,
-        *mint,
-        *mint_authority,
-        *payer,
-        *update_authority,
-        *metadata_account,
-        max_supply,
-    )
+    // Use the new instruction builder pattern
+    CreateMasterEditionV3Builder::new()
+        .edition(*edition_account)
+        .mint(*mint)
+        .mint_authority(*mint_authority)
+        .payer(*payer)
+        .update_authority(*update_authority)
+        .metadata(*metadata_account)
+        .token_program(spl_token::id())
+        .system_program(anchor_lang::solana_program::system_program::ID)
+        .rent(Some(anchor_lang::solana_program::sysvar::rent::ID))
+        .max_supply(max_supply.unwrap_or(0))
+        .instruction()
 }
 
 /// Update metadata instruction for returning NFTs (partial update)
@@ -877,14 +887,14 @@ pub fn update_metadata_instruction(
         uses: None,
     };
 
-    mpl_instruction::update_metadata_accounts_v2(
-        TOKEN_METADATA_PROGRAM_ID,
-        *metadata_account,
-        *update_authority,
-        Some(current_data),
-        Some(primary_sale_happened.unwrap_or(false)),
-        None,
-    )
+    // Use the new instruction builder pattern
+    UpdateMetadataAccountV2Builder::new()
+        .metadata(*metadata_account)
+        .update_authority(*update_authority)
+        .data(current_data)
+        .primary_sale_happened(primary_sale_happened.unwrap_or(false))
+        .is_mutable(true)
+        .instruction()
 }
 
 // ============================================================================
@@ -928,11 +938,11 @@ pub fn extract_origin_from_evm_message(evm_msg: &EvmMessage) -> Result<Option<Or
         if hex_payload.len() % 2 != 0 {
             return Err(error!(crate::UniversalNftError::InvalidMessage));
         }
-        let bytes_res: Result<Vec<u8>, _> = (0..hex_payload.len())
+        let bytes: Vec<u8> = (0..hex_payload.len())
             .step_by(2)
             .map(|i| u8::from_str_radix(&hex_payload[i..i+2], 16))
-            .collect();
-        let bytes = bytes_res.map_err(|_| error!(crate::UniversalNftError::InvalidMessage))?;
+            .collect::<std::result::Result<Vec<u8>, _>>()
+            .map_err(|_| error!(crate::UniversalNftError::InvalidMessage))?;
         let origin = deserialize_origin_message(&bytes)?;
         return Ok(Some(origin));
     }

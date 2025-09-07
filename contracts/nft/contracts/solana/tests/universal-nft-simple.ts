@@ -28,7 +28,7 @@ describe("universal-nft-simple", () => {
   const collectionName = "Test Universal NFT";
   const collectionSymbol = "TUNFT";
   const collectionUri = "https://example.com/collection.json";
-  const gatewayAddress = new PublicKey("GatewayAddress111111111111111111111111111");
+  const gatewayAddress = new PublicKey("ZETAjseVjuFsxdRxo6MmTCvqFwb3ZHUx56Co3vCmGis");
 
   before(async () => {
     // Generate collection mint

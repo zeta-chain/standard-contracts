@@ -66,10 +66,22 @@ pub enum MetaplexError {
     MetadataUpdateFailed,
 }
 
-impl From<MetaplexError> for UniversalNftError {
+impl From<MetaplexError> for anchor_lang::error::Error {
     fn from(error: MetaplexError) -> Self {
         msg!("Metaplex error: {:?}", error);
-        UniversalNftError::InvalidMessage
+        match error {
+            MetaplexError::InvalidMetadataAccount => crate::UniversalNftError::InvalidMetadata.into(),
+            MetaplexError::InvalidMasterEdition => crate::UniversalNftError::InvalidMetadata.into(),
+            MetaplexError::CollectionVerificationFailed => crate::UniversalNftError::InvalidCollection.into(),
+            MetaplexError::MetadataCreationFailed => crate::UniversalNftError::InvalidMetadata.into(),
+            MetaplexError::MasterEditionCreationFailed => crate::UniversalNftError::InvalidMetadata.into(),
+            MetaplexError::InvalidCreatorData => crate::UniversalNftError::InvalidMetadata.into(),
+            MetaplexError::InvalidCollectionData => crate::UniversalNftError::InvalidCollection.into(),
+            MetaplexError::PdaDerivationFailed => crate::UniversalNftError::InvalidRecipient.into(),
+            MetaplexError::InsufficientFunds => crate::UniversalNftError::InsufficientFunds.into(),
+            MetaplexError::InvalidUpdateAuthority => crate::UniversalNftError::Unauthorized.into(),
+            MetaplexError::MetadataUpdateFailed => crate::UniversalNftError::InvalidMetadata.into(),
+        }
     }
 }
 
@@ -235,7 +247,7 @@ pub fn create_master_edition_v3<'a>(
     Ok(())
 }
 
-/// Update metadata account using proper Metaplex CPI
+/// Update metadata account using proper Metaplex CPI with field preservation
 pub fn update_metadata_account_v2<'a>(
     metadata_account: &AccountInfo<'a>,
     update_authority: &AccountInfo<'a>,
@@ -245,10 +257,40 @@ pub fn update_metadata_account_v2<'a>(
     is_mutable: Option<bool>,
     signer_seeds: &[&[&[u8]]],
 ) -> Result<()> {
-    // Convert new metadata if provided
-    let new_data = if let Some(metadata) = new_metadata {
-        validate_metadata_inputs(&metadata)?;
-        Some(convert_to_metaplex_data_v2(metadata)?)
+    // If updating metadata, preserve existing fields and only update specified ones
+    let new_data = if let Some(new_metadata) = new_metadata {
+        // First, get existing metadata to preserve unspecified fields
+        let existing_metadata = validate_metadata_account(metadata_account, &metadata_account.owner)?;
+        
+        // Create merged metadata preserving existing fields
+        let merged_metadata = UniversalNftMetadata {
+            name: if new_metadata.name.is_empty() { existing_metadata.name } else { new_metadata.name },
+            symbol: if new_metadata.symbol.is_empty() { existing_metadata.symbol } else { new_metadata.symbol },
+            uri: if new_metadata.uri.is_empty() { existing_metadata.uri } else { new_metadata.uri },
+            seller_fee_basis_points: if new_metadata.seller_fee_basis_points == 0 { 
+                existing_metadata.seller_fee_basis_points 
+            } else { 
+                new_metadata.seller_fee_basis_points 
+            },
+            creators: if new_metadata.creators.is_none() { 
+                existing_metadata.creators.clone()
+            } else { 
+                new_metadata.creators 
+            },
+            collection: if new_metadata.collection.is_none() { 
+                existing_metadata.collection.clone()
+            } else { 
+                new_metadata.collection 
+            },
+            uses: if new_metadata.uses.is_none() { 
+                existing_metadata.uses.clone()
+            } else { 
+                new_metadata.uses 
+            },
+        };
+        
+        validate_metadata_inputs(&merged_metadata)?;
+        Some(convert_to_metaplex_data_v2(merged_metadata)?)
     } else {
         None
     };
@@ -712,7 +754,7 @@ fn validate_master_edition_inputs(max_supply: Option<u64>) -> Result<()> {
     // Validate max supply if provided
     if let Some(supply) = max_supply {
         require!(
-            supply > 0 && supply <= u64::MAX / 2,
+            supply <= u64::MAX / 2,
             MetaplexError::InvalidMasterEdition
         );
     }

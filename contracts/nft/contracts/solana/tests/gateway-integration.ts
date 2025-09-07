@@ -4,9 +4,10 @@ import { UniversalNft } from "../target/types/universal_nft";
 import { PublicKey, Keypair, SystemProgram, SYSVAR_RENT_PUBKEY } from "@solana/web3.js";
 import { TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID } from "@solana/spl-token";
 import { expect } from "chai";
+import { ZETACHAIN_GATEWAY_PROGRAM_ID } from "../sdk/types";
 
-// Mock ZetaChain Gateway Program ID (replace with actual when available)
-const ZETACHAIN_GATEWAY_PROGRAM_ID = new PublicKey("GatewayProgram1111111111111111111111111111");
+// Token Metadata Program ID
+const TOKEN_METADATA_PROGRAM_ID = new PublicKey("metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s");
 
 describe("Gateway Integration Tests", () => {
   const provider = anchor.AnchorProvider.env();
@@ -108,6 +109,12 @@ describe("Gateway Integration Tests", () => {
         .accounts({
           authority: authority.publicKey,
           collection,
+          collectionMint: Keypair.generate().publicKey,
+          collectionTokenAccount: Keypair.generate().publicKey,
+          collectionMetadata: Keypair.generate().publicKey,
+          tokenProgram: TOKEN_PROGRAM_ID,
+          associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+          metadataProgram: TOKEN_METADATA_PROGRAM_ID,
           systemProgram: SystemProgram.programId,
           rent: SYSVAR_RENT_PUBKEY,
         })
@@ -123,7 +130,7 @@ describe("Gateway Integration Tests", () => {
 
       // Test gateway message preparation
       const destinationChain = 1; // Ethereum
-      const recipient = Buffer.from("abcdefabcdefabcdefabcdefabcdefabcdefabcd", 'hex');
+      const recipient = Buffer.from("abcdefabcdefabcdefabcdefabcdefabcdefabcdef12", 'hex');
       
       // This would be the actual gateway call structure
       const gatewayMessage = {
@@ -183,11 +190,18 @@ describe("Gateway Integration Tests", () => {
     });
 
     it("Should handle malformed messages gracefully", async () => {
+      // Create a message with deliberately wrong length field
+      const wrongLengthMessage = Buffer.alloc(50);
+      wrongLengthMessage.writeBigUInt64LE(123n, 0); // tokenId
+      wrongLengthMessage.writeUInt32LE(999, 8); // Wrong URI length (claims 999 but buffer is only 50)
+      wrongLengthMessage.write("test", 12); // Short URI
+      
       const malformedMessages = [
         [], // Empty message
         [1, 2, 3], // Too short
         Buffer.alloc(100, 0), // All zeros
         Buffer.from("invalid message"), // Invalid format
+        Array.from(wrongLengthMessage), // Wrong length field
       ];
 
       for (const badMessage of malformedMessages) {
@@ -207,13 +221,20 @@ describe("Gateway Integration Tests", () => {
       const tokenId1 = 1n;
       const tokenId2 = 2n;
 
+      // Create 8-byte little-endian buffers for token IDs
+      const tokenId1Buffer = Buffer.alloc(8);
+      tokenId1Buffer.writeBigUInt64LE(tokenId1);
+      
+      const tokenId2Buffer = Buffer.alloc(8);
+      tokenId2Buffer.writeBigUInt64LE(tokenId2);
+
       const [origin1] = PublicKey.findProgramAddressSync(
-        [Buffer.from("nft_origin"), Buffer.from(tokenId1.toString(16).padStart(16, '0'), 'hex')],
+        [Buffer.from("nft_origin"), tokenId1Buffer],
         program.programId
       );
 
       const [origin2] = PublicKey.findProgramAddressSync(
-        [Buffer.from("nft_origin"), Buffer.from(tokenId2.toString(16).padStart(16, '0'), 'hex')],
+        [Buffer.from("nft_origin"), tokenId2Buffer],
         program.programId
       );
 
@@ -319,8 +340,14 @@ function parseCrossChainMessage(message: number[]): {
   uri: string;
   recipient: PublicKey;
 } {
-  if (message.length < 44) { // Minimum: 8 + 4 + 0 + 32
-    throw new Error("Invalid message format: too short");
+  // Minimum length validation: 8 (tokenId) + 4 (uriLength) + 1 (min URI) + 32 (recipient)
+  if (message.length < 45) {
+    throw new Error("Invalid message format: payload too short");
+  }
+
+  // Check for all-zero buffer
+  if (message.every(b => b === 0)) {
+    throw new Error("Invalid message format: all-zero payload");
   }
 
   try {
@@ -332,20 +359,55 @@ function parseCrossChainMessage(message: number[]): {
     const uriLengthBuffer = Buffer.from(message.slice(8, 12));
     const uriLength = uriLengthBuffer.readUInt32LE();
 
-    if (message.length < 12 + uriLength + 32) {
-      throw new Error("Invalid message format: insufficient data");
+    // Validate URI length is reasonable (not zero, not too large)
+    if (uriLength === 0) {
+      throw new Error("Invalid message format: empty URI length");
+    }
+    if (uriLength > 1000) {
+      throw new Error("Invalid message format: URI length too large");
+    }
+
+    // Validate total message length matches expected structure
+    const expectedLength = 12 + uriLength + 32;
+    if (message.length !== expectedLength) {
+      throw new Error("Invalid message format: length mismatch");
     }
 
     // Parse URI
     const uriBuffer = Buffer.from(message.slice(12, 12 + uriLength));
     const uri = uriBuffer.toString('utf8');
 
+    // Validate URI is not empty after parsing
+    if (uri.length === 0) {
+      throw new Error("Invalid message format: empty URI");
+    }
+
     // Parse recipient
     const recipientBuffer = Buffer.from(message.slice(12 + uriLength, 12 + uriLength + 32));
-    const recipient = new PublicKey(recipientBuffer);
+    
+    // Validate recipient is not all zeros
+    if (recipientBuffer.every(b => b === 0)) {
+      throw new Error("Invalid message format: zero recipient");
+    }
+
+    // Validate recipient can be deserialized as PublicKey
+    let recipient: PublicKey;
+    try {
+      recipient = new PublicKey(recipientBuffer);
+    } catch {
+      throw new Error("Invalid message format: invalid recipient PublicKey");
+    }
+
+    // Validate tokenId is not zero (if protocol forbids it)
+    if (tokenId === 0n) {
+      throw new Error("Invalid message format: tokenId cannot be zero");
+    }
 
     return { tokenId, uri, recipient };
   } catch (error) {
+    if (error.message.startsWith("Invalid message format:")) {
+      throw error;
+    }
     throw new Error(`Invalid message format: ${error.message}`);
   }
 }

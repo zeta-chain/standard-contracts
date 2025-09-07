@@ -5,12 +5,9 @@ import { TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID, getAssociatedTokenAddres
 import { assert, expect } from "chai";
 import * as fs from "fs";
 import * as path from "path";
+import { TOKEN_METADATA_PROGRAM_ID, ZETACHAIN_GATEWAY_PROGRAM_ID } from "../sdk/types";
 
-// Metaplex Token Metadata Program
-const TOKEN_METADATA_PROGRAM_ID = new PublicKey("metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s");
-
-// ZetaChain Gateway Program ID
-const ZETACHAIN_GATEWAY_PROGRAM_ID = new PublicKey("ZETAjseVjuFsxdRxo6MmTCvqFwb3ZHUx56Co3vCmGis");
+// Remove duplicate TOKEN_METADATA_PROGRAM_ID declaration - now imported from SDK
 
 // Test constants
 const TEST_COLLECTION_NAME = "Origin Test Collection";
@@ -180,10 +177,13 @@ describe("NFT Origin System Tests", () => {
             testTokenId = generateTestTokenId(testNftMint.publicKey, blockNumber, nextTokenId);
 
             // Derive origin PDA
+            const testTokenIdBuffer = Buffer.alloc(8);
+            testTokenIdBuffer.writeBigUInt64LE(BigInt(testTokenId));
+            
             [testOriginPda, testOriginBump] = PublicKey.findProgramAddressSync(
                 [
                     Buffer.from("nft_origin"),
-                    Buffer.from(testTokenId.toString().padStart(8, '0'), 'utf8').slice(0, 8)
+                    testTokenIdBuffer
                 ],
                 program.programId
             );
@@ -273,19 +273,25 @@ describe("NFT Origin System Tests", () => {
 
             for (const tokenId of testTokenIds) {
                 // Test PDA derivation
+                const tokenIdBuffer = Buffer.alloc(8);
+                tokenIdBuffer.writeBigUInt64LE(BigInt(tokenId));
+                
                 const [derivedPda, derivedBump] = PublicKey.findProgramAddressSync(
                     [
                         Buffer.from("nft_origin"),
-                        Buffer.from(tokenId.toString().padStart(8, '0'), 'utf8').slice(0, 8)
+                        tokenIdBuffer
                     ],
                     program.programId
                 );
 
                 // Verify derivation is consistent
+                const tokenIdBuffer2 = Buffer.alloc(8);
+                tokenIdBuffer2.writeBigUInt64LE(BigInt(tokenId));
+                
                 const [derivedPda2, derivedBump2] = PublicKey.findProgramAddressSync(
                     [
                         Buffer.from("nft_origin"),
-                        Buffer.from(tokenId.toString().padStart(8, '0'), 'utf8').slice(0, 8)
+                        tokenIdBuffer2
                     ],
                     program.programId
                 );
@@ -332,10 +338,13 @@ describe("NFT Origin System Tests", () => {
             scenarioAOriginalMint = Keypair.generate();
             scenarioATokenId = 11111;
 
+            const scenarioATokenIdBuffer = Buffer.alloc(8);
+            scenarioATokenIdBuffer.writeBigUInt64LE(BigInt(scenarioATokenId));
+            
             [scenarioAOriginPda] = PublicKey.findProgramAddressSync(
                 [
                     Buffer.from("nft_origin"),
-                    Buffer.from(scenarioATokenId.toString().padStart(8, '0'), 'utf8').slice(0, 8)
+                    scenarioATokenIdBuffer
                 ],
                 program.programId
             );
@@ -457,10 +466,13 @@ describe("NFT Origin System Tests", () => {
                 TOKEN_METADATA_PROGRAM_ID
             );
 
+            const scenarioBTokenIdBuffer = Buffer.alloc(8);
+            scenarioBTokenIdBuffer.writeBigUInt64LE(BigInt(scenarioBTokenId));
+            
             const [scenarioBOriginPda] = PublicKey.findProgramAddressSync(
                 [
                     Buffer.from("nft_origin"),
-                    Buffer.from(scenarioBTokenId.toString().padStart(8, '0'), 'utf8').slice(0, 8)
+                    scenarioBTokenIdBuffer
                 ],
                 program.programId
             );
@@ -545,10 +557,13 @@ describe("NFT Origin System Tests", () => {
 
             for (const testCase of testCases) {
                 const tokenId = 30000 + testCase.chainId;
+                const tokenIdBuffer = Buffer.alloc(8);
+                tokenIdBuffer.writeBigUInt64LE(BigInt(tokenId));
+                
                 const [originPda] = PublicKey.findProgramAddressSync(
                     [
                         Buffer.from("nft_origin"),
-                        Buffer.from(tokenId.toString().padStart(8, '0'), 'utf8').slice(0, 8)
+                        tokenIdBuffer
                     ],
                     program.programId
                 );
@@ -604,10 +619,13 @@ describe("NFT Origin System Tests", () => {
             const nextTokenId = collectionAccount.nextTokenId.toNumber();
             cycleTokenId = generateTestTokenId(cycleNftMint.publicKey, blockNumber, nextTokenId);
 
+            const cycleTokenIdBuffer = Buffer.alloc(8);
+            cycleTokenIdBuffer.writeBigUInt64LE(BigInt(cycleTokenId));
+            
             [cycleOriginPda] = PublicKey.findProgramAddressSync(
                 [
                     Buffer.from("nft_origin"),
-                    Buffer.from(cycleTokenId.toString().padStart(8, '0'), 'utf8').slice(0, 8)
+                    cycleTokenIdBuffer
                 ],
                 program.programId
             );
@@ -872,18 +890,24 @@ describe("NFT Origin System Tests", () => {
             console.log(`      ✅ Deterministic generation: ${tokenId1} === ${tokenId2}`);
 
             // Test collision detection (would be implemented in real system)
+            const tokenId1Buffer = Buffer.alloc(8);
+            tokenId1Buffer.writeBigUInt64LE(BigInt(tokenId1));
+            
             const [originPda1] = PublicKey.findProgramAddressSync(
                 [
                     Buffer.from("nft_origin"),
-                    Buffer.from(tokenId1.toString().padStart(8, '0'), 'utf8').slice(0, 8)
+                    tokenId1Buffer
                 ],
                 program.programId
             );
 
+            const tokenId2Buffer = Buffer.alloc(8);
+            tokenId2Buffer.writeBigUInt64LE(BigInt(tokenId2));
+            
             const [originPda2] = PublicKey.findProgramAddressSync(
                 [
                     Buffer.from("nft_origin"),
-                    Buffer.from(tokenId2.toString().padStart(8, '0'), 'utf8').slice(0, 8)
+                    tokenId2Buffer
                 ],
                 program.programId
             );
@@ -898,10 +922,13 @@ describe("NFT Origin System Tests", () => {
             console.log("❌ Test 4.2: Invalid Origin PDA Scenarios");
 
             const invalidTokenId = 999999999;
+            const invalidTokenIdBuffer = Buffer.alloc(8);
+            invalidTokenIdBuffer.writeBigUInt64LE(BigInt(invalidTokenId));
+            
             const [invalidOriginPda] = PublicKey.findProgramAddressSync(
                 [
                     Buffer.from("nft_origin"),
-                    Buffer.from(invalidTokenId.toString().padStart(8, '0'), 'utf8').slice(0, 8)
+                    invalidTokenIdBuffer
                 ],
                 program.programId
             );
@@ -934,10 +961,13 @@ describe("NFT Origin System Tests", () => {
 
             const recoveryTokenId = 777777;
             const recoveryMint = Keypair.generate();
+            const recoveryTokenIdBuffer = Buffer.alloc(8);
+            recoveryTokenIdBuffer.writeBigUInt64LE(BigInt(recoveryTokenId));
+            
             const [recoveryOriginPda] = PublicKey.findProgramAddressSync(
                 [
                     Buffer.from("nft_origin"),
-                    Buffer.from(recoveryTokenId.toString().padStart(8, '0'), 'utf8').slice(0, 8)
+                    recoveryTokenIdBuffer
                 ],
                 program.programId
             );
@@ -1054,10 +1084,13 @@ describe("NFT Origin System Tests", () => {
             // Test that origin system integrates properly with existing functions
             const integrationTokenId = 900001;
             const integrationMint = Keypair.generate();
+            const integrationTokenIdBuffer = Buffer.alloc(8);
+            integrationTokenIdBuffer.writeBigUInt64LE(BigInt(integrationTokenId));
+            
             const [integrationOriginPda] = PublicKey.findProgramAddressSync(
                 [
                     Buffer.from("nft_origin"),
-                    Buffer.from(integrationTokenId.toString().padStart(8, '0'), 'utf8').slice(0, 8)
+                    integrationTokenIdBuffer
                 ],
                 program.programId
             );
@@ -1083,7 +1116,7 @@ describe("NFT Origin System Tests", () => {
 
                 // Verify integration with collection statistics
                 const collectionAccount = await program.account.collection.fetch(collectionPda);
-                console.log(`      📊 Collection stats - Total: ${collectionAccount.totalMinted}, Native: ${collectionAccount.solanaNetiveCount}`);
+                console.log(`      📊 Collection stats - Total: ${collectionAccount.totalMinted}, Native: ${collectionAccount.solanaNativeCount}`);
 
                 console.log(`      ✅ Origin system integrates with existing functionality`);
 
@@ -1225,10 +1258,13 @@ describe("NFT Origin System Tests", () => {
 
             const eventTokenId = 1100001;
             const eventMint = Keypair.generate();
+            const eventTokenIdBuffer = Buffer.alloc(8);
+            eventTokenIdBuffer.writeBigUInt64LE(BigInt(eventTokenId));
+            
             const [eventOriginPda] = PublicKey.findProgramAddressSync(
                 [
                     Buffer.from("nft_origin"),
-                    Buffer.from(eventTokenId.toString().padStart(8, '0'), 'utf8').slice(0, 8)
+                    eventTokenIdBuffer
                 ],
                 program.programId
             );

@@ -1,58 +1,24 @@
 use anchor_lang::prelude::*;
-use anchor_lang::solana_program::{
-    clock::Clock,
-    program::invoke_signed,
-};
 use anchor_spl::{
     associated_token::AssociatedToken,
     token::{mint_to, Mint, MintTo, Token, TokenAccount},
 };
-
+use solana_program::{
+    sysvar::{self, clock::Clock, rent::Rent},
+    program::invoke_signed,
+};
 use crate::state::{Collection, NftOrigin, CrossChainMessage, validate_solana_address};
 use crate::{
     UniversalNftError, TOKEN_METADATA_PROGRAM_ID, ZETACHAIN_GATEWAY_PROGRAM_ID,
     find_nft_origin_pda,
 };
 
-// Import Metaplex types for proper CPI calls
-// Note: These would be imported from mpl-token-metadata crate in production
-#[derive(AnchorSerialize, AnchorDeserialize, Clone)]
-pub struct DataV2 {
-    pub name: String,
-    pub symbol: String,
-    pub uri: String,
-    pub seller_fee_basis_points: u16,
-    pub creators: Option<Vec<Creator>>,
-    pub collection: Option<Collection>,
-    pub uses: Option<Uses>,
-}
-
-#[derive(AnchorSerialize, AnchorDeserialize, Clone)]
-pub struct Creator {
-    pub address: Pubkey,
-    pub verified: bool,
-    pub share: u8,
-}
-
-#[derive(AnchorSerialize, AnchorDeserialize, Clone)]
-pub struct Collection {
-    pub verified: bool,
-    pub key: Pubkey,
-}
-
-#[derive(AnchorSerialize, AnchorDeserialize, Clone)]
-pub struct Uses {
-    pub use_method: UseMethod,
-    pub remaining: u64,
-    pub total: u64,
-}
-
-#[derive(AnchorSerialize, AnchorDeserialize, Clone)]
-pub enum UseMethod {
-    Burn,
-    Multiple,
-    Single,
-}
+// Import Metaplex types from mpl-token-metadata crate
+use mpl_token_metadata::{
+    types::{DataV2},
+    instructions,
+};
+use crate::utils::is_supported_chain;
 
 // Helper trait for account discriminators
 trait AccountDiscriminator {
@@ -75,74 +41,93 @@ impl AccountDiscriminator for NftOrigin {
 /// Handle incoming cross-chain NFT transfer with two-scenario NFT Origin system
 pub fn on_call(
     ctx: Context<OnCall>,
-    sender: [u8; 20],
+    sender: Vec<u8>,
     source_chain_id: u64,
     message: Vec<u8>,
     nonce: u64,
 ) -> Result<()> {
     let _collection_key = ctx.accounts.collection.key();
-    
-    // Verify the caller is the gateway program
+
+    // Enhanced gateway authorization using Instructions sysvar
+    let instructions = ctx.accounts.instructions.to_account_info();
+    let current_index = sysvar::instructions::load_current_index_checked(&instructions)?;
+
+    // Verify the previous instruction was from the gateway program
+    if current_index > 0 {
+        let previous_instruction = sysvar::instructions::load_instruction_at_checked(
+            (current_index - 1) as usize,
+            &instructions,
+        )?;
+        require!(
+            previous_instruction.program_id == ZETACHAIN_GATEWAY_PROGRAM_ID,
+            UniversalNftError::UnauthorizedGateway
+        );
+    }
+
+    // Additional PDA verification for gateway account
+    let collection_key_bytes = ctx.accounts.collection.key().to_bytes();
+    let gateway_seeds = &[b"gateway", &collection_key_bytes[..]];
+    let (expected_gateway_pda, _) = Pubkey::find_program_address(gateway_seeds, &ZETACHAIN_GATEWAY_PROGRAM_ID);
     require!(
-        ctx.accounts.gateway.key() == ZETACHAIN_GATEWAY_PROGRAM_ID,
+        ctx.accounts.gateway.key() == expected_gateway_pda,
         UniversalNftError::UnauthorizedGateway
     );
-    
+
     // Enhanced replay protection - check nonce with proper validation
     require!(
         nonce > ctx.accounts.collection.nonce,
         UniversalNftError::InvalidNonce
     );
-    
+
     // Additional nonce validation to prevent overflow attacks
     require!(
         nonce <= ctx.accounts.collection.nonce.saturating_add(1000000),
         UniversalNftError::InvalidNonce
     );
-    
+
     // Parse the cross-chain message to extract NFT data
     let (token_id, uri, recipient_pubkey, origin_chain) = parse_cross_chain_message(&message, source_chain_id)?;
-    
+
     // Enhanced recipient validation
     require_keys_eq!(
         recipient_pubkey,
         ctx.accounts.recipient.key(),
         UniversalNftError::InvalidRecipient
     );
-    
+
     // Validate URI format and length
     require!(
         !uri.is_empty() && uri.len() <= 200,
         UniversalNftError::InvalidMessage
     );
-    
+
     // Parse token_id from message first to derive the PDA
     let token_id_for_pda = extract_token_id_from_message(&message)?;
-    
+
     // Validate token ID consistency
     require_eq!(
         token_id,
         token_id_for_pda,
         UniversalNftError::InvalidTokenId
     );
-    
+
     // Derive the NFT Origin PDA with enhanced validation
     let (nft_origin_pda, nft_origin_bump) = find_nft_origin_pda(
         &crate::ID,
         token_id_for_pda,
     );
-    
+
     // Verify the provided NFT Origin account matches the expected PDA
     require_keys_eq!(
         nft_origin_pda,
         ctx.accounts.nft_origin.key(),
         UniversalNftError::InvalidMessage
     );
-    
+
     // Enhanced NFT Origin existence check with proper account validation
-    let nft_origin_exists = !ctx.accounts.nft_origin.data_is_empty() && 
+    let nft_origin_exists = !ctx.accounts.nft_origin.data_is_empty() &&
                            ctx.accounts.nft_origin.owner == &crate::ID;
-    
+
     if nft_origin_exists {
         // Scenario A: NFT was previously on Solana - returning NFT
         handle_returning_nft(
@@ -166,11 +151,11 @@ pub fn on_call(
             nft_origin_bump,
         )?;
     }
-    
+
     // Update collection nonce to prevent replay
     let collection = &mut ctx.accounts.collection;
     collection.nonce = nonce;
-    
+
     Ok(())
 }
 
@@ -180,46 +165,47 @@ fn handle_returning_nft(
     token_id: u64,
     uri: &str,
     origin_chain: u64,
-    sender: &[u8; 20],
+    sender: &Vec<u8>,
     nonce: u64,
     _nft_origin_bump: u8,
 ) -> Result<()> {
     // Load and deserialize the existing NFT Origin account with enhanced validation
     let nft_origin_data = ctx.accounts.nft_origin.try_borrow_data()
         .map_err(|_| UniversalNftError::InvalidMessage)?;
-    
+
     // Validate account data length before deserialization
     require!(
         nft_origin_data.len() >= 8 + NftOrigin::INIT_SPACE,
         UniversalNftError::InvalidMessage
     );
-    
-    let nft_origin = NftOrigin::try_from_slice(&nft_origin_data)
+
+    // Skip 8-byte Anchor discriminator and deserialize the actual data
+    let nft_origin = NftOrigin::try_from_slice(&nft_origin_data[8..])
         .map_err(|_| UniversalNftError::InvalidMessage)?;
-    
+
     let collection = &ctx.accounts.collection;
-    
+
     // Enhanced validation for the origin PDA
     nft_origin.validate_token_id(token_id)?;
-    
+
     // Validate collection reference
     require_keys_eq!(
         nft_origin.collection,
         collection.key(),
         UniversalNftError::InvalidMessage
     );
-    
+
     // Preserve original metadata URI with validation, otherwise use new URI
-    let metadata_uri = if !nft_origin.metadata_uri.is_empty() && 
+    let metadata_uri = if !nft_origin.metadata_uri.is_empty() &&
                           nft_origin.metadata_uri.len() <= 200 {
         nft_origin.metadata_uri.clone()
     } else {
         uri.to_string()
     };
-    
+
     // Store the original mint for the event
     let original_mint = nft_origin.original_mint;
-    
+
     // Create new mint for the returning NFT with enhanced metadata
     mint_nft_with_metadata(
         ctx,
@@ -228,15 +214,19 @@ fn handle_returning_nft(
         collection.symbol.clone(),
         Some(original_mint), // Pass original mint for reference
     )?;
-    
+
     // Emit event for returning NFT
     emit!(crate::NftReturningToSolana {
         token_id,
         original_mint,
         new_mint: ctx.accounts.nft_mint.key(),
+        collection: collection.key(),
         metadata_preserved: !metadata_uri.is_empty(),
+        return_chain: origin_chain,
+        cycle_count: 1,
+        timestamp: Clock::get()?.unix_timestamp,
     });
-    
+
     emit!(crate::TokenTransferReceived {
         collection: collection.key(),
         token_id,
@@ -244,11 +234,13 @@ fn handle_returning_nft(
         uri: metadata_uri,
         original_sender: sender.to_vec(),
         nonce,
-        origin_chain: Some(origin_chain),
+        origin_chain,
         original_mint: Some(original_mint),
         is_returning: true,
+        metadata_preserved: true,
+        timestamp: Clock::get()?.unix_timestamp,
     });
-    
+
     Ok(())
 }
 
@@ -258,30 +250,30 @@ fn handle_new_nft_arrival(
     token_id: u64,
     uri: &str,
     origin_chain: u64,
-    sender: &[u8; 20],
+    sender: &Vec<u8>,
     nonce: u64,
     nft_origin_bump: u8,
 ) -> Result<()> {
     let collection = &ctx.accounts.collection;
     let clock = Clock::get()?;
-    
+
     // Validate that the NFT Origin account is indeed uninitialized
     require!(
         ctx.accounts.nft_origin.data_is_empty() || ctx.accounts.nft_origin.owner != &crate::ID,
         UniversalNftError::InvalidMessage
     );
-    
+
     // Enhanced NFT Origin account creation with proper rent calculation
     let rent = Rent::get()?;
     let space = 8 + NftOrigin::INIT_SPACE; // Account discriminator + data
     let lamports = rent.minimum_balance(space);
-    
+
     // Validate sufficient funds for account creation
     require!(
         ctx.accounts.payer.lamports() >= lamports,
         UniversalNftError::InsufficientGasAmount
     );
-    
+
     // Create the NFT Origin account with enhanced error handling
     anchor_lang::solana_program::program::invoke_signed(
         &anchor_lang::solana_program::system_instruction::create_account(
@@ -302,7 +294,7 @@ fn handle_new_nft_arrival(
             &[nft_origin_bump],
         ]],
     ).map_err(|_| UniversalNftError::InvalidMessage)?;
-    
+
     // Initialize new NFT Origin data with enhanced validation
     let nft_origin = NftOrigin {
         original_mint: ctx.accounts.nft_mint.key(), // This will be the first mint on Solana
@@ -313,18 +305,21 @@ fn handle_new_nft_arrival(
         metadata_uri: uri.to_string(),
         bump: nft_origin_bump,
     };
-    
+
     // Serialize and save the NFT Origin data with proper error handling
     let mut nft_origin_data = ctx.accounts.nft_origin.try_borrow_mut_data()
         .map_err(|_| UniversalNftError::InvalidMessage)?;
-    
-    // Write account discriminator first
-    nft_origin_data[0..8].copy_from_slice(&NftOrigin::discriminator());
-    
-    // Serialize the data
-    nft_origin.serialize(&mut &mut nft_origin_data[8..])
+
+    // Use Anchor's proper account serialization
+        let mut data = ctx.accounts.nft_origin.try_borrow_mut_data()
         .map_err(|_| UniversalNftError::InvalidMessage)?;
-    
+    let mut cursor: &mut [u8] = &mut data;
+    // Write discriminator then serialize
+    cursor[0..8].copy_from_slice(&<NftOrigin as anchor_lang::Discriminator>::discriminator());
+    let mut payload = &mut cursor[8..];
+    anchor_lang::AnchorSerialize::serialize(&nft_origin, &mut payload)
+        .map_err(|_| UniversalNftError::InvalidMessage)?;
+
     // Create mint and metadata for the new NFT
     mint_nft_with_metadata(
         ctx,
@@ -333,7 +328,7 @@ fn handle_new_nft_arrival(
         collection.symbol.clone(),
         None, // No original mint for new arrivals
     )?;
-    
+
     // Emit events for new NFT origin creation
     emit!(crate::NftOriginCreated {
         token_id,
@@ -341,8 +336,10 @@ fn handle_new_nft_arrival(
         collection: collection.key(),
         origin_chain,
         metadata_uri: uri.to_string(),
+        created_at: Clock::get()?.unix_timestamp,
+        bump: nft_origin_bump,
     });
-    
+
     emit!(crate::TokenTransferReceived {
         collection: collection.key(),
         token_id,
@@ -350,11 +347,13 @@ fn handle_new_nft_arrival(
         uri: uri.to_string(),
         original_sender: sender.to_vec(),
         nonce,
-        origin_chain: Some(origin_chain),
+        origin_chain,
         original_mint: Some(ctx.accounts.nft_mint.key()),
         is_returning: false,
+        metadata_preserved: true,
+        timestamp: Clock::get()?.unix_timestamp,
     });
-    
+
     Ok(())
 }
 
@@ -367,12 +366,12 @@ fn mint_nft_with_metadata(
     original_mint: Option<Pubkey>,
 ) -> Result<()> {
     let collection = &ctx.accounts.collection;
-    
+
     // Extract values before mutable borrow
     let collection_authority = collection.authority;
     let collection_name = collection.name.clone();
     let collection_bump = collection.bump;
-    
+
     // Enhanced validation for metadata parameters
     require!(
         !name.is_empty() && name.len() <= 32,
@@ -386,7 +385,7 @@ fn mint_nft_with_metadata(
         !uri.is_empty() && uri.len() <= 200,
         UniversalNftError::InvalidMessage
     );
-    
+
     // Mint the NFT token with enhanced error handling
     let cpi_ctx = CpiContext::new(
         ctx.accounts.token_program.to_account_info(),
@@ -396,7 +395,7 @@ fn mint_nft_with_metadata(
             authority: ctx.accounts.collection.to_account_info(),
         },
     );
-    
+
     let seeds = &[
         b"collection",
         collection_authority.as_ref(),
@@ -404,10 +403,10 @@ fn mint_nft_with_metadata(
         &[collection_bump],
     ];
     let signer_seeds = &[&seeds[..]];
-    
+
     mint_to(cpi_ctx.with_signer(signer_seeds), 1)
         .map_err(|_| UniversalNftError::InvalidMessage)?;
-    
+
     // Create Metaplex metadata with proper CPI calls
     create_metadata_account_v3(
         ctx,
@@ -417,7 +416,7 @@ fn mint_nft_with_metadata(
         original_mint,
         signer_seeds,
     )?;
-    
+
     Ok(())
 }
 
@@ -440,24 +439,27 @@ fn create_metadata_account_v3(
         collection: None, // Collection verification handled separately
         uses: None, // No usage restrictions
     };
-    
+
     // Create the metadata account using proper Metaplex instruction
-    let create_metadata_instruction = create_metadata_accounts_v3_instruction(
-        ctx.accounts.metadata_program.key(),
-        ctx.accounts.nft_metadata.key(),
-        ctx.accounts.nft_mint.key(),
-        ctx.accounts.collection.key(), // mint_authority
-        ctx.accounts.payer.key(),
-        ctx.accounts.collection.key(), // update_authority
-        data_v2,
-        true, // is_mutable - allow updates for cross-chain scenarios
-        true, // update_authority_is_signer
-        None, // collection_details
-    )?;
+    let create_metadata_instruction = instructions::CreateMetadataAccountV3 {
+        metadata: ctx.accounts.nft_metadata.key(),
+        mint: ctx.accounts.nft_mint.key(),
+        mint_authority: ctx.accounts.collection.key(),
+        payer: ctx.accounts.payer.key(),
+        update_authority: (ctx.accounts.collection.key(), true),
+        system_program: anchor_lang::solana_program::system_program::ID,
+        rent: Some(sysvar::rent::ID),
+    };
     
     // Execute the CPI call with proper error handling
     invoke_signed(
-        &create_metadata_instruction,
+        &create_metadata_instruction.instruction(
+            instructions::CreateMetadataAccountV3InstructionArgs {
+                data: data_v2,
+                is_mutable: true,
+                collection_details: None,
+            }
+        ),
         &[
             ctx.accounts.nft_metadata.to_account_info(),
             ctx.accounts.nft_mint.to_account_info(),
@@ -465,7 +467,6 @@ fn create_metadata_account_v3(
             ctx.accounts.payer.to_account_info(),
             ctx.accounts.collection.to_account_info(),
             ctx.accounts.system_program.to_account_info(),
-            ctx.accounts.rent.to_account_info(),
         ],
         signer_seeds,
     ).map_err(|e| {
@@ -481,62 +482,6 @@ fn create_metadata_account_v3(
     Ok(())
 }
 
-/// Create proper Metaplex CreateMetadataAccountsV3 instruction
-fn create_metadata_accounts_v3_instruction(
-    metadata_program_id: Pubkey,
-    metadata_account: Pubkey,
-    mint: Pubkey,
-    mint_authority: Pubkey,
-    payer: Pubkey,
-    update_authority: Pubkey,
-    data: DataV2,
-    is_mutable: bool,
-    update_authority_is_signer: bool,
-    collection_details: Option<u64>,
-) -> Result<anchor_lang::solana_program::instruction::Instruction> {
-    use anchor_lang::solana_program::instruction::{AccountMeta, Instruction};
-    
-    // Account metas for CreateMetadataAccountsV3
-    let accounts = vec![
-        AccountMeta::new(metadata_account, false),
-        AccountMeta::new_readonly(mint, false),
-        AccountMeta::new_readonly(mint_authority, true),
-        AccountMeta::new(payer, true),
-        AccountMeta::new_readonly(update_authority, update_authority_is_signer),
-        AccountMeta::new_readonly(anchor_lang::solana_program::system_program::ID, false),
-        AccountMeta::new_readonly(anchor_lang::solana_program::sysvar::rent::ID, false),
-    ];
-    
-    // Serialize instruction data for CreateMetadataAccountsV3
-    let mut instruction_data = Vec::new();
-    
-    // Instruction discriminator for CreateMetadataAccountsV3 (simplified)
-    instruction_data.push(33); // CreateMetadataAccountsV3 discriminator
-    
-    // Serialize DataV2
-    data.serialize(&mut instruction_data)
-        .map_err(|_| UniversalNftError::InvalidMessage)?;
-    
-    // Add is_mutable flag
-    instruction_data.push(if is_mutable { 1 } else { 0 });
-    
-    // Add update_authority_is_signer flag
-    instruction_data.push(if update_authority_is_signer { 1 } else { 0 });
-    
-    // Add collection_details (optional)
-    if let Some(details) = collection_details {
-        instruction_data.push(1); // Some
-        instruction_data.extend_from_slice(&details.to_le_bytes());
-    } else {
-        instruction_data.push(0); // None
-    }
-    
-    Ok(Instruction {
-        program_id: metadata_program_id,
-        accounts,
-        data: instruction_data,
-    })
-}
 
 /// Parse cross-chain message to extract NFT data and origin information
 fn parse_cross_chain_message(
@@ -588,7 +533,7 @@ fn try_decode_enhanced_message(message: &[u8]) -> Result<(u64, String, Pubkey, u
     
     // Validate origin chain is supported
     require!(
-        crate::state::is_supported_chain(origin_chain),
+        is_supported_chain(origin_chain),
         UniversalNftError::UnsupportedChain
     );
     offset += 8;
@@ -641,67 +586,66 @@ fn try_decode_enhanced_message(message: &[u8]) -> Result<(u64, String, Pubkey, u
 
 /// Try to decode ABI-encoded message from EVM chains
 fn try_decode_abi_message(message: &[u8]) -> Result<(u64, String, Pubkey)> {
-    // Enhanced ABI decoder with proper validation
-    // Expected format: [token_id(8), uri_len(4), uri(variable), recipient(32)]
-    require!(message.len() >= 44, UniversalNftError::InvalidMessage);
+    // Decode proper Ethereum ABI format to match gateway.rs encode_abi()
+    // Expected format: 4-byte selector + ABI-encoded parameters with 32-byte alignment
+    require!(message.len() >= 4 + 32 * 9, UniversalNftError::InvalidMessage); // selector + 9 parameters
     
-    let mut offset = 0;
+    let mut offset = 4; // Skip function selector
     
-    // Extract token_id with validation
-    let token_id = u64::from_le_bytes(
-        message[offset..offset + 8]
-            .try_into()
+    // 1. token_id (uint256) - 32 bytes, big-endian, right-aligned
+    let mut token_id_bytes = [0u8; 8];
+    token_id_bytes.copy_from_slice(&message[offset + 24..offset + 32]);
+    let token_id = u64::from_be_bytes(token_id_bytes);
+    require!(token_id > 0, UniversalNftError::InvalidTokenId);
+    offset += 32;
+    
+    // 2. recipient (address) - 32 bytes, left-padded, extract 20 bytes
+    let recipient_bytes = &message[offset + 12..offset + 32];
+    let recipient = Pubkey::new_from_array(
+        recipient_bytes.try_into()
             .map_err(|_| UniversalNftError::InvalidMessage)?
     );
+    offset += 32;
     
-    // Validate token_id is not zero
-    require!(token_id > 0, UniversalNftError::InvalidTokenId);
-    offset += 8;
+    // 3. uri offset (uint256) - 32 bytes, points to dynamic data
+    let uri_offset = u32::from_be_bytes([
+        message[offset + 28], message[offset + 29], 
+        message[offset + 30], message[offset + 31]
+    ]) as usize;
+    offset += 32;
     
-    // Extract URI length with bounds checking
-    let uri_len = u32::from_le_bytes(
-        message[offset..offset + 4]
-            .try_into()
-            .map_err(|_| UniversalNftError::InvalidMessage)?
-    ) as usize;
+    // Skip remaining static parameters (sender, origin_chain, original_mint, is_solana_native, metadata_hash, collection_address)
+    offset += 32 * 6;
+    
+    // Extract URI from dynamic data section
+    let uri_start = 4 + uri_offset; // selector + offset
+    require!(uri_start + 32 <= message.len(), UniversalNftError::InvalidMessage);
+    
+    let uri_len = u32::from_be_bytes([
+        message[uri_start + 28], message[uri_start + 29],
+        message[uri_start + 30], message[uri_start + 31]
+    ]) as usize;
     
     // Validate URI length is reasonable
     require!(
         uri_len > 0 && uri_len <= 200,
         UniversalNftError::InvalidMessage
     );
-    offset += 4;
     
-    // Validate total message length
+    // Extract URI string data with proper padding handling
+    let uri_data_start = uri_start + 32; // Skip length field
+    require!(uri_data_start + uri_len <= message.len(), UniversalNftError::InvalidMessage);
+    
+    let uri = String::from_utf8(message[uri_data_start..uri_data_start + uri_len].to_vec())
+        .map_err(|_| UniversalNftError::InvalidMessage)?;
+    
+    // Validate URI format
     require!(
-        message.len() >= offset + uri_len + 32,
+        !uri.is_empty() && uri.len() <= 200,
         UniversalNftError::InvalidMessage
     );
     
-    // Extract and validate URI
-    let uri = String::from_utf8(message[offset..offset + uri_len].to_vec())
-        .map_err(|_| UniversalNftError::InvalidMessage)?;
-    
-    // Validate URI format for ABI messages
-    require!(
-        !uri.is_empty() && uri.starts_with("http") && uri.len() <= 200,
-        UniversalNftError::InvalidMessage
-    );
-    offset += uri_len;
-    
-    // Extract recipient (32 bytes for Solana pubkey)
-    let recipient_bytes: [u8; 32] = message[offset..offset + 32]
-        .try_into()
-        .map_err(|_| UniversalNftError::InvalidMessage)?;
-    let recipient_pubkey = Pubkey::new_from_array(recipient_bytes);
-    
-    // Validate recipient is not the default pubkey
-    require!(
-        recipient_pubkey != Pubkey::default(),
-        UniversalNftError::InvalidRecipientAddress
-    );
-    
-    Ok((token_id, uri, recipient_pubkey))
+    Ok((token_id, uri, recipient))
 }
 
 /// Try to decode Borsh-encoded message (Solana native)
@@ -762,11 +706,12 @@ fn extract_token_id_from_message(message: &[u8]) -> Result<u64> {
 
 
 #[derive(Accounts)]
+#[instruction(token_id: u64)]
 pub struct OnCall<'info> {
     #[account(
         mut,
         seeds = [b"collection", collection.authority.as_ref(), collection.name.as_bytes()],
-        bump = collection.bump
+        bump
     )]
     pub collection: Account<'info, Collection>,
     
@@ -776,11 +721,17 @@ pub struct OnCall<'info> {
     #[account(address = ZETACHAIN_GATEWAY_PROGRAM_ID)]
     pub gateway: UncheckedAccount<'info>,
     
-    /// CHECK: Gateway PDA account
+    /// Gateway PDA account - must be signer for security
+    #[account(mut, signer)]
     pub gateway_pda: UncheckedAccount<'info>,
     
     /// CHECK: NFT Origin PDA - validated in instruction
-    #[account(mut)]
+    #[account(
+        mut,
+        constraint = nft_origin.owner == &crate::ID || nft_origin.data_is_empty(),
+        constraint = nft_origin.to_account_info().data.borrow().len() == 0 || 
+                    nft_origin.to_account_info().data.borrow()[0..8] == NftOrigin::discriminator()
+    )]
     pub nft_origin: UncheckedAccount<'info>,
     
     #[account(
@@ -804,26 +755,19 @@ pub struct OnCall<'info> {
     pub recipient: UncheckedAccount<'info>,
     
     /// CHECK: Metadata account for the NFT - derived from mint
-    #[account(
-        mut,
-        seeds = [
-            b"metadata",
-            TOKEN_METADATA_PROGRAM_ID.as_ref(),
-            nft_mint.key().as_ref(),
-        ],
-        bump,
-        seeds::program = TOKEN_METADATA_PROGRAM_ID
-    )]
+    #[account(mut)]
     pub nft_metadata: UncheckedAccount<'info>,
     
     #[account(mut)]
     pub payer: Signer<'info>,
     
-    pub rent: Sysvar<'info, Rent>,
     pub system_program: Program<'info, System>,
     pub token_program: Program<'info, Token>,
     pub associated_token_program: Program<'info, AssociatedToken>,
     /// CHECK: mpl-token-metadata program
     #[account(address = TOKEN_METADATA_PROGRAM_ID)]
     pub metadata_program: UncheckedAccount<'info>,
+    /// CHECK: Instructions sysvar for CPI caller verification
+    #[account(address = sysvar::instructions::ID)]
+    pub instructions: UncheckedAccount<'info>,
 }

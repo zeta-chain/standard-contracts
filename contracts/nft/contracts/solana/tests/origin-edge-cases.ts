@@ -4,9 +4,11 @@ import { UniversalNft } from "../target/types/universal_nft";
 import { PublicKey, Keypair, SystemProgram, SYSVAR_RENT_PUBKEY } from "@solana/web3.js";
 import { TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID, createMint, createAssociatedTokenAccount, mintTo } from "@solana/spl-token";
 import { expect } from "chai";
+import { TOKEN_METADATA_PROGRAM_ID } from "../sdk/types";
 
 describe("NFT Origin System - Edge Cases & Performance", () => {
   const provider = anchor.AnchorProvider.env();
+  anchor.setProvider(provider);
   const program = anchor.workspace.UniversalNft as Program<UniversalNft>;
 
   let collection: PublicKey;
@@ -17,15 +19,18 @@ describe("NFT Origin System - Edge Cases & Performance", () => {
     authority = Keypair.generate();
     payer = Keypair.generate();
     
-    // Airdrop SOL
-    const airdropPromises = [authority, payer].map(async (keypair) => {
+    // Airdrop SOL with proper confirmation
+    for (const keypair of [authority, payer]) {
       const signature = await provider.connection.requestAirdrop(
         keypair.publicKey,
         5 * anchor.web3.LAMPORTS_PER_SOL
       );
-      await provider.connection.confirmTransaction(signature);
-    });
-    await Promise.all(airdropPromises);
+      const latestBlockhash = await provider.connection.getLatestBlockhash();
+      await provider.connection.confirmTransaction({
+        signature,
+        ...latestBlockhash
+      });
+    }
 
     // Initialize collection
     [collection] = PublicKey.findProgramAddressSync(
@@ -46,7 +51,13 @@ describe("NFT Origin System - Edge Cases & Performance", () => {
       )
       .accounts({
         authority: authority.publicKey,
-        collection,
+        collection: collection,
+        collectionMint: Keypair.generate().publicKey,
+        collectionTokenAccount: Keypair.generate().publicKey,
+        collectionMetadata: Keypair.generate().publicKey,
+        tokenProgram: TOKEN_PROGRAM_ID,
+        associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+        metadataProgram: TOKEN_METADATA_PROGRAM_ID,
         systemProgram: SystemProgram.programId,
         rent: SYSVAR_RENT_PUBKEY,
       })
@@ -165,10 +176,10 @@ describe("NFT Origin System - Edge Cases & Performance", () => {
 
   describe("Large Metadata Handling", () => {
     it("Should handle maximum URI length efficiently", async () => {
-      // Test with very large URI (close to transaction size limits)
+      // Test with large URI respecting Solana's transaction size limits
       const baseUri = "https://example.com/";
-      const maxDataSize = 1000; // Conservative limit for URI
-      const largeUri = baseUri + "x".repeat(maxDataSize - baseUri.length - 5) + ".json";
+      const MAX_URI_LENGTH = 200; // Conservative limit for Solana transaction size
+      const largeUri = baseUri + "x".repeat(Math.max(0, MAX_URI_LENGTH - baseUri.length - 5)) + ".json";
       
       const nftMint = Keypair.generate();
       const collectionData = await program.account.collection.fetch(collection);
@@ -392,8 +403,12 @@ describe("NFT Origin System - Edge Cases & Performance", () => {
         program.programId
       );
 
+      // Create 8-byte little-endian buffer for chain_id
+      const chainIdBuffer = Buffer.alloc(8);
+      chainIdBuffer.writeBigUInt64LE(BigInt(sourceChain));
+      
       const [connected] = PublicKey.findProgramAddressSync(
-        [Buffer.from("connected"), collection.toBuffer(), Buffer.from([sourceChain])],
+        [Buffer.from("connected"), collection.toBuffer(), chainIdBuffer],
         program.programId
       );
 

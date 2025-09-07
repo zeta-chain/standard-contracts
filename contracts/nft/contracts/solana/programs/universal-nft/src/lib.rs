@@ -1,19 +1,49 @@
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::{
     keccak,
-    secp256k1_recover::secp256k1_recover,
+    clock::Clock,
+    program::invoke_signed,
 };
 use anchor_spl::{
     associated_token::AssociatedToken,
     token::{mint_to, Mint, MintTo, Token, TokenAccount},
 };
+use mpl_token_metadata::instructions::CreateMetadataAccountV3;
 
 mod state;
 mod instructions;
+mod utils;
+mod events;
+
+// Re-export centralized event definitions
+pub use events::*;
 
 // Import state module types including NFT Origin
 pub use state::{Collection, Connected, NftOrigin, CrossChainMessage, ZetaChainMessage, RevertContext, EVMMessage};
-pub use state::{is_supported_chain, validate_chain_id, validate_evm_address, validate_solana_address};
+
+// Import utility functions
+pub use utils::{
+    is_supported_chain, 
+    validate_chain_id as utils_validate_chain_id,
+    generate_token_id,
+    validate_uri,
+    decode_abi_message,
+    encode_abi_message,
+    evm_to_solana_message,
+    serialize_gateway_call_data,
+    create_metadata_instruction,
+    derive_metadata_pda,
+    derive_nft_origin_pda,
+    generate_token_id_from_mint,
+    validate_token_id_format,
+    is_token_id_available,
+    validate_token_id_uniqueness,
+    get_next_available_token_id,
+    extract_token_id_from_origin,
+    determine_origin_chain_from_origin_data,
+    is_solana_native_nft_from_origin_data,
+    get_origin_metadata_from_origin_data
+};
 
 // Import instruction modules
 use instructions::*;
@@ -45,12 +75,22 @@ pub enum UniversalNftError {
     InvalidRecipientAddress,
     #[msg("Insufficient gas amount")]
     InsufficientGasAmount,
-    #[msg("Unauthorized gateway call")]
+    #[msg("Unauthorized gateway")]
     UnauthorizedGateway,
     #[msg("Unsupported chain")]
     UnsupportedChain,
     #[msg("Invalid token ID")]
     InvalidTokenId,
+    #[msg("Invalid account data")]
+    InvalidAccountData,
+    #[msg("Rent exemption failed")]
+    RentExemptionFailed,
+    #[msg("Invalid URI length")]
+    InvalidUriLength,
+    #[msg("Invalid name length")]
+    InvalidNameLength,
+    #[msg("Invalid symbol length")]
+    InvalidSymbolLength,
 }
 
 // Metaplex Token Metadata Program ID
@@ -142,7 +182,7 @@ pub mod universal_nft {
     /// Handle incoming cross-chain NFT transfer with two-scenario NFT Origin system
     pub fn on_call(
         ctx: Context<OnCall>,
-        sender: [u8; 20],
+        sender: Vec<u8>,
         source_chain_id: u64,
         message: Vec<u8>,
         nonce: u64,
@@ -154,15 +194,19 @@ pub mod universal_nft {
     /// Receive cross-chain NFT transfer with TSS signature verification
     pub fn receive_cross_chain(
         ctx: Context<ReceiveCrossChain>,
+        token_id: u64,
         message_hash: [u8; 32],
         signature: [u8; 64],
         recovery_id: u8,
         message_data: Vec<u8>,
         nonce: u64,
     ) -> Result<()> {
-        // Set compute budget for complex operations
-        anchor_lang::solana_program::compute_budget::set_compute_unit_limit(400_000)?;
+        // Note: Compute budget must be set client-side in transaction construction
+        // Cannot be modified via CPI within the program
 
+        // Get collection account info before any borrows
+        let collection_account_info = ctx.accounts.collection.to_account_info();
+        
         let collection = &mut ctx.accounts.collection;
         let collection_key = collection.key();
         
@@ -178,15 +222,20 @@ pub mod universal_nft {
             UniversalNftError::InvalidNonce
         );
         
-        // Verify message hash integrity
-        let computed_hash = keccak::hash(&message_data);
+        // Bind nonce to signed payload to prevent replay attacks
+        let mut nonce_bound_message = Vec::new();
+        nonce_bound_message.extend_from_slice(&message_data);
+        nonce_bound_message.extend_from_slice(&nonce.to_le_bytes());
+        
+        // Verify message hash integrity with nonce binding
+        let computed_hash = keccak::hash(&nonce_bound_message);
         require!(
             computed_hash.to_bytes() == message_hash,
             UniversalNftError::InvalidMessageHash
         );
         
-        // Enhanced TSS signature verification with proper error handling
-        let recovered_pubkey = secp256k1_recover(&message_hash, recovery_id, &signature)
+        // Enhanced TSS signature verification using Solana syscall
+        let recovered_pubkey = anchor_lang::solana_program::secp256k1_recover::secp256k1_recover(&message_hash, recovery_id, &signature)
             .map_err(|_| UniversalNftError::InvalidTssSignature)?;
         
         // Validate recovery ID is in valid range (0-3)
@@ -215,12 +264,25 @@ pub mod universal_nft {
             UniversalNftError::InvalidTokenId
         );
         
+        // Ensure the provided instruction token_id matches the message token id
+        require!(
+            token_id == cross_chain_message.token_id,
+            UniversalNftError::InvalidMessage
+        );
+
         // Validate URI format and length
         require!(
             !cross_chain_message.uri.is_empty() && cross_chain_message.uri.len() <= 200,
             UniversalNftError::InvalidMessage
         );
         
+        // Manually validate the NFT origin PDA derivation since we cannot rely on PDA seeds tied to dynamic message data.
+        let (expected_nft_origin_pda, _bump) = find_nft_origin_pda(&crate::ID, token_id);
+        require!(
+            expected_nft_origin_pda == ctx.accounts.nft_origin.key(),
+            UniversalNftError::InvalidAccountData
+        );
+
         // Update nonce to prevent replay attacks
         collection.nonce = nonce;
 
@@ -228,14 +290,16 @@ pub mod universal_nft {
         let collection_authority = collection.authority;
         let collection_name = collection.name.clone();
         let collection_bump = collection.bump;
-
+        let collection_key_for_cpi = collection.key();
+        let collection_symbol = collection.symbol.clone();
+        
         // Mint the NFT to the recipient with proper error handling
         let cpi_ctx = CpiContext::new(
             ctx.accounts.token_program.to_account_info(),
             MintTo {
                 mint: ctx.accounts.nft_mint.to_account_info(),
                 to: ctx.accounts.nft_token_account.to_account_info(),
-                authority: ctx.accounts.collection.to_account_info(),
+                authority: collection_account_info.clone(),
             },
         );
 
@@ -249,6 +313,58 @@ pub mod universal_nft {
 
         mint_to(cpi_ctx.with_signer(signer_seeds), 1)
             .map_err(|_| UniversalNftError::TokenDoesNotExist)?;
+
+        // Create Metaplex metadata for the NFT
+        let nft_mint_key = ctx.accounts.nft_mint.key();
+        let metadata_seeds = &[
+            b"metadata",
+            TOKEN_METADATA_PROGRAM_ID.as_ref(),
+            nft_mint_key.as_ref(),
+        ];
+        let (metadata_pda, _) = Pubkey::find_program_address(metadata_seeds, &TOKEN_METADATA_PROGRAM_ID);
+        
+        require!(
+            metadata_pda == ctx.accounts.nft_metadata.key(),
+            UniversalNftError::InvalidMessage
+        );
+
+        // Create metadata instruction using proper mpl-token-metadata 3.2.0 instruction builder
+        let create_metadata_ix = CreateMetadataAccountV3 {
+            metadata: ctx.accounts.nft_metadata.key(),
+            mint: nft_mint_key,
+            mint_authority: collection_key_for_cpi,
+            payer: ctx.accounts.payer.key(),
+            update_authority: (collection_key_for_cpi, true),
+            system_program: ctx.accounts.system_program.key(),
+            rent: None,
+        }
+        .instruction(mpl_token_metadata::instructions::CreateMetadataAccountV3InstructionArgs {
+            data: mpl_token_metadata::types::DataV2 {
+                name: format!("Cross-Chain NFT #{}", cross_chain_message.token_id),
+                symbol: collection_symbol,
+                uri: cross_chain_message.uri.clone(),
+                seller_fee_basis_points: 0,
+                creators: None,
+                collection: None,
+                uses: None,
+            },
+            is_mutable: true,
+            collection_details: None,
+        });
+
+        // Execute metadata creation via CPI
+        invoke_signed(
+            &create_metadata_ix,
+            &[
+                ctx.accounts.nft_metadata.to_account_info(),
+                ctx.accounts.nft_mint.to_account_info(),
+                collection_account_info.clone(),
+                ctx.accounts.payer.to_account_info(),
+                collection_account_info.clone(),
+                ctx.accounts.system_program.to_account_info(),
+            ],
+            &[&seeds[..]],
+        )?;
 
         // Increment collection statistics
         collection.increment_total_minted()?;
@@ -266,9 +382,11 @@ pub mod universal_nft {
             uri: cross_chain_message.uri,
             original_sender: cross_chain_message.sender,
             nonce,
-            origin_chain,
+            origin_chain: origin_chain.unwrap_or(0),
             original_mint,
             is_returning,
+            metadata_preserved: true,
+            timestamp: Clock::get()?.unix_timestamp,
         });
 
         Ok(())
@@ -298,7 +416,7 @@ pub mod universal_nft {
         ctx: Context<OnRevertContext>,
         token_id: u64,
         uri: String,
-        original_sender: Pubkey,
+        original_sender: Vec<u8>,
         refund_amount: u64,
     ) -> Result<()> {
         // Call the dedicated on_revert instruction
@@ -410,13 +528,13 @@ pub struct InitializeCollection<'info> {
     #[account(address = TOKEN_METADATA_PROGRAM_ID)]
     pub metadata_program: UncheckedAccount<'info>,
     pub system_program: Program<'info, System>,
-    pub rent: Sysvar<'info, Rent>,
 }
 
 
 
 
 #[derive(Accounts)]
+#[instruction(token_id: u64)]
 pub struct ReceiveCrossChain<'info> {
     #[account(
         mut,
@@ -426,6 +544,14 @@ pub struct ReceiveCrossChain<'info> {
     pub collection: Account<'info, Collection>,
 
     pub collection_mint: Account<'info, Mint>,
+
+    #[account(
+        mut,
+        // Ensure the account is owned by this program and matches the expected PDA for the provided token_id.
+        constraint = nft_origin.to_account_info().owner == &crate::ID,
+        constraint = nft_origin.key() == find_nft_origin_pda(&crate::ID, token_id).0
+    )]
+    pub nft_origin: Account<'info, NftOrigin>,
 
     #[account(
         init,
@@ -454,7 +580,6 @@ pub struct ReceiveCrossChain<'info> {
     #[account(mut)]
     pub payer: Signer<'info>,
 
-    pub rent: Sysvar<'info, Rent>,
     pub system_program: Program<'info, System>,
     pub token_program: Program<'info, Token>,
     pub associated_token_program: Program<'info, AssociatedToken>,
@@ -472,110 +597,6 @@ pub enum GatewayInstruction {
     },
 }
 
-#[event]
-pub struct CollectionInitialized {
-    pub collection: Pubkey,
-    pub authority: Pubkey,
-    pub name: String,
-    pub symbol: String,
-    pub tss_address: [u8; 20],
-}
-
-#[event]
-pub struct TokenMinted {
-    pub collection: Pubkey,
-    pub token_id: u64,
-    pub mint: Pubkey,
-    pub recipient: Pubkey,
-    pub name: String,
-    pub uri: String,
-    pub origin_chain: u64,
-    pub is_solana_native: bool,
-}
-
-#[event]
-pub struct TokenTransfer {
-    pub collection: Pubkey,
-    pub token_id: u64,
-    pub destination_chain_id: u64,
-    pub recipient: Vec<u8>,
-    pub uri: String,
-    pub sender: Pubkey,
-    pub message: Vec<u8>,
-    pub origin_chain: Option<u64>,
-    pub original_mint: Option<Pubkey>,
-    pub is_returning: bool,
-}
-
-#[event]
-pub struct TokenTransferReceived {
-    pub collection: Pubkey,
-    pub token_id: u64,
-    pub recipient: Pubkey,
-    pub uri: String,
-    pub original_sender: Vec<u8>,
-    pub nonce: u64,
-    pub origin_chain: Option<u64>,
-    pub original_mint: Option<Pubkey>,
-    pub is_returning: bool,
-}
-
-#[event]
-pub struct TokenTransferReverted {
-    pub collection: Pubkey,
-    pub token_id: u64,
-    pub sender: Pubkey,
-    pub uri: String,
-    pub refund_amount: u64,
-    pub origin_chain: Option<u64>,
-    pub original_mint: Option<Pubkey>,
-}
-
-/// NFT Origin specific events
-#[event]
-pub struct NftOriginCreated {
-    pub token_id: u64,
-    pub original_mint: Pubkey,
-    pub collection: Pubkey,
-    pub origin_chain: u64,
-    pub metadata_uri: String,
-}
-
-#[event]
-pub struct NftOriginUpdated {
-    pub token_id: u64,
-    pub original_mint: Pubkey,
-    pub updated_fields: Vec<String>,
-}
-
-#[event]
-pub struct NftReturningToSolana {
-    pub token_id: u64,
-    pub original_mint: Pubkey,
-    pub new_mint: Pubkey,
-    pub metadata_preserved: bool,
-}
-
-#[event]
-pub struct CrossChainCycleCompleted {
-    pub token_id: u64,
-    pub origin_chain: u64,
-    pub destination_chain: u64,
-    pub cycle_count: u64,
-}
-
-#[event]
-pub struct SetUniversal {
-    pub collection: Pubkey,
-    pub universal_address: Pubkey,
-}
-
-#[event]
-pub struct SetConnected {
-    pub collection: Pubkey,
-    pub chain_id: Vec<u8>,
-    pub contract_address: Vec<u8>,
-}
 
 
 /// Enhanced cross-chain message decoder with multiple format support
@@ -608,7 +629,7 @@ fn decode_cross_chain_message(message: &[u8]) -> Result<CrossChainMessage> {
 /// Try to decode message as ZetaChain format
 fn try_decode_zetachain_message(message: &[u8]) -> Result<ZetaChainMessage> {
     ZetaChainMessage::try_from_slice(message)
-        .map_err(|_| UniversalNftError::InvalidMessageHash)
+        .map_err(|_| UniversalNftError::InvalidMessageHash.into())
 }
 
 /// Convert ZetaChain message to CrossChainMessage format
@@ -623,13 +644,8 @@ fn convert_zetachain_to_cross_chain(zetachain_msg: ZetaChainMessage) -> Result<C
         zetachain_msg.destination_address.to_vec()
     };
     
-    // Validate sender format
-    let sender = if zetachain_msg.sender.len() == 32 {
-        // Solana address - convert to EVM format for consistency
-        zetachain_msg.sender[..20].to_vec()
-    } else {
-        zetachain_msg.sender.to_vec()
-    };
+    // Preserve sender bytes; do not truncate
+    let sender = zetachain_msg.sender.to_vec();
     
     Ok(CrossChainMessage {
         token_id: zetachain_msg.token_id,
@@ -803,33 +819,14 @@ fn validate_recipient_address(message_recipient: &[u8], expected_recipient: &Pub
             recipient_pubkey == *expected_recipient,
             UniversalNftError::InvalidRecipient
         );
-    } else if message_recipient.len() == 20 {
-        // EVM address format - derive corresponding Solana address
-        // This is a simplified approach - real implementation would use proper derivation
-        let derived_pubkey = derive_solana_address_from_evm(message_recipient)?;
-        require!(
-            derived_pubkey == *expected_recipient,
-            UniversalNftError::InvalidRecipient
-        );
     } else {
+        // Reject any non-32-byte recipient
         return Err(UniversalNftError::InvalidRecipientAddress.into());
     }
     
     Ok(())
 }
 
-/// Derive Solana address from EVM address (simplified approach)
-fn derive_solana_address_from_evm(evm_address: &[u8]) -> Result<Pubkey> {
-    require!(evm_address.len() == 20, UniversalNftError::InvalidRecipientAddress);
-    
-    // Create a deterministic Solana address from EVM address
-    let mut seed_data = Vec::new();
-    seed_data.extend_from_slice(b"evm_derived");
-    seed_data.extend_from_slice(evm_address);
-    
-    let hash = keccak::hash(&seed_data);
-    Ok(Pubkey::new_from_array(hash.to_bytes()))
-}
 
 /// Determine NFT origin information for tracking
 fn determine_nft_origin(token_id: u64, sender: &[u8]) -> Result<(Option<u64>, Option<Pubkey>, bool)> {

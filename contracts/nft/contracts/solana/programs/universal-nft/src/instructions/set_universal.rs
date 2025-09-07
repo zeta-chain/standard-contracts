@@ -6,12 +6,12 @@ use crate::SetUniversal as SetUniversalEvent;
 pub struct SetUniversalContext<'info> {
     #[account(
         mut,
+        has_one = authority,
         seeds = [b"collection", collection.authority.as_ref(), collection.name.as_bytes()],
         bump = collection.bump
     )]
     pub collection: Account<'info, Collection>,
     
-    #[account(mut)]
     pub authority: Signer<'info>,
 }
 

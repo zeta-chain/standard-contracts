@@ -2,12 +2,12 @@ use anchor_lang::prelude::*;
 use anchor_lang::solana_program::{
     clock::Clock,
     keccak,
-    secp256k1_recover::secp256k1_recover,
     sysvar::Sysvar,
 };
 use std::collections::HashMap;
 
-use crate::state::{Collection, NftOrigin, Connected, CrossChainMessage};
+use crate::state::{Collection, NftOrigin, Connected};
+use crate::gateway::CrossChainMessage;
 use crate::{UniversalNftError, find_nft_origin_pda};
 
 /// Security configuration constants
@@ -99,8 +99,8 @@ pub fn validate_tss_signature(
         ));
     }
 
-    // Recover public key from signature
-    let recovered_pubkey = secp256k1_recover(message_hash, recovery_id, signature)
+    // Recover public key from signature using Solana syscall
+    let recovered_pubkey = anchor_lang::solana_program::secp256k1_recover::secp256k1_recover(message_hash, recovery_id, signature)
         .map_err(|_| UniversalNftError::InvalidTssSignature)?;
 
     // Validate recovered public key format
@@ -256,7 +256,7 @@ fn validate_evm_message_format(message_data: &[u8]) -> Result<()> {
 /// Validate ZetaChain message format
 fn validate_zetachain_message_format(message_data: &[u8]) -> Result<()> {
     // Try to deserialize as ZetaChain message
-    let _zetachain_msg = crate::state::ZetaChainMessage::try_from_slice(message_data)
+    let _zetachain_msg = crate::gateway::ZetaChainCrossChainMessage::try_from_slice(message_data)
         .map_err(|_| UniversalNftError::InvalidMessage)?;
     
     Ok(())

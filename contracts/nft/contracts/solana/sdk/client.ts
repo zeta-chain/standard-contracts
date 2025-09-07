@@ -904,7 +904,7 @@ export class UniversalNftClient {
    */
   deriveGatewayPda(): [PublicKey, number] {
     return PublicKey.findProgramAddressSync(
-      [Buffer.from("gateway")],
+      [Buffer.from("meta")],
       ZETACHAIN_GATEWAY_PROGRAM_ID
     );
   }
@@ -1004,8 +1004,8 @@ export class UniversalNftUtils {
    * Convert chain ID to bytes array
    */
   static chainIdToBytes(chainId: number): number[] {
-    const buffer = Buffer.alloc(4);
-    buffer.writeUInt32BE(chainId, 0);
+    const buffer = Buffer.alloc(8);
+    buffer.writeBigUInt64LE(BigInt(chainId), 0);
     return Array.from(buffer);
   }
 
@@ -1013,10 +1013,11 @@ export class UniversalNftUtils {
    * Convert bytes array to chain ID
    */
   static bytesToChainId(bytes: number[]): number {
-    if (bytes.length !== 4) {
+    if (bytes.length !== 8) {
       throw new InvalidParameterError("bytes", bytes);
     }
-    return Buffer.from(bytes).readUInt32BE(0);
+    const value = Buffer.from(bytes).readBigUInt64LE(0);
+    return Number(value);
   }
 
   /**

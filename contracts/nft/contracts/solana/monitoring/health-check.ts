@@ -1,6 +1,5 @@
 import { Connection, PublicKey, AccountInfo, ParsedAccountData } from '@solana/web3.js';
-import { Program, AnchorProvider, BN } from '@coral-xyz/anchor';
-import { TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID } from '@solana/spl-token';
+import * as anchor from '@coral-xyz/anchor';
 import { createHash } from 'crypto';
 import bs58 from 'bs58';
 
@@ -288,8 +287,17 @@ class UniversalNFTHealthMonitor {
     // Initial health check
     await this.performHealthCheck();
 
-    // Set up periodic monitoring
-    this.monitoringInterval = setInterval(async () => {
+    // Set up non-overlapping periodic monitoring
+    this.scheduleNextMonitoringCycle();
+
+    console.log(`Monitoring started with ${this.config.checkInterval}ms interval`);
+  }
+
+  // Schedule next monitoring cycle to prevent overlapping
+  private scheduleNextMonitoringCycle(): void {
+    if (!this.isMonitoring) return;
+
+    this.monitoringInterval = setTimeout(async () => {
       try {
         await this.performHealthCheck();
         await this.checkForAlerts();
@@ -297,16 +305,17 @@ class UniversalNFTHealthMonitor {
       } catch (error) {
         console.error('Error during monitoring cycle:', error);
         this.createAlert(AlertLevel.RED, 'functionality', 'Monitoring cycle failed', { error });
+      } finally {
+        // Schedule next cycle after current one completes
+        this.scheduleNextMonitoringCycle();
       }
     }, this.config.checkInterval);
-
-    console.log(`Monitoring started with ${this.config.checkInterval}ms interval`);
   }
 
   // Stop monitoring system
   stopMonitoring(): void {
     if (this.monitoringInterval) {
-      clearInterval(this.monitoringInterval);
+      clearTimeout(this.monitoringInterval);
       this.monitoringInterval = undefined;
     }
     this.isMonitoring = false;
@@ -371,7 +380,8 @@ class UniversalNFTHealthMonitor {
 
       // Calculate success rate from recent transactions
       let successCount = 0;
-      let totalCount = signatures.length;
+      let errorCount = 0;
+      let processedCount = 0;
       let totalComputeUnits = 0;
       let totalTime = 0;
 
@@ -382,8 +392,11 @@ class UniversalNFTHealthMonitor {
           });
           
           if (tx) {
+            processedCount++;
             if (!tx.meta?.err) {
               successCount++;
+            } else {
+              errorCount++;
             }
             
             if (tx.meta?.computeUnitsConsumed) {
@@ -393,9 +406,14 @@ class UniversalNFTHealthMonitor {
             if (tx.blockTime && sig.blockTime) {
               totalTime += Math.abs(tx.blockTime - sig.blockTime);
             }
+          } else {
+            processedCount++;
+            errorCount++;
           }
         } catch (error) {
           // Transaction fetch failed, count as error
+          processedCount++;
+          errorCount++;
         }
       }
 
@@ -403,10 +421,10 @@ class UniversalNFTHealthMonitor {
         isOperational: isExecutable && successCount > 0,
         programId: this.programId.toString(),
         lastUpdated: Date.now(),
-        errorCount: totalCount - successCount,
-        successRate: totalCount > 0 ? (successCount / totalCount) * 100 : 0,
-        computeUnitsUsed: totalCount > 0 ? totalComputeUnits / totalCount : 0,
-        averageTransactionTime: totalCount > 0 ? totalTime / totalCount : 0
+        errorCount: errorCount,
+        successRate: processedCount > 0 ? (successCount / processedCount) * 100 : 0,
+        computeUnitsUsed: processedCount > 0 ? totalComputeUnits / processedCount : 0,
+        averageTransactionTime: processedCount > 0 ? totalTime / processedCount : 0
       };
 
     } catch (error) {
@@ -484,11 +502,8 @@ class UniversalNFTHealthMonitor {
   // Check cross-chain transfer metrics
   private async checkCrossChainMetrics(): Promise<void> {
     try {
-      // Get recent cross-chain events from transaction logs
-      const signatures = await this.connection.getSignaturesForAddress(
-        this.programId,
-        { limit: 1000 }
-      );
+      // Get recent cross-chain events from transaction logs with pagination
+      const signatures = await this.getSignaturesWithPagination(1000);
 
       let totalTransfers = 0;
       let successfulTransfers = 0;
@@ -499,14 +514,21 @@ class UniversalNFTHealthMonitor {
       let gatewayCallsTotal = 0;
       let gatewayCallsSuccess = 0;
 
-      const chainMetrics = new Map<number, ChainTransferMetrics>();
+      const chainMetrics = new Map<number, ChainTransferMetrics & { 
+        successfulTransfers: number; 
+        failedTransfers: number; 
+        totalTime: number; 
+        transferCount: number 
+      }>();
 
-      for (const sig of signatures) {
+      // Process transactions in batches with concurrency limiting
+      const transactions = await this.processTransactionsBatch(signatures, 10);
+      
+      for (let i = 0; i < transactions.length; i++) {
+        const tx = transactions[i];
+        const sig = signatures[i];
+        
         try {
-          const tx = await this.connection.getTransaction(sig.signature, {
-            maxSupportedTransactionVersion: 0
-          });
-          
           if (tx && tx.meta?.logMessages) {
             // Parse logs for cross-chain events
             const events = this.parseTransactionLogs(tx.meta.logMessages);
@@ -515,10 +537,18 @@ class UniversalNFTHealthMonitor {
               if (event.type === 'cross_chain_transfer') {
                 totalTransfers++;
                 
-                if (!tx.meta.err) {
+                const isSuccess = !tx.meta.err;
+                if (isSuccess) {
                   successfulTransfers++;
                 } else {
                   failedTransfers++;
+                }
+
+                // Calculate transfer duration if possible
+                let transferDuration = 0;
+                if (sig.blockTime && event.details.startTime) {
+                  transferDuration = sig.blockTime - event.details.startTime;
+                  totalTransferTime += transferDuration;
                 }
 
                 // Update chain metrics
@@ -531,25 +561,38 @@ class UniversalNFTHealthMonitor {
                     outboundTransfers: 1,
                     successRate: 0,
                     averageTime: 0,
-                    lastTransfer: sig.blockTime || 0
+                    lastTransfer: sig.blockTime || 0,
+                    successfulTransfers: isSuccess ? 1 : 0,
+                    failedTransfers: isSuccess ? 0 : 1,
+                    totalTime: transferDuration,
+                    transferCount: 1
                   });
                 } else {
                   const metrics = chainMetrics.get(chainId)!;
                   metrics.outboundTransfers++;
                   metrics.lastTransfer = Math.max(metrics.lastTransfer, sig.blockTime || 0);
+                  if (isSuccess) {
+                    metrics.successfulTransfers++;
+                  } else {
+                    metrics.failedTransfers++;
+                  }
+                  metrics.totalTime += transferDuration;
+                  metrics.transferCount++;
                 }
               }
 
-              if (event.type === 'tss_signature') {
+              // Handle TSS signature events (if they exist in logs)
+              if (event.type === 'transfer' && event.details && 'tssValid' in event.details) {
                 tssSignatures++;
-                if (event.details.valid) {
+                if (event.details.tssValid) {
                   validTssSignatures++;
                 }
               }
 
-              if (event.type === 'gateway_call') {
+              // Handle gateway call events (if they exist in logs)
+              if (event.type === 'transfer' && event.details && 'gatewaySuccess' in event.details) {
                 gatewayCallsTotal++;
-                if (event.details.success) {
+                if (event.details.gatewaySuccess) {
                   gatewayCallsSuccess++;
                 }
               }
@@ -561,11 +604,18 @@ class UniversalNFTHealthMonitor {
       }
 
       // Calculate metrics
-      const chainBreakdown = Array.from(chainMetrics.values());
-      chainBreakdown.forEach(chain => {
-        const totalChainTransfers = chain.inboundTransfers + chain.outboundTransfers;
-        chain.successRate = totalChainTransfers > 0 ? 
-          (chain.outboundTransfers / totalChainTransfers) * 100 : 0;
+      const chainBreakdown = Array.from(chainMetrics.values()).map(chain => {
+        const totalChainTransfers = chain.successfulTransfers + chain.failedTransfers;
+        return {
+          chainId: chain.chainId,
+          chainName: chain.chainName,
+          inboundTransfers: chain.inboundTransfers,
+          outboundTransfers: chain.outboundTransfers,
+          successRate: totalChainTransfers > 0 ? 
+            (chain.successfulTransfers / totalChainTransfers) * 100 : 0,
+          averageTime: chain.transferCount > 0 ? chain.totalTime / chain.transferCount : 0,
+          lastTransfer: chain.lastTransfer
+        };
       });
 
       this.metrics.crossChainMetrics = {
@@ -605,14 +655,13 @@ class UniversalNFTHealthMonitor {
     try {
       const startTime = Date.now();
       
-      // Check RPC latency
-      const healthResponse = await this.connection.getHealth();
+      // Check RPC latency by making a simple RPC call
+      const currentSlot = await this.connection.getSlot();
       const rpcLatency = Date.now() - startTime;
 
       // Get current blockchain state
       const epochInfo = await this.connection.getEpochInfo();
       const blockHeight = await this.connection.getBlockHeight();
-      const slot = await this.connection.getSlot();
 
       // Get recent performance samples
       const perfSamples = await this.connection.getRecentPerformanceSamples(10);
@@ -627,7 +676,7 @@ class UniversalNFTHealthMonitor {
       this.metrics.performanceMetrics = {
         rpcLatency,
         blockHeight,
-        currentSlot: slot,
+        currentSlot: currentSlot,
         epochInfo: {
           epoch: epochInfo.epoch,
           slotIndex: epochInfo.slotIndex,
@@ -847,10 +896,76 @@ class UniversalNFTHealthMonitor {
 
   // Utility methods for account health checks
   private getDiscriminator(accountName: string): string {
+    // Use proper Anchor discriminator calculation
     const hash = createHash('sha256');
     hash.update(`account:${accountName}`);
     const discriminator = hash.digest().slice(0, 8);
     return bs58.encode(discriminator);
+  }
+
+  // Paginated signature fetching with concurrency limiting
+  private async getSignaturesWithPagination(totalLimit: number): Promise<any[]> {
+    const batchSize = 100;
+    const maxConcurrency = 5;
+    const allSignatures: any[] = [];
+    let before: string | undefined;
+    
+    while (allSignatures.length < totalLimit) {
+      const currentBatchSize = Math.min(batchSize, totalLimit - allSignatures.length);
+      
+      try {
+        const signatures = await this.connection.getSignaturesForAddress(
+          this.programId,
+          { 
+            limit: currentBatchSize,
+            before: before
+          }
+        );
+        
+        if (signatures.length === 0) break;
+        
+        allSignatures.push(...signatures);
+        before = signatures[signatures.length - 1].signature;
+        
+        // Add small delay to avoid rate limiting
+        await new Promise(resolve => setTimeout(resolve, 50));
+        
+      } catch (error) {
+        console.warn('Failed to fetch signature batch:', error);
+        break;
+      }
+    }
+    
+    return allSignatures;
+  }
+
+  // Process transactions with concurrency limiting
+  private async processTransactionsBatch(signatures: any[], batchSize: number = 10): Promise<any[]> {
+    const results: any[] = [];
+    
+    for (let i = 0; i < signatures.length; i += batchSize) {
+      const batch = signatures.slice(i, i + batchSize);
+      
+      const batchPromises = batch.map(async (sig) => {
+        try {
+          return await this.connection.getTransaction(sig.signature, {
+            maxSupportedTransactionVersion: 0
+          });
+        } catch (error) {
+          return null;
+        }
+      });
+      
+      const batchResults = await Promise.all(batchPromises);
+      results.push(...batchResults.filter(tx => tx !== null));
+      
+      // Add delay between batches to avoid overwhelming RPC
+      if (i + batchSize < signatures.length) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+    }
+    
+    return results;
   }
 
   private async getAllCollections(): Promise<any[]> {

@@ -1,5 +1,6 @@
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::{
+    clock::Clock,
     instruction::{AccountMeta, Instruction},
     program::invoke_signed,
     sysvar,
@@ -8,9 +9,10 @@ use anchor_spl::{
     associated_token::AssociatedToken,
     token::{burn, Burn, Mint, Token, TokenAccount},
 };
+use solana_program::program_option::COption;
 
 use crate::state::{Collection, NftOrigin, Connected, convert_address_format};
-use crate::{is_supported_chain};
+use crate::utils::{is_supported_chain, serialize_gateway_call_data};
 use crate::{
     UniversalNftError, 
     ZETACHAIN_GATEWAY_PROGRAM_ID, 
@@ -27,20 +29,10 @@ pub fn transfer_cross_chain(
     destination_chain_id: u64,
     recipient: Vec<u8>,
 ) -> Result<()> {
-    // Complex operations may require additional compute units
-
     let collection = &mut ctx.accounts.collection;
     let nft_origin = &ctx.accounts.nft_origin;
     let sender = ctx.accounts.sender.key();
     let collection_key = collection.key();
-
-    // Validate all transfer parameters
-    validate_transfer_parameters(
-        destination_chain_id,
-        &recipient,
-        0, // Will be calculated later
-        ctx.accounts.sender.lamports(),
-    )?;
 
     // Validate recipient address format for destination chain
     let formatted_recipient = convert_address_format(&recipient, destination_chain_id)?;
@@ -55,11 +47,8 @@ pub fn transfer_cross_chain(
         UniversalNftError::NotTokenOwner
     );
 
-    // Validate NFT exists in origin system
-    require!(
-        nft_origin.token_id > 0,
-        UniversalNftError::TokenDoesNotExist
-    );
+    // Validate NFT exists in origin system (token_id 0 is valid for sequential IDs)
+    // Remove over-restrictive check since token_id can be 0 for the first NFT
 
     // Validate the NFT mint matches the origin system
     require!(
@@ -84,13 +73,13 @@ pub fn transfer_cross_chain(
     let original_mint = nft_origin.original_mint;
     let metadata_uri = nft_origin.metadata_uri.clone();
     let is_solana_native = nft_origin.is_solana_native();
-    let is_returning = origin_chain != get_current_chain_id();
+    let is_returning = destination_chain_id == origin_chain;
 
-    // Calculate enhanced gas fee for cross-chain transfer
+    // Calculate gas fee for cross-chain transfer using canonical function
     let message_size = metadata_uri.len() + 200; // Approximate message size with overhead
-    let gas_fee = calculate_enhanced_gas_fee(destination_chain_id, message_size, GasPriority::Normal)?;
+    let gas_fee = calculate_gas_fee(destination_chain_id, message_size as u64)?;
 
-    // Re-validate with actual gas fee
+    // Validate transfer parameters with actual gas fee
     validate_transfer_parameters(
         destination_chain_id,
         &formatted_recipient,
@@ -149,21 +138,25 @@ pub fn transfer_cross_chain(
     );
 
     // Call ZetaChain gateway for cross-chain transfer using proper deposit_and_call
-    let gateway_instruction = create_gateway_deposit_and_call_instruction(
-        &ctx.accounts.sender.key(),
+    let destination_address = derive_destination_contract_address(&ctx.accounts.connected)?;
+    let gateway_instruction = create_gateway_instruction(
+        &ZETACHAIN_GATEWAY_PROGRAM_ID,
         &ctx.accounts.gateway_pda.key(),
+        &ctx.accounts.sender.key(),
         destination_chain_id,
-        gas_fee, // Use calculated gas fee as deposit amount
+        destination_address.to_vec(),
         gateway_message,
+        gas_fee,
     )?;
 
-    // Execute gateway call with proper account structure
+    // Execute gateway call with proper account structure - must match instruction account metas
     invoke_signed(
         &gateway_instruction,
         &[
             ctx.accounts.sender.to_account_info(),
             ctx.accounts.gateway_pda.to_account_info(),
             ctx.accounts.gateway.to_account_info(),
+            ctx.accounts.system_program.to_account_info(),
             ctx.accounts.system_program.to_account_info(),
         ],
         &[],
@@ -172,6 +165,7 @@ pub fn transfer_cross_chain(
     // Note: Gas fee is automatically transferred by the gateway instruction
 
     // Emit transfer event with origin information
+    let clock = Clock::get().map_err(|_| UniversalNftError::InvalidMessage)?;
     emit!(TokenTransfer {
         collection: collection_key,
         token_id,
@@ -180,8 +174,9 @@ pub fn transfer_cross_chain(
         uri: metadata_uri,
         sender,
         message: cross_chain_message,
-        origin_chain: Some(origin_chain),
-        original_mint: Some(original_mint),
+        timestamp: clock.unix_timestamp,
+        origin_chain,
+        origin_mint: original_mint,
         is_returning,
     });
 
@@ -352,25 +347,28 @@ fn prepare_gateway_message(destination_chain_id: u64, message: &[u8]) -> Result<
     // Add checksum for integrity verification
     let checksum = anchor_lang::solana_program::keccak::hash(&gateway_message);
     gateway_message.extend_from_slice(&checksum.to_bytes()[..4]);
-    
     Ok(gateway_message)
 }
 
-/// Create proper ZetaChain gateway deposit_and_call instruction
-fn create_gateway_deposit_and_call_instruction(
-    sender: &Pubkey,
+/// Create proper ZetaChain gateway instruction using canonical helpers
+fn create_gateway_instruction(
+    gateway_program_id: &Pubkey,
     gateway_pda: &Pubkey,
+    sender: &Pubkey,
     destination_chain_id: u64,
-    amount: u64,
+    destination_address: Vec<u8>,
     message: Vec<u8>,
+    gas_fee: u64,
 ) -> Result<Instruction> {
-    // Derive the proper receiver address for the destination chain
-    let receiver = derive_destination_contract_address(destination_chain_id)?;
-    
-    // Create the deposit_and_call instruction data
-    let instruction_data = create_deposit_and_call_data(amount, receiver, message, None)?;
+    // Use canonical gateway instruction builder if available
+    // For now, using simplified instruction format that matches gateway expectations
+    let instruction_data = serialize_gateway_call_data(
+        destination_chain_id,
+        &destination_address,
+        &message,
+        gas_fee,
+    )?;
 
-    // Build the instruction with proper accounts
     Ok(Instruction {
         program_id: ZETACHAIN_GATEWAY_PROGRAM_ID,
         accounts: vec![
@@ -390,41 +388,18 @@ fn create_gateway_deposit_and_call_instruction(
 }
 
 /// Derive the destination contract address for the given chain
-fn derive_destination_contract_address(destination_chain_id: u64) -> Result<[u8; 20]> {
-    // In production, these would be the actual deployed Universal NFT contract addresses
-    let contract_address = match destination_chain_id {
-        // Ethereum Mainnet
-        1 => [0x12, 0x34, 0x56, 0x78, 0x9a, 0xbc, 0xde, 0xf0, 0x12, 0x34, 0x56, 0x78, 0x9a, 0xbc, 0xde, 0xf0, 0x12, 0x34, 0x56, 0x78],
-        // Ethereum Sepolia
-        11155111 => [0x87, 0x65, 0x43, 0x21, 0x0f, 0xed, 0xcb, 0xa9, 0x87, 0x65, 0x43, 0x21, 0x0f, 0xed, 0xcb, 0xa9, 0x87, 0x65, 0x43, 0x21],
-        // BSC Mainnet
-        56 => [0xab, 0xcd, 0xef, 0x12, 0x34, 0x56, 0x78, 0x9a, 0xbc, 0xde, 0xf0, 0x12, 0x34, 0x56, 0x78, 0x9a, 0xbc, 0xde, 0xf0, 0x12],
-        // BSC Testnet
-        97 => [0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32, 0x10, 0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32, 0x10, 0xfe, 0xdc, 0xba, 0x98],
-        // Polygon Mainnet
-        137 => [0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff, 0x00, 0x11, 0x22, 0x33, 0x44],
-        // Polygon Mumbai
-        80001 => [0x99, 0x88, 0x77, 0x66, 0x55, 0x44, 0x33, 0x22, 0x11, 0x00, 0xff, 0xee, 0xdd, 0xcc, 0xbb, 0xaa, 0x99, 0x88, 0x77, 0x66],
-        // Base Mainnet
-        8453 => [0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff, 0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd],
-        // Base Sepolia
-        84532 => [0x55, 0x44, 0x33, 0x22, 0x11, 0x00, 0xff, 0xee, 0xdd, 0xcc, 0xbb, 0xaa, 0x99, 0x88, 0x77, 0x66, 0x55, 0x44, 0x33, 0x22],
-        // Arbitrum One
-        42161 => [0xcc, 0xdd, 0xee, 0xff, 0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff],
-        // Arbitrum Sepolia
-        421614 => [0x77, 0x66, 0x55, 0x44, 0x33, 0x22, 0x11, 0x00, 0xff, 0xee, 0xdd, 0xcc, 0xbb, 0xaa, 0x99, 0x88, 0x77, 0x66, 0x55, 0x44],
-        // Optimism Mainnet
-        10 => [0xee, 0xff, 0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff, 0x00, 0x11],
-        // Optimism Sepolia
-        11155420 => [0x33, 0x22, 0x11, 0x00, 0xff, 0xee, 0xdd, 0xcc, 0xbb, 0xaa, 0x99, 0x88, 0x77, 0x66, 0x55, 0x44, 0x33, 0x22, 0x11, 0x00],
-        // ZetaChain Mainnet
-        7000 => [0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff, 0x00, 0x11, 0x22, 0x33],
-        // ZetaChain Testnet
-        7001 => [0x44, 0x33, 0x22, 0x11, 0x00, 0xff, 0xee, 0xdd, 0xcc, 0xbb, 0xaa, 0x99, 0x88, 0x77, 0x66, 0x55, 0x44, 0x33, 0x22, 0x11],
-        _ => return Err(UniversalNftError::UnsupportedChain.into()),
-    };
+fn derive_destination_contract_address(connected: &Connected) -> Result<[u8; 20]> {
+    // Use Connected PDA to get the actual contract address for the destination chain
+    let contract_address = connected.contract_address.clone();
     
-    Ok(contract_address)
+    // Convert Vec<u8> to [u8; 20] for EVM address
+    let mut address_array = [0u8; 20];
+    if contract_address.len() >= 20 {
+        address_array.copy_from_slice(&contract_address[..20]);
+    } else {
+        address_array[..contract_address.len()].copy_from_slice(&contract_address);
+    }
+    Ok(address_array)
 }
 
 /// Create the instruction data for deposit_and_call
@@ -454,50 +429,6 @@ fn create_deposit_and_call_data(
     Ok(instruction_data)
 }
 
-/// Enhanced gas fee calculation with chain-specific optimizations
-pub fn calculate_enhanced_gas_fee(destination_chain: u64, message_size: usize, priority: GasPriority) -> Result<u64> {
-    // Base gas costs per chain (in lamports) with updated values
-    let base_gas: u64 = match destination_chain {
-        1 => 200_000,        // Ethereum Mainnet - highest gas
-        11155111 => 150_000, // Ethereum Sepolia
-        56 => 80_000,        // BSC Mainnet
-        97 => 60_000,        // BSC Testnet
-        137 => 100_000,      // Polygon Mainnet
-        80001 => 80_000,     // Polygon Mumbai
-        8453 => 120_000,     // Base Mainnet
-        84532 => 100_000,    // Base Sepolia
-        42161 => 110_000,    // Arbitrum One
-        421614 => 90_000,    // Arbitrum Sepolia
-        10 => 130_000,       // Optimism Mainnet
-        11155420 => 100_000, // Optimism Sepolia
-        7000 => 50_000,      // ZetaChain Mainnet
-        7001 => 40_000,      // ZetaChain Testnet
-        _ => 100_000,        // Default gas
-    };
-    
-    // Message size multiplier (larger messages cost more)
-    let size_multiplier = 1 + (message_size / 1024); // +1x per KB
-    
-    // Priority multiplier
-    let priority_multiplier = match priority {
-        GasPriority::Low => 1,
-        GasPriority::Normal => 2,
-        GasPriority::High => 3,
-        GasPriority::Urgent => 5,
-    };
-    
-    let total_fee = base_gas
-        .checked_mul(size_multiplier as u64)
-        .and_then(|fee| fee.checked_mul(priority_multiplier))
-        .ok_or(UniversalNftError::InsufficientGasAmount)?;
-    
-    // Ensure minimum gas fee (0.01 SOL)
-    let min_fee = 10_000_000;
-    // Ensure maximum gas fee (1 SOL) to prevent excessive costs
-    let max_fee = 1_000_000_000;
-    
-    Ok(total_fee.max(min_fee).min(max_fee))
-}
 
 /// Verify TSS signature for enhanced security
 pub fn verify_tss_signature(
@@ -506,10 +437,9 @@ pub fn verify_tss_signature(
     recovery_id: u8,
     expected_tss_address: &[u8; 20],
 ) -> Result<bool> {
-    use anchor_lang::solana_program::secp256k1_recover::secp256k1_recover;
     
-    // Recover the public key from the signature
-    let recovered_pubkey = secp256k1_recover(message_hash, recovery_id, signature)
+    // Recover the public key from the signature using Solana syscall
+    let recovered_pubkey = anchor_lang::solana_program::secp256k1_recover::secp256k1_recover(message_hash, recovery_id, signature)
         .map_err(|_| UniversalNftError::InvalidTssSignature)?;
     
     // Convert recovered public key to Ethereum address
@@ -546,13 +476,6 @@ pub struct RevertOptions {
     pub on_revert_gas_limit: u64,
 }
 
-#[derive(Clone, Copy)]
-pub enum GasPriority {
-    Low = 1,
-    Normal = 2,
-    High = 3,
-    Urgent = 5,
-}
 
 /// Enhanced message structures with origin information
 
@@ -624,7 +547,7 @@ pub struct TransferCrossChain<'info> {
     #[account(
         mut,
         constraint = nft_mint.supply == 1 @ UniversalNftError::TokenDoesNotExist,
-        constraint = nft_mint.mint_authority.unwrap() == collection.key() @ UniversalNftError::InvalidTokenId
+        constraint = matches!(nft_mint.mint_authority, COption::Some(auth) if auth == collection.key()) @ UniversalNftError::InvalidTokenId
     )]
     pub nft_mint: Account<'info, Mint>,
 
@@ -655,8 +578,7 @@ pub struct TransferCrossChain<'info> {
     #[account(
         mut,
         seeds = [GATEWAY_PDA_SEED],
-        bump,
-        seeds::program = ZETACHAIN_GATEWAY_PROGRAM_ID
+        bump
     )]
     pub gateway_pda: UncheckedAccount<'info>,
 

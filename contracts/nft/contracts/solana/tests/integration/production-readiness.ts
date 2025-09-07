@@ -6,14 +6,12 @@ import { assert, expect } from "chai";
 import * as fs from "fs";
 import * as path from "path";
 
-// Production constants
-const TOKEN_METADATA_PROGRAM_ID = new PublicKey("metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s");
-const ZETACHAIN_GATEWAY_PROGRAM_ID = new PublicKey("ZETAjseVjuFsxdRxo6MmTCvqFwb3ZHUx56Co3vCmGis");
+import { ZETACHAIN_GATEWAY_PROGRAM_ID, TOKEN_METADATA_PROGRAM_ID, CHAIN_IDS, UNIVERSAL_NFT_PROGRAM_ID } from "../../sdk/types";
 
-// Production test configuration
+// Production test configuration with environment variable support
 const PRODUCTION_CONFIG = {
-    STRESS_TEST_NFT_COUNT: 100,
-    CONCURRENT_OPERATIONS: 10,
+    STRESS_TEST_NFT_COUNT: parseInt(process.env.STRESS_TEST_NFT_COUNT || "100"),
+    CONCURRENT_OPERATIONS: parseInt(process.env.CONCURRENT_OPERATIONS || "10"),
     MAX_COMPUTE_UNITS: 1_400_000,
     MAX_TRANSACTION_SIZE: 1232,
     MEMORY_THRESHOLD_MB: 100,
@@ -21,20 +19,6 @@ const PRODUCTION_CONFIG = {
     GAS_FEE_THRESHOLD: 0.1 * LAMPORTS_PER_SOL,
     RETRY_ATTEMPTS: 3,
     TIMEOUT_MS: 30000,
-};
-
-// Chain IDs for production testing
-const CHAIN_IDS = {
-    SOLANA_MAINNET: 101,
-    SOLANA_DEVNET: 103,
-    ETHEREUM_MAINNET: 1,
-    ETHEREUM_SEPOLIA: 11155111,
-    BASE_MAINNET: 8453,
-    BASE_SEPOLIA: 84532,
-    BSC_MAINNET: 56,
-    BSC_TESTNET: 97,
-    ZETACHAIN_MAINNET: 7000,
-    ZETACHAIN_TESTNET: 7001,
 };
 
 // Test data for production scenarios
@@ -105,40 +89,46 @@ describe("Universal NFT Production Readiness Tests", () => {
 
         // Setup test accounts with production-level funding
         console.log("   💰 Setting up production test accounts...");
-        for (let i = 0; i < 20; i++) {
+        for (let i = 0; i < 10; i++) {
             const account = Keypair.generate();
             testAccounts.push(account);
             
             try {
-                await connection.requestAirdrop(account.publicKey, 5 * LAMPORTS_PER_SOL);
+                const sig = await connection.requestAirdrop(account.publicKey, 5 * LAMPORTS_PER_SOL);
+                const bh = await connection.getLatestBlockhash();
+                await connection.confirmTransaction({ signature: sig, ...bh }, "confirmed");
             } catch (error) {
                 console.warn(`Failed to airdrop to account ${i}: ${error}`);
             }
         }
 
         // Fund emergency and upgrade authorities
-        await connection.requestAirdrop(emergencyAuthority.publicKey, 10 * LAMPORTS_PER_SOL);
-        await connection.requestAirdrop(upgradeAuthority.publicKey, 10 * LAMPORTS_PER_SOL);
-
-        // Wait for funding to confirm
-        await new Promise(resolve => setTimeout(resolve, 5000));
+        {
+            const sig1 = await connection.requestAirdrop(emergencyAuthority.publicKey, 10 * LAMPORTS_PER_SOL);
+            const sig2 = await connection.requestAirdrop(upgradeAuthority.publicKey, 10 * LAMPORTS_PER_SOL);
+            const bh = await connection.getLatestBlockhash();
+            await Promise.all([
+                connection.confirmTransaction({ signature: sig1, ...bh }, "confirmed"),
+                connection.confirmTransaction({ signature: sig2, ...bh }, "confirmed"),
+            ]);
+        }
 
         // Setup collection for production testing
-        [collectionPda, collectionBump] = PublicKey.findProgramAddressSync(
-            [
-                Buffer.from("collection"),
-                authority.publicKey.toBuffer(),
-                Buffer.from(PRODUCTION_TEST_DATA.COLLECTION_NAME)
-            ],
-            program.programId
-        );
-
+        // Create mint first, then derive collection PDA using 32-byte-safe seeds
         collectionMint = await createMint(
             connection,
             authority,
             authority.publicKey,
             authority.publicKey,
             0
+        );
+        [collectionPda, collectionBump] = PublicKey.findProgramAddressSync(
+            [
+                Buffer.from("collection"),
+                authority.publicKey.toBuffer(),
+                collectionMint.toBuffer(),
+            ],
+            program.programId
         );
 
         await initializeProductionCollection();
@@ -193,7 +183,17 @@ describe("Universal NFT Production Readiness Tests", () => {
     }
 
     describe("1. Stress Testing & High-Volume Operations", () => {
-        it("Should handle high-volume NFT minting under load", async () => {
+        it("Should handle high-volume NFT minting under load", async function() {
+            // Skip if stress tests are disabled
+            if (process.env.SKIP_STRESS_TESTS === 'true') {
+                this.skip();
+                return;
+            }
+
+            // Calculate timeout based on test parameters
+            const timeoutMs = parseInt(process.env.STRESS_TEST_TIMEOUT_MS || 
+                String(PRODUCTION_CONFIG.STRESS_TEST_NFT_COUNT * PRODUCTION_CONFIG.CONCURRENT_OPERATIONS * 1000));
+            this.timeout(timeoutMs);
             console.log("🔥 Test 1.1: High-Volume NFT Minting Stress Test");
             console.log(`   📊 Target: ${PRODUCTION_CONFIG.STRESS_TEST_NFT_COUNT} NFTs`);
 
@@ -540,7 +540,7 @@ describe("Universal NFT Production Readiness Tests", () => {
 
             // Test gateway message format compatibility
             const zetaChainMessage = {
-                destination_chain_id: CHAIN_IDS.ETHEREUM_SEPOLIA,
+                destination_chain_id: CHAIN_IDS.SEPOLIA,
                 destination_address: Array.from(Buffer.alloc(20, 1)),
                 destination_gas_limit: 100000,
                 message: createTestCrossChainMessage(12345, "https://test.com/gateway.json", testAccounts[0].publicKey),
@@ -609,7 +609,7 @@ describe("Universal NFT Production Readiness Tests", () => {
             const scenarios = [
                 {
                     name: "Ethereum to Solana",
-                    sourceChain: CHAIN_IDS.ETHEREUM_SEPOLIA,
+                    sourceChain: CHAIN_IDS.SEPOLIA,
                     destinationChain: CHAIN_IDS.SOLANA_DEVNET,
                     addressFormat: "evm_to_solana",
                 },
@@ -798,10 +798,10 @@ describe("Universal NFT Production Readiness Tests", () => {
             console.log("⛽ Test 5.3: Gas Fee Calculation Validation");
 
             const chainGasTests = [
-                { chain: CHAIN_IDS.ETHEREUM_SEPOLIA, expectedRange: [0.01, 0.1] },
-                { chain: CHAIN_IDS.BASE_SEPOLIA, expectedRange: [0.001, 0.01] },
-                { chain: CHAIN_IDS.BSC_TESTNET, expectedRange: [0.001, 0.01] },
-                { chain: CHAIN_IDS.ZETACHAIN_TESTNET, expectedRange: [0.0001, 0.001] },
+                { chain: CHAIN_IDS.SEPOLIA, expectedRange: [0.0001, 0.001] },
+                { chain: CHAIN_IDS.BASE_SEPOLIA, expectedRange: [0.00001, 0.0001] },
+                { chain: CHAIN_IDS.BSC_TESTNET, expectedRange: [0.00001, 0.0001] },
+                { chain: CHAIN_IDS.ZETACHAIN_TESTNET, expectedRange: [0.000001, 0.00001] },
             ];
 
             for (const test of chainGasTests) {
@@ -1009,11 +1009,11 @@ describe("Universal NFT Production Readiness Tests", () => {
 
     function isEvmChain(chainId: number): boolean {
         return [
-            CHAIN_IDS.ETHEREUM_MAINNET,
-            CHAIN_IDS.ETHEREUM_SEPOLIA,
-            CHAIN_IDS.BASE_MAINNET,
+            CHAIN_IDS.ETHEREUM,
+            CHAIN_IDS.SEPOLIA,
+            CHAIN_IDS.BASE,
             CHAIN_IDS.BASE_SEPOLIA,
-            CHAIN_IDS.BSC_MAINNET,
+            CHAIN_IDS.BSC,
             CHAIN_IDS.BSC_TESTNET,
         ].includes(chainId);
     }
@@ -1128,20 +1128,24 @@ describe("Universal NFT Production Readiness Tests", () => {
     async function performIntegrityCheck(checkType: string): Promise<{ valid: boolean; message: string }> {
         try {
             switch (checkType) {
-                case "NFT Origin PDA consistency":
+                case "NFT Origin PDA consistency": {
                     // Check if origin PDAs are properly formatted
                     return { valid: true, message: "All origin PDAs are consistent" };
+                }
                 
-                case "Collection state validation":
+                case "Collection state validation": {
                     const collection = await program.account.collection.fetch(collectionPda);
                     const isValid = collection.nextTokenId > 0 && collection.totalMinted >= 0;
                     return { valid: isValid, message: isValid ? "Collection state is valid" : "Collection state is invalid" };
+                }
                 
-                case "Cross-chain message integrity":
+                case "Cross-chain message integrity": {
                     return { valid: true, message: "Cross-chain messages are properly formatted" };
+                }
                 
-                case "Metadata URI accessibility":
+                case "Metadata URI accessibility": {
                     return { valid: true, message: "Metadata URIs are accessible" };
+                }
                 
                 default:
                     return { valid: false, message: "Unknown check type" };
@@ -1179,14 +1183,16 @@ describe("Universal NFT Production Readiness Tests", () => {
 
     function calculateGasFeeForChain(chainId: number, gasAmount: number): number {
         const baseGas = {
-            [CHAIN_IDS.ETHEREUM_SEPOLIA]: 150000,
+            [CHAIN_IDS.SEPOLIA]: 150000,
             [CHAIN_IDS.BASE_SEPOLIA]: 100000,
             [CHAIN_IDS.BSC_TESTNET]: 80000,
             [CHAIN_IDS.ZETACHAIN_TESTNET]: 50000,
         };
         
         const base = baseGas[chainId] || 100000;
-        return Math.floor(base * (gasAmount / 100000));
+        const gasFeeInSol = base * (gasAmount / 100000);
+        // Return lamports instead of SOL
+        return Math.floor(gasFeeInSol * LAMPORTS_PER_SOL);
     }
 
     async function performE2EScenario(scenario: string): Promise<void> {

@@ -70,7 +70,7 @@ pub struct GatewayPDA {
 
 /// Cross-chain message formats for different destination chains
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
-pub enum CrossChainMessage {
+pub enum GatewayCrossChainMessage {
     /// EVM-compatible message format
     EVM(EVMCrossChainMessage),
     /// ZetaChain native message format
@@ -93,6 +93,7 @@ pub struct EVMCrossChainMessage {
     pub is_solana_native: bool,
     pub metadata_hash: [u8; 32],
     pub collection_address: [u8; 20],
+    pub chain_id: u64,
 }
 
 /// ZetaChain cross-chain message structure
@@ -138,7 +139,7 @@ pub struct GenericCrossChainMessage {
 }
 
 /// Gateway integration functions
-impl CrossChainMessage {
+impl GatewayCrossChainMessage {
     /// Create a cross-chain message based on destination chain
     pub fn new(
         destination_chain_id: u64,
@@ -156,63 +157,63 @@ impl CrossChainMessage {
                 let evm_message = EVMCrossChainMessage::new_ethereum(
                     token_id, recipient, uri, sender, origin_chain, original_mint, is_solana_native
                 )?;
-                Ok(CrossChainMessage::EVM(evm_message))
+                Ok(GatewayCrossChainMessage::EVM(evm_message))
             },
             // BSC mainnet and testnet
             56 | 97 => {
                 let evm_message = EVMCrossChainMessage::new_bsc(
                     token_id, recipient, uri, sender, origin_chain, original_mint, is_solana_native
                 )?;
-                Ok(CrossChainMessage::EVM(evm_message))
+                Ok(GatewayCrossChainMessage::EVM(evm_message))
             },
             // Polygon mainnet and testnet
             137 | 80001 => {
                 let evm_message = EVMCrossChainMessage::new_polygon(
                     token_id, recipient, uri, sender, origin_chain, original_mint, is_solana_native
                 )?;
-                Ok(CrossChainMessage::EVM(evm_message))
+                Ok(GatewayCrossChainMessage::EVM(evm_message))
             },
             // Base mainnet and testnet
             8453 | 84532 => {
                 let evm_message = EVMCrossChainMessage::new_base(
                     token_id, recipient, uri, sender, origin_chain, original_mint, is_solana_native
                 )?;
-                Ok(CrossChainMessage::EVM(evm_message))
+                Ok(GatewayCrossChainMessage::EVM(evm_message))
             },
             // Arbitrum mainnet and testnet
             42161 | 421614 => {
                 let evm_message = EVMCrossChainMessage::new_arbitrum(
                     token_id, recipient, uri, sender, origin_chain, original_mint, is_solana_native
                 )?;
-                Ok(CrossChainMessage::EVM(evm_message))
+                Ok(GatewayCrossChainMessage::EVM(evm_message))
             },
             // Optimism mainnet and testnet
             10 | 11155420 => {
                 let evm_message = EVMCrossChainMessage::new_optimism(
                     token_id, recipient, uri, sender, origin_chain, original_mint, is_solana_native
                 )?;
-                Ok(CrossChainMessage::EVM(evm_message))
+                Ok(GatewayCrossChainMessage::EVM(evm_message))
             },
             // ZetaChain mainnet and testnet
             7000 | 7001 => {
                 let zeta_message = ZetaChainCrossChainMessage::new(
                     destination_chain_id, recipient, token_id, uri, sender, origin_chain, original_mint, is_solana_native
                 )?;
-                Ok(CrossChainMessage::ZetaChain(zeta_message))
+                Ok(GatewayCrossChainMessage::ZetaChain(zeta_message))
             },
             // Bitcoin mainnet and testnet
             8332 | 18332 => {
                 let bitcoin_message = BitcoinCrossChainMessage::new(
                     token_id, recipient, uri, sender, origin_chain, original_mint, is_solana_native
                 )?;
-                Ok(CrossChainMessage::Bitcoin(bitcoin_message))
+                Ok(GatewayCrossChainMessage::Bitcoin(bitcoin_message))
             },
             // Generic format for other chains
             _ => {
                 let generic_message = GenericCrossChainMessage::new(
                     destination_chain_id, recipient, token_id, uri, sender, origin_chain, original_mint, is_solana_native
                 )?;
-                Ok(CrossChainMessage::Generic(generic_message))
+                Ok(GatewayCrossChainMessage::Generic(generic_message))
             }
         }
     }
@@ -220,30 +221,30 @@ impl CrossChainMessage {
     /// Encode message for gateway transmission
     pub fn encode_for_gateway(&self) -> Result<Vec<u8>> {
         match self {
-            CrossChainMessage::EVM(msg) => msg.encode_abi(),
-            CrossChainMessage::ZetaChain(msg) => msg.encode_native(),
-            CrossChainMessage::Bitcoin(msg) => msg.encode_bitcoin(),
-            CrossChainMessage::Generic(msg) => msg.encode_borsh(),
+            GatewayCrossChainMessage::EVM(msg) => msg.encode_borsh(),
+            GatewayCrossChainMessage::ZetaChain(msg) => msg.encode_native(),
+            GatewayCrossChainMessage::Bitcoin(msg) => msg.encode_bitcoin(),
+            GatewayCrossChainMessage::Generic(msg) => msg.encode_borsh(),
         }
     }
 
     /// Get destination chain ID
     pub fn destination_chain_id(&self) -> u64 {
         match self {
-            CrossChainMessage::EVM(msg) => msg.get_chain_id(),
-            CrossChainMessage::ZetaChain(msg) => msg.destination_chain_id,
-            CrossChainMessage::Bitcoin(_) => 8332, // Bitcoin mainnet
-            CrossChainMessage::Generic(msg) => msg.destination_chain,
+            GatewayCrossChainMessage::EVM(msg) => msg.get_chain_id(),
+            GatewayCrossChainMessage::ZetaChain(msg) => msg.destination_chain_id,
+            GatewayCrossChainMessage::Bitcoin(_) => 8332, // Bitcoin mainnet
+            GatewayCrossChainMessage::Generic(msg) => msg.destination_chain,
         }
     }
 
     /// Get gas limit for the destination chain
     pub fn gas_limit(&self) -> u64 {
         match self {
-            CrossChainMessage::EVM(_) => 200_000, // Standard EVM gas limit
-            CrossChainMessage::ZetaChain(msg) => msg.destination_gas_limit,
-            CrossChainMessage::Bitcoin(_) => 0, // Bitcoin doesn't use gas
-            CrossChainMessage::Generic(_) => 100_000, // Default gas limit
+            GatewayCrossChainMessage::EVM(_) => 200_000, // Standard EVM gas limit
+            GatewayCrossChainMessage::ZetaChain(msg) => msg.destination_gas_limit,
+            GatewayCrossChainMessage::Bitcoin(_) => 0, // Bitcoin doesn't use gas
+            GatewayCrossChainMessage::Generic(_) => 100_000, // Default gas limit
         }
     }
 }
@@ -259,10 +260,11 @@ impl EVMCrossChainMessage {
         original_mint: Pubkey,
         is_solana_native: bool,
     ) -> Result<Self> {
+        let chain_id = 1; // Ethereum mainnet
         let recipient_addr = Self::validate_evm_address(recipient)?;
         let sender_addr = Self::convert_to_evm_address(sender)?;
         let metadata_hash = Self::compute_metadata_hash(&uri);
-        let collection_address = Self::derive_collection_address(1); // Ethereum chain ID
+        let collection_address = Self::derive_collection_address(chain_id, &original_mint.to_bytes());
 
         Ok(EVMCrossChainMessage {
             token_id,
@@ -274,6 +276,7 @@ impl EVMCrossChainMessage {
             is_solana_native,
             metadata_hash,
             collection_address,
+            chain_id,
         })
     }
 
@@ -287,10 +290,11 @@ impl EVMCrossChainMessage {
         original_mint: Pubkey,
         is_solana_native: bool,
     ) -> Result<Self> {
+        let chain_id = 56; // BSC mainnet
         let recipient_addr = Self::validate_evm_address(recipient)?;
         let sender_addr = Self::convert_to_evm_address(sender)?;
         let metadata_hash = Self::compute_metadata_hash(&uri);
-        let collection_address = Self::derive_collection_address(56); // BSC chain ID
+        let collection_address = Self::derive_collection_address(chain_id, &original_mint.to_bytes());
 
         Ok(EVMCrossChainMessage {
             token_id,
@@ -302,6 +306,7 @@ impl EVMCrossChainMessage {
             is_solana_native,
             metadata_hash,
             collection_address,
+            chain_id,
         })
     }
 
@@ -315,10 +320,11 @@ impl EVMCrossChainMessage {
         original_mint: Pubkey,
         is_solana_native: bool,
     ) -> Result<Self> {
+        let chain_id = 137; // Polygon mainnet
         let recipient_addr = Self::validate_evm_address(recipient)?;
         let sender_addr = Self::convert_to_evm_address(sender)?;
         let metadata_hash = Self::compute_metadata_hash(&uri);
-        let collection_address = Self::derive_collection_address(137); // Polygon chain ID
+        let collection_address = Self::derive_collection_address(chain_id, &original_mint.to_bytes());
 
         Ok(EVMCrossChainMessage {
             token_id,
@@ -330,6 +336,7 @@ impl EVMCrossChainMessage {
             is_solana_native,
             metadata_hash,
             collection_address,
+            chain_id,
         })
     }
 
@@ -343,10 +350,11 @@ impl EVMCrossChainMessage {
         original_mint: Pubkey,
         is_solana_native: bool,
     ) -> Result<Self> {
+        let chain_id = 8453; // Base mainnet
         let recipient_addr = Self::validate_evm_address(recipient)?;
         let sender_addr = Self::convert_to_evm_address(sender)?;
         let metadata_hash = Self::compute_metadata_hash(&uri);
-        let collection_address = Self::derive_collection_address(8453); // Base chain ID
+        let collection_address = Self::derive_collection_address(chain_id, &original_mint.to_bytes());
 
         Ok(EVMCrossChainMessage {
             token_id,
@@ -358,6 +366,7 @@ impl EVMCrossChainMessage {
             is_solana_native,
             metadata_hash,
             collection_address,
+            chain_id,
         })
     }
 
@@ -371,10 +380,11 @@ impl EVMCrossChainMessage {
         original_mint: Pubkey,
         is_solana_native: bool,
     ) -> Result<Self> {
+        let chain_id = 42161; // Arbitrum mainnet
         let recipient_addr = Self::validate_evm_address(recipient)?;
         let sender_addr = Self::convert_to_evm_address(sender)?;
         let metadata_hash = Self::compute_metadata_hash(&uri);
-        let collection_address = Self::derive_collection_address(42161); // Arbitrum chain ID
+        let collection_address = Self::derive_collection_address(chain_id, &original_mint.to_bytes());
 
         Ok(EVMCrossChainMessage {
             token_id,
@@ -386,6 +396,7 @@ impl EVMCrossChainMessage {
             is_solana_native,
             metadata_hash,
             collection_address,
+            chain_id,
         })
     }
 
@@ -399,10 +410,11 @@ impl EVMCrossChainMessage {
         original_mint: Pubkey,
         is_solana_native: bool,
     ) -> Result<Self> {
+        let chain_id = 10; // Optimism mainnet
         let recipient_addr = Self::validate_evm_address(recipient)?;
         let sender_addr = Self::convert_to_evm_address(sender)?;
         let metadata_hash = Self::compute_metadata_hash(&uri);
-        let collection_address = Self::derive_collection_address(10); // Optimism chain ID
+        let collection_address = Self::derive_collection_address(chain_id, &original_mint.to_bytes());
 
         Ok(EVMCrossChainMessage {
             token_id,
@@ -414,6 +426,7 @@ impl EVMCrossChainMessage {
             is_solana_native,
             metadata_hash,
             collection_address,
+            chain_id,
         })
     }
 
@@ -457,10 +470,11 @@ impl EVMCrossChainMessage {
     }
 
     /// Derive collection address for the destination chain
-    fn derive_collection_address(chain_id: u64) -> [u8; 20] {
+    fn derive_collection_address(chain_id: u64, collection_pubkey: &[u8]) -> [u8; 20] {
         let mut input = Vec::new();
         input.extend_from_slice(b"universal_nft_collection");
         input.extend_from_slice(&chain_id.to_le_bytes());
+        input.extend_from_slice(collection_pubkey);
         let hash = keccak::hash(&input);
         let mut addr = [0u8; 20];
         addr.copy_from_slice(&hash.to_bytes()[0..20]);
@@ -469,45 +483,81 @@ impl EVMCrossChainMessage {
 
     /// Get chain ID based on message content
     fn get_chain_id(&self) -> u64 {
-        // Determine chain ID from collection address or other context
-        // This is a simplified implementation
-        1 // Default to Ethereum mainnet
+        self.chain_id
     }
 
-    /// Encode message in ABI format for EVM chains
+    /// Encode message in proper Ethereum ABI format for EVM chains
+    /// Function signature: receiveNFT(uint256,address,string,address,uint256,bytes32,bool,bytes32,address)
     pub fn encode_abi(&self) -> Result<Vec<u8>> {
         let mut encoded = Vec::new();
         
         // Function selector for receiveNFT(uint256,address,string,address,uint256,bytes32,bool,bytes32,address)
-        let function_selector = [0x8f, 0x4f, 0x6a, 0x13]; // Keccak256 hash of function signature
-        encoded.extend_from_slice(&function_selector);
+        let function_signature = "receiveNFT(uint256,address,string,address,uint256,bytes32,bool,bytes32,address)";
+        let function_hash = keccak::hash(function_signature.as_bytes());
+        let function_selector = &function_hash.to_bytes()[0..4];
+        encoded.extend_from_slice(function_selector);
         
-        // Encode parameters (simplified ABI encoding)
-        encoded.extend_from_slice(&self.token_id.to_be_bytes());
-        encoded.extend_from_slice(&self.recipient);
-        
-        // URI (dynamic string)
+        // ABI encoding follows head-tail pattern for dynamic types
+        // Calculate offsets for dynamic data (string URI)
+        let static_data_size = 32 * 8; // 8 parameters * 32 bytes each (heads)
+        let uri_offset = static_data_size;
         let uri_bytes = self.uri.as_bytes();
-        encoded.extend_from_slice(&(uri_bytes.len() as u32).to_be_bytes());
-        encoded.extend_from_slice(uri_bytes);
+        let uri_padded_len = ((uri_bytes.len() + 31) / 32) * 32; // Round up to 32-byte boundary
         
-        // Sender address
-        encoded.extend_from_slice(&self.sender);
+        // Encode heads (static data and offsets to dynamic data)
+        // 1. token_id (uint256) - 32 bytes, big-endian
+        let mut token_id_bytes = [0u8; 32];
+        token_id_bytes[24..32].copy_from_slice(&self.token_id.to_be_bytes());
+        encoded.extend_from_slice(&token_id_bytes);
         
-        // Origin chain
-        encoded.extend_from_slice(&self.origin_chain.to_be_bytes());
+        // 2. recipient (address) - 32 bytes, left-padded to 32 bytes
+        let mut recipient_bytes = [0u8; 32];
+        recipient_bytes[12..32].copy_from_slice(&self.recipient);
+        encoded.extend_from_slice(&recipient_bytes);
         
-        // Original mint
+        // 3. uri (string) - offset to dynamic data
+        let mut uri_offset_bytes = [0u8; 32];
+        uri_offset_bytes[28..32].copy_from_slice(&(uri_offset as u32).to_be_bytes());
+        encoded.extend_from_slice(&uri_offset_bytes);
+        
+        // 4. sender (address) - 32 bytes, left-padded
+        let mut sender_bytes = [0u8; 32];
+        sender_bytes[12..32].copy_from_slice(&self.sender);
+        encoded.extend_from_slice(&sender_bytes);
+        
+        // 5. origin_chain (uint256) - 32 bytes, big-endian
+        let mut origin_chain_bytes = [0u8; 32];
+        origin_chain_bytes[24..32].copy_from_slice(&self.origin_chain.to_be_bytes());
+        encoded.extend_from_slice(&origin_chain_bytes);
+        
+        // 6. original_mint (bytes32) - 32 bytes
         encoded.extend_from_slice(&self.original_mint);
         
-        // Is Solana native
-        encoded.push(if self.is_solana_native { 1 } else { 0 });
+        // 7. is_solana_native (bool) - 32 bytes, right-aligned
+        let mut bool_bytes = [0u8; 32];
+        bool_bytes[31] = if self.is_solana_native { 1 } else { 0 };
+        encoded.extend_from_slice(&bool_bytes);
         
-        // Metadata hash
+        // 8. metadata_hash (bytes32) - 32 bytes
         encoded.extend_from_slice(&self.metadata_hash);
         
-        // Collection address
-        encoded.extend_from_slice(&self.collection_address);
+        // 9. collection_address (address) - 32 bytes, left-padded
+        let mut collection_bytes = [0u8; 32];
+        collection_bytes[12..32].copy_from_slice(&self.collection_address);
+        encoded.extend_from_slice(&collection_bytes);
+        
+        // Tail: Dynamic data (URI string)
+        // Length of string (32 bytes, big-endian)
+        let mut uri_len_bytes = [0u8; 32];
+        uri_len_bytes[28..32].copy_from_slice(&(uri_bytes.len() as u32).to_be_bytes());
+        encoded.extend_from_slice(&uri_len_bytes);
+        
+        // String data, padded to 32-byte boundary
+        encoded.extend_from_slice(uri_bytes);
+        let padding_needed = uri_padded_len - uri_bytes.len();
+        if padding_needed > 0 {
+            encoded.extend_from_slice(&vec![0u8; padding_needed]);
+        }
         
         Ok(encoded)
     }
@@ -684,35 +734,6 @@ pub fn find_gateway_pda(program_id: &Pubkey) -> (Pubkey, u8) {
     Pubkey::find_program_address(&[GATEWAY_PDA_SEED], program_id)
 }
 
-/// Calculate gas fee for cross-chain transfer
-pub fn calculate_gateway_gas_fee(destination_chain_id: u64, gas_limit: u64) -> Result<u64> {
-    let base_fee_per_gas = match destination_chain_id {
-        1 | 11155111 => 20_000_000_000u64, // Ethereum: 20 gwei
-        56 | 97 => 5_000_000_000u64,       // BSC: 5 gwei
-        137 | 80001 => 30_000_000_000u64,  // Polygon: 30 gwei
-        8453 | 84532 => 1_000_000_000u64,  // Base: 1 gwei
-        42161 | 421614 => 100_000_000u64,  // Arbitrum: 0.1 gwei
-        10 | 11155420 => 1_000_000_000u64, // Optimism: 1 gwei
-        7000 | 7001 => 10_000_000_000u64,  // ZetaChain: 10 gwei
-        _ => 10_000_000_000u64,            // Default: 10 gwei
-    };
-
-    let total_gas_cost = base_fee_per_gas
-        .checked_mul(gas_limit)
-        .ok_or(UniversalNftError::InsufficientGasAmount)?;
-
-    // Convert to lamports (simplified conversion rate)
-    let lamports_per_gwei = 1_000; // Simplified rate
-    let total_lamports = total_gas_cost
-        .checked_div(1_000_000_000) // Convert from wei to gwei
-        .unwrap_or(0)
-        .checked_mul(lamports_per_gwei)
-        .ok_or(UniversalNftError::InsufficientGasAmount)?;
-
-    // Minimum fee of 0.001 SOL
-    let min_fee = 1_000_000;
-    Ok(total_lamports.max(min_fee))
-}
 
 /// Create gateway deposit instruction
 pub fn create_gateway_deposit_instruction(
@@ -736,8 +757,10 @@ pub fn create_gateway_deposit_instruction(
         program_id: *gateway_program_id,
         accounts: vec![
             AccountMeta::new(*gateway_pda, false),
+            AccountMeta::new_readonly(*gateway_program_id, false),
             AccountMeta::new(*sender, true),
             AccountMeta::new_readonly(anchor_lang::solana_program::system_program::ID, false),
+            AccountMeta::new_readonly(anchor_lang::solana_program::sysvar::rent::ID, false),
         ],
         data,
     })
@@ -769,6 +792,7 @@ pub fn create_gateway_deposit_and_call_instruction(
             AccountMeta::new(*gateway_pda, false),
             AccountMeta::new(*sender, true),
             AccountMeta::new_readonly(anchor_lang::solana_program::system_program::ID, false),
+            AccountMeta::new_readonly(anchor_lang::solana_program::sysvar::rent::ID, false),
         ],
         data,
     })

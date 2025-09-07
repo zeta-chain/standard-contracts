@@ -5,13 +5,7 @@ import { TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID, getAssociatedTokenAddres
 import { assert, expect } from "chai";
 import * as fs from "fs";
 import * as path from "path";
-import * as os from "os";
-
-// Metaplex Token Metadata Program
-const TOKEN_METADATA_PROGRAM_ID = new PublicKey("metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s");
-
-// ZetaChain Gateway Program ID
-const ZETACHAIN_GATEWAY_PROGRAM_ID = new PublicKey("ZETAjseVjuFsxdRxo6MmTCvqFwb3ZHUx56Co3vCmGis");
+import { TOKEN_METADATA_PROGRAM_ID, ZETACHAIN_GATEWAY_PROGRAM_ID } from "../sdk/types";
 
 // Test constants
 const TEST_COLLECTION_NAME = "Universal Test Collection";
@@ -181,10 +175,10 @@ describe("Universal NFT Cross-Chain Cycle", () => {
 
             // Verify origin system fields
             assert.equal(collectionAccount.totalMinted.toNumber(), 0);
-            assert.equal(collectionAccount.solanaNetiveCount.toNumber(), 0);
+            assert.equal(collectionAccount.solanaNativeCount.toNumber(), 0);
 
             console.log(`      ✅ Collection state verified with origin system support`);
-            console.log(`      📊 Origin stats - Total: ${collectionAccount.totalMinted}, Native: ${collectionAccount.solanaNetiveCount}\n`);
+            console.log(`      📊 Origin stats - Total: ${collectionAccount.totalMinted}, Native: ${collectionAccount.solanaNativeCount}\n`);
         });
 
         it("Should set universal contract address", async () => {
@@ -271,10 +265,12 @@ describe("Universal NFT Cross-Chain Cycle", () => {
             testTokenId = generateTestTokenId(testNftMint.publicKey, blockNumber, nextTokenId);
 
             // Derive origin PDA
+            const tokenIdBuffer = Buffer.allocUnsafe(8);
+            tokenIdBuffer.writeBigUInt64LE(BigInt(testTokenId));
             [testNftOriginPda] = PublicKey.findProgramAddressSync(
                 [
                     Buffer.from("nft_origin"),
-                    Buffer.from(testTokenId.toString().padStart(8, '0'), 'utf8').slice(0, 8)
+                    tokenIdBuffer
                 ],
                 program.programId
             );
@@ -336,7 +332,7 @@ describe("Universal NFT Cross-Chain Cycle", () => {
             const updatedCollection = await program.account.collection.fetch(collectionPda);
             assert.equal(updatedCollection.nextTokenId.toNumber(), 2);
             assert.equal(updatedCollection.totalMinted.toNumber(), 1);
-            assert.equal(updatedCollection.solanaNetiveCount.toNumber(), 1);
+            assert.equal(updatedCollection.solanaNativeCount.toNumber(), 1);
 
             // Store test results for later validation
             originTestResults.push({
@@ -348,7 +344,7 @@ describe("Universal NFT Cross-Chain Cycle", () => {
             });
 
             console.log(`      ✅ NFT mint with origin system verified`);
-            console.log(`      📊 Collection stats updated - Total: ${updatedCollection.totalMinted}, Native: ${updatedCollection.solanaNetiveCount}\n`);
+            console.log(`      📊 Collection stats updated - Total: ${updatedCollection.totalMinted}, Native: ${updatedCollection.solanaNativeCount}\n`);
         });
 
         it("Should transfer NFT cross-chain with origin preservation", async () => {
@@ -379,15 +375,14 @@ describe("Universal NFT Cross-Chain Cycle", () => {
                 .transferCrossChain(new anchor.BN(destinationChainId), Array.from(recipientBytes))
                 .accounts({
                     collection: collectionPda,
-                    owner: user1.publicKey,
+                    sender: user1.publicKey,
                     nftMint: testNftMint.publicKey,
                     nftTokenAccount: testNftTokenAccount,
                     nftMetadata: testNftMetadata,
                     nftOrigin: testNftOriginPda,
-                    collectionMint: collectionMint,
-                    gatewayPda: gatewayPda,
-                    systemProgram: SystemProgram.programId,
+                    gateway: gatewayPda,
                     tokenProgram: TOKEN_PROGRAM_ID,
+                    systemProgram: SystemProgram.programId,
                 })
                 .signers([user1])
                 .rpc();
@@ -425,10 +420,12 @@ describe("Universal NFT Cross-Chain Cycle", () => {
             const uri = "https://example.com/incoming/12345";
 
             // Derive origin PDA for incoming NFT
+            const incomingTokenIdBuffer = Buffer.allocUnsafe(8);
+            incomingTokenIdBuffer.writeBigUInt64LE(BigInt(tokenId));
             const [incomingOriginPda] = PublicKey.findProgramAddressSync(
                 [
                     Buffer.from("nft_origin"),
-                    Buffer.from(tokenId.toString().padStart(8, '0'), 'utf8').slice(0, 8)
+                    incomingTokenIdBuffer
                 ],
                 program.programId
             );
@@ -491,6 +488,55 @@ describe("Universal NFT Cross-Chain Cycle", () => {
                 console.log(`         Scenario A: Origin PDA exists (returning NFT)`);
             } catch (error) {
                 console.log(`         Scenario B: Origin PDA doesn't exist (first time on Solana)`);
+
+                // Create a fake gateway PDA that's not the real gateway to test authorization
+                const fakeGatewayKeypair = Keypair.generate();
+                const fakeGatewayPda = fakeGatewayKeypair.publicKey;
+
+                try {
+                    const tx = await program.methods
+                        .onCall(
+                            new anchor.BN(tokenId),
+                            incomingNftMint.publicKey,
+                            new anchor.BN(CHAIN_ID_ETHEREUM_SEPOLIA),
+                            uri,
+                            true
+                        )
+                        .accounts({
+                            collection: collectionPda,
+                            nftOrigin: incomingOriginPda,
+                            nftMint: incomingNftMint.publicKey,
+                            nftTokenAccount: incomingTokenAccount,
+                            nftMetadata: incomingMetadata,
+                            recipient: user2.publicKey,
+                            gateway: fakeGatewayPda,
+                            authority: authority.publicKey,
+                            payer: authority.publicKey,
+                            rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+                            systemProgram: SystemProgram.programId,
+                            tokenProgram: TOKEN_PROGRAM_ID,
+                            associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+                            metadataProgram: TOKEN_METADATA_PROGRAM_ID,
+                        })
+                        .signers([incomingNftMint])
+                        .rpc();
+
+                    console.log(`      ⚠️  Unexpected success: ${tx}`);
+                    assert.fail("Expected on_call to fail when called with fake gateway");
+                } catch (error) {
+                    console.log(`      ✅ Correctly rejected fake gateway call`);
+                    console.log(`      📝 Error: ${error.message.split('\n')[0]}`);
+                    
+                    // Deterministic assertion - should fail with constraint or authorization error
+                    assert.isTrue(
+                        error.message.includes("ConstraintSeeds") || 
+                        error.message.includes("InvalidAccountData") ||
+                        error.message.includes("AccountNotInitialized") ||
+                        error.message.includes("UnauthorizedGateway")
+                    );
+                }
+
+                console.log(`      ✅ Gateway-only access control verified with origin system\n`);
             }
 
             try {
@@ -543,10 +589,12 @@ describe("Universal NFT Cross-Chain Cycle", () => {
             const refundAmount = 1000000; // 0.001 SOL
 
             // Derive origin PDA for revert scenario
+            const revertTokenIdBuffer = Buffer.allocUnsafe(8);
+            revertTokenIdBuffer.writeBigUInt64LE(BigInt(tokenId));
             const [revertOriginPda] = PublicKey.findProgramAddressSync(
                 [
                     Buffer.from("nft_origin"),
-                    Buffer.from(tokenId.toString().padStart(8, '0'), 'utf8').slice(0, 8)
+                    revertTokenIdBuffer
                 ],
                 program.programId
             );
@@ -787,10 +835,12 @@ describe("Universal NFT Cross-Chain Cycle", () => {
 
             for (const chainTest of chainTests) {
                 const tokenId = 400000 + chainTest.chainId;
+                const chainTokenIdBuffer = Buffer.allocUnsafe(8);
+                chainTokenIdBuffer.writeBigUInt64LE(BigInt(tokenId));
                 const [originPda] = PublicKey.findProgramAddressSync(
                     [
                         Buffer.from("nft_origin"),
-                        Buffer.from(tokenId.toString().padStart(8, '0'), 'utf8').slice(0, 8)
+                        chainTokenIdBuffer
                     ],
                     program.programId
                 );
@@ -858,10 +908,12 @@ describe("Universal NFT Cross-Chain Cycle", () => {
 
             // Test unauthorized origin system operations
             const unauthorizedTokenId = 999999;
+            const unauthorizedTokenIdBuffer = Buffer.allocUnsafe(8);
+            unauthorizedTokenIdBuffer.writeBigUInt64LE(BigInt(unauthorizedTokenId));
             const [unauthorizedOriginPda] = PublicKey.findProgramAddressSync(
                 [
                     Buffer.from("nft_origin"),
-                    Buffer.from(unauthorizedTokenId.toString().padStart(8, '0'), 'utf8').slice(0, 8)
+                    unauthorizedTokenIdBuffer
                 ],
                 program.programId
             );
@@ -959,11 +1011,13 @@ describe("Universal NFT Cross-Chain Cycle", () => {
 
             // Test origin system with invalid chain ID
             const invalidOriginTokenId = 888888;
-            const invalidChainId = 999999; // Unsupported chain
+            const invalidOriginChainId = 999999; // Unsupported chain
+            const invalidOriginTokenIdBuffer = Buffer.allocUnsafe(8);
+            invalidOriginTokenIdBuffer.writeBigUInt64LE(BigInt(invalidOriginTokenId));
             const [invalidOriginPda] = PublicKey.findProgramAddressSync(
                 [
                     Buffer.from("nft_origin"),
-                    Buffer.from(invalidOriginTokenId.toString().padStart(8, '0'), 'utf8').slice(0, 8)
+                    invalidOriginTokenIdBuffer
                 ],
                 program.programId
             );
@@ -973,7 +1027,7 @@ describe("Universal NFT Cross-Chain Cycle", () => {
                     .createNftOrigin(
                         new anchor.BN(invalidOriginTokenId),
                         Keypair.generate().publicKey,
-                        new anchor.BN(invalidChainId),
+                        new anchor.BN(999999), // Use literal instead of shadowed variable
                         "https://example.com/invalid-chain"
                     )
                     .accounts({
@@ -996,16 +1050,11 @@ describe("Universal NFT Cross-Chain Cycle", () => {
         it("Should implement replay protection with origin tracking", async () => {
             console.log("🛡️  Test 5.3: Replay Protection with Origin Tracking");
 
-            // Get current nonce
-            const collectionAccount = await program.account.collection.fetch(collectionPda);
-            const currentNonce = collectionAccount.nonce.toNumber();
-
-            console.log(`      📊 Current nonce: ${currentNonce}`);
-            // Verify origin system contributes to replay protection
+            // Get current collection state
             const collectionAccount = await program.account.collection.fetch(collectionPda);
             const currentNonce = collectionAccount.nonce.toNumber();
             const totalMinted = collectionAccount.totalMinted.toNumber();
-            const nativeCount = collectionAccount.solanaNetiveCount.toNumber();
+            const nativeCount = collectionAccount.solanaNativeCount.toNumber();
 
             console.log(`      📊 Current nonce: ${currentNonce}`);
             console.log(`      📊 Total minted: ${totalMinted}`);
@@ -1028,10 +1077,12 @@ describe("Universal NFT Cross-Chain Cycle", () => {
             for (let i = 0; i < nftCount; i++) {
                 const tokenId = 500000 + i;
                 const testMint = Keypair.generate();
+                const stressTokenIdBuffer = Buffer.allocUnsafe(8);
+                stressTokenIdBuffer.writeBigUInt64LE(BigInt(tokenId));
                 const [originPda] = PublicKey.findProgramAddressSync(
                     [
                         Buffer.from("nft_origin"),
-                        Buffer.from(tokenId.toString().padStart(8, '0'), 'utf8').slice(0, 8)
+                        stressTokenIdBuffer
                     ],
                     program.programId
                 );
@@ -1112,10 +1163,12 @@ describe("Universal NFT Cross-Chain Cycle", () => {
             for (let i = 0; i < concurrentCount; i++) {
                 const tokenId = 600000 + i;
                 const testMint = Keypair.generate();
+                const concurrentTokenIdBuffer = Buffer.allocUnsafe(8);
+                concurrentTokenIdBuffer.writeBigUInt64LE(BigInt(tokenId));
                 const [originPda] = PublicKey.findProgramAddressSync(
                     [
                         Buffer.from("nft_origin"),
-                        Buffer.from(tokenId.toString().padStart(8, '0'), 'utf8').slice(0, 8)
+                        concurrentTokenIdBuffer
                     ],
                     program.programId
                 );
@@ -1156,12 +1209,12 @@ describe("Universal NFT Cross-Chain Cycle", () => {
             console.log(`      💾 Memory Usage Analysis:`);
             console.log(`         • Total origins tracked: ${totalOrigins}`);
             console.log(`         • Collection total minted: ${collectionAccount.totalMinted.toNumber()}`);
-            console.log(`         • Collection native count: ${collectionAccount.solanaNetiveCount.toNumber()}`);
+            console.log(`         • Collection native count: ${collectionAccount.solanaNativeCount.toNumber()}`);
             console.log(`         • Next token ID: ${collectionAccount.nextTokenId.toNumber()}`);
 
             // Verify data consistency
             assert.isTrue(collectionAccount.totalMinted.toNumber() >= totalOrigins);
-            assert.isTrue(collectionAccount.solanaNetiveCount.toNumber() <= collectionAccount.totalMinted.toNumber());
+            assert.isTrue(collectionAccount.solanaNativeCount.toNumber() <= collectionAccount.totalMinted.toNumber());
 
             console.log(`      ✅ Memory usage efficient with large origin datasets`);
             console.log(`      ✅ Data consistency maintained across large datasets\n`);
@@ -1184,10 +1237,12 @@ describe("Universal NFT Cross-Chain Cycle", () => {
             const nextTokenId = collectionAccount.nextTokenId.toNumber();
             const cycleTokenId = generateTestTokenId(cycleNftMint.publicKey, blockNumber, nextTokenId);
 
+            const cycleTokenIdBuffer = Buffer.allocUnsafe(8);
+            cycleTokenIdBuffer.writeBigUInt64LE(BigInt(cycleTokenId));
             const [cycleOriginPda] = PublicKey.findProgramAddressSync(
                 [
                     Buffer.from("nft_origin"),
-                    Buffer.from(cycleTokenId.toString().padStart(8, '0'), 'utf8').slice(0, 8)
+                    cycleTokenIdBuffer
                 ],
                 program.programId
             );

@@ -10,6 +10,7 @@
 import { PublicKey } from '@solana/web3.js';
 import BN from 'bn.js';
 
+
 // ============================================================================
 // Program Constants
 // ============================================================================
@@ -17,11 +18,17 @@ import BN from 'bn.js';
 /** Universal NFT Program ID */
 export const UNIVERSAL_NFT_PROGRAM_ID = new PublicKey('6RfVUT361yLWutQFXBdBmNCCFxiaj5XjC4LS7XrQYuke');
 
+/** Alias for UNIVERSAL_NFT_PROGRAM_ID for backwards compatibility */
+export const PROGRAM_ID = UNIVERSAL_NFT_PROGRAM_ID;
+
 /** Metaplex Token Metadata Program ID */
 export const TOKEN_METADATA_PROGRAM_ID = new PublicKey('metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s');
 
 /** ZetaChain Gateway Program ID */
 export const ZETACHAIN_GATEWAY_PROGRAM_ID = new PublicKey('ZETAjseVjuFsxdRxo6MmTCvqFwb3ZHUx56Co3vCmGis');
+
+/** Gateway PDA seed constant */
+export const GATEWAY_PDA_SEED = "meta";
 
 // ============================================================================
 // Chain ID Constants
@@ -95,7 +102,7 @@ export interface Collection {
   /** Optional gateway PDA for ZetaChain integration */
   gatewayAddress?: PublicKey;
   /** Optional universal contract address on ZetaChain */
-  universalAddress?: PublicKey;
+  universalAddress?: EvmAddress;
   /** Next token ID to be minted */
   nextTokenId: BN;
   /** Replay protection counter */
@@ -139,8 +146,8 @@ export interface NftOrigin {
 export interface Connected {
   /** Reference to the parent collection */
   collection: PublicKey;
-  /** Chain ID as bytes (max 32 bytes) */
-  chainId: Uint8Array;
+  /** Chain ID as 8 bytes (little-endian) */
+  chainId: Uint8Array & { readonly length: 8 };
   /** Contract address on the connected chain (max 64 bytes) */
   contractAddress: Uint8Array;
   /** PDA bump seed */
@@ -292,7 +299,7 @@ export interface ReceiveCrossChainParams {
  */
 export interface SetUniversalParams {
   /** Universal contract address on ZetaChain */
-  universalAddress: PublicKey;
+  universalAddress: EvmAddress;
 }
 
 /**
@@ -494,7 +501,7 @@ export interface SetUniversalEvent {
   /** Collection public key */
   collection: PublicKey;
   /** Universal contract address */
-  universalAddress: PublicKey;
+  universalAddress: EvmAddress;
 }
 
 /**
@@ -633,7 +640,7 @@ export interface TransactionResult {
  * Type guard to check if a value is a valid chain ID
  */
 export function isValidChainId(value: any): value is ChainId {
-  return typeof value === 'number' && Object.values(CHAIN_IDS).includes(value);
+  return typeof value === 'number' && Object.values(CHAIN_IDS).includes(value as ChainId);
 }
 
 /**
@@ -654,7 +661,7 @@ export function isSolanaAddress(address: Uint8Array): address is SolanaAddress {
  * Type guard to check if a chain uses EVM addresses
  */
 export function isEvmChain(chainId: ChainId): boolean {
-  return ![CHAIN_IDS.SOLANA_MAINNET, CHAIN_IDS.SOLANA_TESTNET, CHAIN_IDS.SOLANA_DEVNET].includes(chainId);
+  return ![CHAIN_IDS.SOLANA_MAINNET, CHAIN_IDS.SOLANA_TESTNET, CHAIN_IDS.SOLANA_DEVNET].includes(chainId as any);
 }
 
 /**
@@ -671,7 +678,7 @@ export function isTestnetChain(chainId: ChainId): boolean {
     CHAIN_IDS.ZETACHAIN_TESTNET,
     CHAIN_IDS.SOLANA_TESTNET,
     CHAIN_IDS.SOLANA_DEVNET,
-  ].includes(chainId);
+  ].includes(chainId as any);
 }
 
 // ============================================================================
@@ -916,7 +923,8 @@ export function getChainConfig(chainId: ChainId): ChainConfig {
 }
 
 /**
- * Convert address format for cross-chain compatibility
+ * Validate address format for cross-chain compatibility
+ * Enforces correct address lengths instead of converting to prevent silent corruption
  */
 export function convertAddressFormat(
   address: Uint8Array,
@@ -928,8 +936,10 @@ export function convertAddressFormat(
     if (address.length === 20) {
       return address;
     } else if (address.length === 32) {
-      // For Solana to EVM, take first 20 bytes (simplified approach)
-      return address.slice(0, 20);
+      // Match on-chain: keccak(pubkey)[12..32]
+      const { keccak_256 } = require('@noble/hashes/sha3');
+      const digest = keccak_256(address);
+      return Uint8Array.from(digest.slice(12));
     } else {
       throw new Error(`Cannot convert address of length ${address.length} to EVM format`);
     }
@@ -937,7 +947,7 @@ export function convertAddressFormat(
     if (address.length === 32) {
       return address;
     } else if (address.length === 20) {
-      // For EVM to Solana, pad with zeros (simplified approach)
+      // For EVM to Solana, left-pad with 12 zero bytes
       const padded = new Uint8Array(32);
       padded.set(address, 12); // Place EVM address in last 20 bytes
       return padded;
@@ -963,13 +973,14 @@ export function calculateGasFee(destinationChain: ChainId, gasAmount: BN): BN {
 }
 
 /**
- * Generate deterministic token ID
+ * Generate deterministic token ID using sha256 hash
  */
 export function generateTokenId(mint: PublicKey, blockNumber: BN, nextTokenId: BN): BN {
-  // This is a simplified version - actual implementation would use keccak hash
-  const combined = mint.toBytes().toString() + blockNumber.toString() + nextTokenId.toString();
-  const hash = combined.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-  return new BN(hash % Number.MAX_SAFE_INTEGER);
+  const { keccak_256 } = require('@noble/hashes/sha3');
+  const block = blockNumber.toArrayLike(Buffer, 'be', 8);
+  const next = nextTokenId.toArrayLike(Buffer, 'be', 8);
+  const digest = keccak_256(Buffer.concat([mint.toBuffer(), block, next]));
+  return new BN(Buffer.from(digest.slice(0, 8)), 'be');
 }
 
 // ============================================================================
@@ -1038,46 +1049,10 @@ export function deriveGatewayPda(
   programId: PublicKey = ZETACHAIN_GATEWAY_PROGRAM_ID
 ): PdaResult {
   const [publicKey, bump] = PublicKey.findProgramAddressSync(
-    [Buffer.from('meta')],
+    [Buffer.from(GATEWAY_PDA_SEED)],
     programId
   );
   return { publicKey, bump };
 }
 
-// ============================================================================
-// Export All Types
-// ============================================================================
-
-export type {
-  Collection,
-  NftOrigin,
-  Connected,
-  CrossChainMessage,
-  ZetaChainMessage,
-  EvmMessage,
-  RevertContext,
-  InitializeCollectionParams,
-  MintNftParams,
-  TransferCrossChainParams,
-  OnCallParams,
-  ReceiveCrossChainParams,
-  SetUniversalParams,
-  SetConnectedParams,
-  OnRevertParams,
-  CollectionInitializedEvent,
-  TokenMintedEvent,
-  TokenTransferEvent,
-  TokenTransferReceivedEvent,
-  TokenTransferRevertedEvent,
-  NftOriginCreatedEvent,
-  NftOriginUpdatedEvent,
-  NftReturningToSolanaEvent,
-  CrossChainCycleCompletedEvent,
-  SetUniversalEvent,
-  SetConnectedEvent,
-  UniversalNftError,
-  ChainConfig,
-  NftMetadata,
-  PdaResult,
-  TransactionResult,
-};
+// Note: All types are already exported inline above, no need for duplicate exports

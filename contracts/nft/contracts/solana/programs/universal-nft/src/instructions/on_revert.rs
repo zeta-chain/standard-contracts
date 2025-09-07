@@ -1,11 +1,13 @@
 use anchor_lang::prelude::*;
-use anchor_lang::system_program::{transfer, Transfer};
+use anchor_lang::solana_program::clock::Clock;
+use anchor_lang::solana_program::sysvar::rent::Rent;
+use anchor_lang::system_program::{Transfer, transfer};
 use anchor_spl::{
     associated_token::AssociatedToken,
     token::{mint_to, Mint, MintTo, Token, TokenAccount},
 };
 
-use crate::state::Collection;
+use crate::state::{Collection, NftOrigin};
 use crate::{TokenTransferReverted, UniversalNftError, ZETACHAIN_GATEWAY_PROGRAM_ID, TOKEN_METADATA_PROGRAM_ID, GATEWAY_PDA_SEED};
 
 /// Handle failed cross-chain transfers by minting NFT back to original sender
@@ -13,7 +15,7 @@ pub fn on_revert(
     ctx: Context<OnRevertContext>,
     token_id: u64,
     uri: String,
-    original_sender: Pubkey,
+    original_sender: Vec<u8>,
     refund_amount: u64,
 ) -> Result<()> {
 
@@ -37,6 +39,20 @@ pub fn on_revert(
     require!(
         ctx.accounts.gateway_pda.owner == &ZETACHAIN_GATEWAY_PROGRAM_ID,
         UniversalNftError::UnauthorizedGateway
+    );
+    
+    // Validate original_sender account
+    require!(
+        ctx.accounts.original_sender.key() != anchor_lang::solana_program::system_program::ID,
+        UniversalNftError::InvalidRecipient
+    );
+    require!(
+        !ctx.accounts.original_sender.executable,
+        UniversalNftError::InvalidRecipient
+    );
+    require!(
+        ctx.accounts.original_sender.is_writable,
+        UniversalNftError::InvalidRecipient
     );
     
     // Get collection data before mutable borrow
@@ -94,7 +110,7 @@ pub fn on_revert(
     }
     
     msg!(
-        "Reverted NFT transfer - minted token_id {} back to original sender {}",
+        "Reverted NFT transfer - minted token_id {} back to original sender {:?}",
         token_id,
         original_sender
     );
@@ -103,22 +119,31 @@ pub fn on_revert(
     emit!(TokenTransferReverted {
         collection: collection_key,
         token_id,
-        sender: original_sender,
+        sender: {
+            if original_sender.len() == 32 {
+                Pubkey::new_from_array(original_sender.try_into().unwrap_or_default())
+            } else {
+                Pubkey::default()
+            }
+        },
         uri,
         refund_amount,
-        origin_chain: None,
+        origin_chain: 0,
         original_mint: None,
+        revert_reason: "Cross-chain transfer reverted".to_string(),
+        timestamp: Clock::get()?.unix_timestamp,
     });
     
     Ok(())
 }
 
 #[derive(Accounts)]
+#[instruction(token_id: u64)]
 pub struct OnRevertContext<'info> {
     #[account(
         mut,
         seeds = [b"collection", collection.authority.as_ref(), collection.name.as_bytes()],
-        bump = collection.bump
+        bump
     )]
     pub collection: Account<'info, Collection>,
     
@@ -129,7 +154,20 @@ pub struct OnRevertContext<'info> {
     pub gateway: UncheckedAccount<'info>,
     
     /// CHECK: Gateway PDA account
+    #[account(
+        seeds = [GATEWAY_PDA_SEED],
+        bump
+    )]
     pub gateway_pda: UncheckedAccount<'info>,
+
+    #[account(
+        init_if_needed,
+        payer = payer,
+        seeds = [b"nft_origin", &token_id.to_le_bytes()[..]],
+        bump,
+        space = 8 + NftOrigin::INIT_SPACE
+    )]
+    pub nft_origin: Account<'info, NftOrigin>,
     
     #[account(
         init,
@@ -158,7 +196,6 @@ pub struct OnRevertContext<'info> {
     #[account(mut)]
     pub payer: Signer<'info>,
     
-    pub rent: Sysvar<'info, Rent>,
     pub system_program: Program<'info, System>,
     pub token_program: Program<'info, Token>,
     pub associated_token_program: Program<'info, AssociatedToken>,

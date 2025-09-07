@@ -1,4 +1,5 @@
 use anchor_lang::prelude::*;
+use crate::utils::is_supported_chain;
 
 #[account]
 #[derive(InitSpace)]
@@ -145,7 +146,7 @@ impl Collection {
 
     /// Get collection statistics
     pub fn get_stats(&self) -> (u64, u64, u64) {
-        (self.total_minted, self.solana_native_count, self.total_minted - self.solana_native_count)
+        (self.total_minted, self.solana_native_count, self.total_minted.saturating_sub(self.solana_native_count))
     }
 
     /// Check if collection has reached maximum capacity
@@ -229,26 +230,6 @@ impl NftOrigin {
     }
 }
 
-/// Check if a chain ID is supported
-pub fn is_supported_chain(chain_id: u64) -> bool {
-    matches!(
-        chain_id,
-        CHAIN_ID_ZETACHAIN |
-        CHAIN_ID_ETHEREUM |
-        CHAIN_ID_BSC |
-        CHAIN_ID_POLYGON |
-        CHAIN_ID_BASE |
-        CHAIN_ID_ARBITRUM |
-        CHAIN_ID_OPTIMISM |
-        CHAIN_ID_SEPOLIA |
-        CHAIN_ID_BSC_TESTNET |
-        CHAIN_ID_MUMBAI |
-        CHAIN_ID_BASE_SEPOLIA |
-        CHAIN_ID_ARBITRUM_SEPOLIA |
-        CHAIN_ID_OPTIMISM_SEPOLIA |
-        CHAIN_ID_ZETACHAIN_TESTNET
-    )
-}
 
 /// Validate chain ID format
 pub fn validate_chain_id(chain_id: &[u8]) -> Result<u64> {
@@ -261,7 +242,7 @@ pub fn validate_chain_id(chain_id: &[u8]) -> Result<u64> {
             .map_err(|_| crate::UniversalNftError::InvalidDestinationChain)?
     );
     
-    if !is_supported_chain(chain_id_u64) {
+    if !crate::is_supported_chain(chain_id_u64) {
         return Err(crate::UniversalNftError::UnsupportedChain.into());
     }
     
@@ -301,9 +282,9 @@ pub fn convert_address_format(address: &[u8], target_chain: u64) -> Result<Vec<u
             if address.len() == 20 {
                 Ok(address.to_vec())
             } else if address.len() == 32 {
-                // For Solana to EVM, we might need to derive an EVM address
-                // This is a simplified approach - real implementation would use proper derivation
-                Ok(address[..20].to_vec())
+                // Reject ambiguous 32->20 byte conversion to prevent unspendable assets
+                // Use proper address derivation instead of silent truncation
+                Err(crate::UniversalNftError::InvalidRecipientAddress.into())
             } else {
                 Err(crate::UniversalNftError::InvalidRecipientAddress.into())
             }

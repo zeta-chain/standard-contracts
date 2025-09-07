@@ -2,7 +2,6 @@ const { getHardhatConfig } = require("@zetachain/toolkit/client");
 
 require("@nomicfoundation/hardhat-toolbox");
 require("@zetachain/toolkit/tasks");
-require("@nomiclabs/hardhat-ethers");
 require("@openzeppelin/hardhat-upgrades");
 require("@zetachain/localnet/tasks");
 
@@ -13,8 +12,17 @@ require("./tasks/transfer");
 require("./tasks/setConnected");
 require("./tasks/setUniversal");
 
+// Support multiple private keys from PRIVATE_KEYS environment variable
+const getPrivateKeys = () => {
+  const privateKeys = process.env.PRIVATE_KEYS;
+  if (privateKeys) {
+    return privateKeys.split(',').map(key => key.trim()).filter(key => key.length > 0);
+  }
+  return process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [];
+};
+
 const config = {
-  ...getHardhatConfig({ accounts: [process.env.PRIVATE_KEY] }),
+  ...getHardhatConfig({ accounts: getPrivateKeys() }),
   solidity: {
     compilers: [
       {

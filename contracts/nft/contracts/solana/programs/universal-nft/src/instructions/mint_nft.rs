@@ -1,9 +1,7 @@
 use anchor_lang::prelude::*;
-use anchor_lang::solana_program::{
-    clock::Clock,
-    keccak,
-    program::invoke_signed,
-};
+use anchor_lang::solana_program::clock::Clock;
+use anchor_lang::solana_program::program::invoke_signed;
+use anchor_lang::solana_program::sysvar::rent::Rent;
 use anchor_spl::{
     associated_token::AssociatedToken,
     token::{mint_to, Mint, MintTo, Token, TokenAccount},
@@ -18,7 +16,7 @@ use mpl_token_metadata::{
         CreateMasterEditionV3,
         CreateMasterEditionV3InstructionArgs,
     },
-    types::{DataV2, Creator, Collection as MetaplexCollection, Uses, CollectionDetails},
+    types::{DataV2, Creator},
 };
 
 use crate::state::{Collection, NftOrigin};
@@ -51,35 +49,15 @@ pub fn mint_nft(
         UniversalNftError::InvalidSignature
     );
 
-    // Get current clock for deterministic token ID generation
+    // Get current clock for timestamps
     let clock = Clock::get()?;
-    let current_slot = clock.slot;
     
-    // Generate deterministic token_id using [mint_pubkey + block.number + next_token_id]
-    let next_token_id = collection.next_token_id;
-    let mut hash_input = Vec::new();
-    hash_input.extend_from_slice(&mint_pubkey.to_bytes());
-    hash_input.extend_from_slice(&current_slot.to_le_bytes());
-    hash_input.extend_from_slice(&next_token_id.to_le_bytes());
-    
-    let hash = keccak::hash(&hash_input);
-    let token_id = u64::from_le_bytes([
-        hash.0[0], hash.0[1], hash.0[2], hash.0[3],
-        hash.0[4], hash.0[5], hash.0[6], hash.0[7]
-    ]);
-
-    // Validate token_id uniqueness by checking if origin PDA already exists
-    let nft_origin_info = ctx.accounts.nft_origin.to_account_info();
-    require!(
-        nft_origin_info.data_is_empty(),
-        UniversalNftError::InvalidTokenId
-    );
-
-    // Initialize NFT Origin data with collection's next token ID
+    // Use sequential token ID from collection (guaranteed unique by PDA derivation)
     let token_id = collection.next_token_id;
     let current_chain_id = get_current_chain_id();
     let nft_origin = &mut ctx.accounts.nft_origin;
     nft_origin.token_id = token_id;
+    nft_origin.original_mint = ctx.accounts.nft_mint.key();
     nft_origin.collection = collection_key;
     nft_origin.chain_of_origin = current_chain_id;
     nft_origin.created_at = clock.unix_timestamp;
@@ -115,7 +93,6 @@ pub fn mint_nft(
         &ctx.accounts.collection.to_account_info(),
         &ctx.accounts.metadata_program.to_account_info(),
         &ctx.accounts.system_program.to_account_info(),
-        &ctx.accounts.rent.to_account_info(),
         name.clone(),
         symbol.clone(),
         uri.clone(),
@@ -131,7 +108,6 @@ pub fn mint_nft(
         &ctx.accounts.nft_metadata.to_account_info(),
         &ctx.accounts.metadata_program.to_account_info(),
         &ctx.accounts.system_program.to_account_info(),
-        &ctx.accounts.rent.to_account_info(),
         signer_seeds,
     )?;
 
@@ -139,20 +115,20 @@ pub fn mint_nft(
     let collection = &mut ctx.accounts.collection;
     collection.increment_total_minted()?;
     collection.increment_solana_native_count()?;
-    collection.next_token_id = collection
-        .next_token_id
+    collection.next_token_id
         .checked_add(1)
         .ok_or(error!(UniversalNftError::InvalidTokenId))?;
 
     emit!(crate::TokenMinted {
-        collection: collection_key,
+        collection: collection.key(),
         token_id,
-        mint: mint_pubkey,
+        mint: ctx.accounts.nft_mint.key(),
         recipient: ctx.accounts.recipient.key(),
-        name,
+        name: name.clone(),
         uri: uri.clone(),
-        origin_chain: current_chain_id,
+        origin_chain: 1, // Solana chain ID
         is_solana_native: true,
+        timestamp: Clock::get()?.unix_timestamp,
     });
 
     emit!(crate::NftOriginCreated {
@@ -161,6 +137,8 @@ pub fn mint_nft(
         collection: collection_key,
         origin_chain: current_chain_id,
         metadata_uri: uri.clone(),
+        created_at: Clock::get()?.unix_timestamp,
+        bump: ctx.bumps.nft_origin,
     });
 
     Ok(())
@@ -175,7 +153,6 @@ fn create_metadata_account_v3<'a>(
     update_authority: &AccountInfo<'a>,
     metadata_program: &AccountInfo<'a>,
     system_program: &AccountInfo<'a>,
-    rent: &AccountInfo<'a>,
     name: String,
     symbol: String,
     uri: String,
@@ -202,9 +179,9 @@ fn create_metadata_account_v3<'a>(
         mint: *mint_account.key,
         mint_authority: *mint_authority.key,
         payer: *payer.key,
-        update_authority: *update_authority.key,
+        update_authority: (*update_authority.key, true),
         system_program: *system_program.key,
-        rent: Some(*rent.key),
+        rent: Some(anchor_lang::solana_program::sysvar::rent::ID),
     };
 
     let instruction_args = CreateMetadataAccountV3InstructionArgs {
@@ -226,7 +203,6 @@ fn create_metadata_account_v3<'a>(
             payer.clone(),
             update_authority.clone(),
             system_program.clone(),
-            rent.clone(),
         ],
         signer_seeds,
     ).map_err(|e| {
@@ -246,7 +222,6 @@ fn create_master_edition_v3<'a>(
     metadata_account: &AccountInfo<'a>,
     metadata_program: &AccountInfo<'a>,
     system_program: &AccountInfo<'a>,
-    rent: &AccountInfo<'a>,
     signer_seeds: &[&[&[u8]]],
 ) -> Result<()> {
     // Create the instruction using official Metaplex instruction builder
@@ -257,9 +232,9 @@ fn create_master_edition_v3<'a>(
         mint_authority: *mint_authority.key,
         payer: *payer.key,
         metadata: *metadata_account.key,
-        token_program: spl_token::ID,
+        token_program: anchor_spl::token::ID,
         system_program: *system_program.key,
-        rent: Some(*rent.key),
+        rent: Some(anchor_lang::solana_program::sysvar::rent::ID),
     };
 
     let instruction_args = CreateMasterEditionV3InstructionArgs {
@@ -280,7 +255,6 @@ fn create_master_edition_v3<'a>(
             metadata_account.clone(),
             metadata_program.clone(),
             system_program.clone(),
-            rent.clone(),
         ],
         signer_seeds,
     ).map_err(|e| {
@@ -372,8 +346,7 @@ pub struct MintNft<'info> {
             TOKEN_METADATA_PROGRAM_ID.as_ref(),
             nft_mint.key().as_ref(),
         ],
-        bump,
-        seeds::program = TOKEN_METADATA_PROGRAM_ID
+        bump
     )]
     pub nft_metadata: UncheckedAccount<'info>,
 
@@ -387,12 +360,10 @@ pub struct MintNft<'info> {
             nft_mint.key().as_ref(),
             b"edition",
         ],
-        bump,
-        seeds::program = TOKEN_METADATA_PROGRAM_ID
+        bump
     )]
     pub master_edition: UncheckedAccount<'info>,
 
-    pub rent: Sysvar<'info, Rent>,
     pub system_program: Program<'info, System>,
     pub token_program: Program<'info, Token>,
     pub associated_token_program: Program<'info, AssociatedToken>,
@@ -401,19 +372,6 @@ pub struct MintNft<'info> {
     pub metadata_program: UncheckedAccount<'info>,
 }
 
-/// Generate a token ID for PDA derivation (now using collection's next_token_id)
-#[allow(dead_code)]
-fn generate_temp_token_id(mint: &Pubkey, authority: &Pubkey) -> u64 {
-    let mut hash_input = Vec::new();
-    hash_input.extend_from_slice(&mint.to_bytes());
-    hash_input.extend_from_slice(&authority.to_bytes());
-    
-    let hash = hash(&hash_input);
-    u64::from_le_bytes([
-        hash.0[0], hash.0[1], hash.0[2], hash.0[3],
-        hash.0[4], hash.0[5], hash.0[6], hash.0[7]
-    ])
-}
 
 /// Verify collection for an NFT (optional utility function)
 #[allow(dead_code)]
@@ -439,25 +397,3 @@ pub fn handle_metaplex_error(error: anchor_lang::error::Error) -> UniversalNftEr
     }
 }
 
-/// Enhanced TokenMinted event with origin information
-#[event]
-pub struct TokenMinted {
-    pub collection: Pubkey,
-    pub token_id: u64,
-    pub mint: Pubkey,
-    pub recipient: Pubkey,
-    pub name: String,
-    pub uri: String,
-    pub origin_chain: u64,
-    pub is_solana_native: bool,
-}
-
-/// NFT Origin creation event
-#[event]
-pub struct NftOriginCreated {
-    pub token_id: u64,
-    pub original_mint: Pubkey,
-    pub collection: Pubkey,
-    pub origin_chain: u64,
-    pub metadata_uri: String,
-}
