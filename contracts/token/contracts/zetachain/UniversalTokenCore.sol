@@ -130,6 +130,16 @@ abstract contract UniversalTokenCore is
         _transferCrossChainCommon(destination, receiver, amount, "");
     }
 
+    /**
+     * @notice Transfer tokens to a connected chain and optionally call the receiver.
+     * @dev Accepts native ZETA as gas, swaps to the destination gas token, then forwards
+     *      `message` to `receiver` on the destination chain.
+     * @param destination ZRC20 gas token of the destination chain.
+     * @param receiver Recipient on the destination chain.
+     * @param amount Amount of tokens to transfer.
+     * @param message ABI-encoded calldata executed on `receiver` after minting.
+     * Payable: requires non-zero msg.value to cover destination gas.
+     */
     function transferCrossChainAndCall(
         address destination,
         address receiver,

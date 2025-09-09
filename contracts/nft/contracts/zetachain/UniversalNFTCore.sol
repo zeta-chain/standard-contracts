@@ -148,6 +148,16 @@ abstract contract UniversalNFTCore is
         _transferCrossChainCommon(tokenId, receiver, destination, "");
     }
 
+    /**
+     * @notice Transfer an NFT to a connected chain and optionally call the receiver.
+     * @dev Accepts native ZETA as gas, swaps to the destination gas token, then forwards
+     *      `message` to `receiver` on the destination chain.
+     * @param tokenId NFT ID to transfer.
+     * @param receiver Recipient on the destination chain.
+     * @param destination ZRC-20 gas token of the destination chain.
+     * @param message ABI-encoded calldata executed on `receiver` after minting.
+     * Payable: requires non-zero msg.value to cover destination gas.
+     */
     function transferCrossChainAndCall(
         uint256 tokenId,
         address receiver,
