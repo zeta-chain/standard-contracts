@@ -146,7 +146,7 @@ abstract contract UniversalTokenCore is
         if (msg.value == 0) revert ZeroMsgValue();
         if (receiver == address(0)) revert InvalidAddress();
 
-        bytes memory message = abi.encode(receiver, amount, 0, msg.sender);
+        bytes memory message = abi.encode(receiver, amount, 0, msg.sender, "");
 
         _burn(msg.sender, amount);
         emit TokenTransfer(destination, receiver, amount);
