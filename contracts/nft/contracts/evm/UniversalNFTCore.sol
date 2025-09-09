@@ -169,16 +169,16 @@ abstract contract UniversalNFTCore is
         }
     }
 
-    function transferAndCall(
+    function transferCrossChainAndCall(
         uint256 tokenId,
         address receiver,
         address destination,
         bytes memory message
     ) external payable {
-        _transferAndCall(tokenId, receiver, destination, message);
+        _transferCrossChainAndCall(tokenId, receiver, destination, message);
     }
 
-    function _transferAndCall(
+    function _transferCrossChainAndCall(
         uint256 tokenId,
         address receiver,
         address destination,
