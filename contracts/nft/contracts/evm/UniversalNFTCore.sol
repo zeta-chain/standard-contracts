@@ -128,45 +128,8 @@ abstract contract UniversalNFTCore is
         uint256 tokenId,
         address receiver,
         address destination
-    ) internal virtual nonReentrant {
-        if (receiver == address(0)) revert InvalidAddress();
-
-        if (destination == address(0) && msg.value > 0) {
-            revert TransferToZetaChainRequiresNoGas();
-        }
-
-        string memory uri = tokenURI(tokenId);
-        bytes memory message = abi.encode(
-            destination,
-            receiver,
-            tokenId,
-            uri,
-            msg.sender,
-            ""
-        );
-
-        _burn(tokenId);
-        emit TokenTransfer(destination, receiver, tokenId, uri);
-
-        if (destination == address(0)) {
-            gateway.call(
-                universal,
-                message,
-                RevertOptions(address(this), false, universal, message, 0)
-            );
-        } else {
-            gateway.depositAndCall{value: msg.value}(
-                universal,
-                message,
-                RevertOptions(
-                    address(this),
-                    true,
-                    universal,
-                    abi.encode(receiver, tokenId, uri, msg.sender),
-                    gasLimitAmount
-                )
-            );
-        }
+    ) internal virtual {
+        _transferCrossChainCommon(tokenId, receiver, destination, "");
     }
 
     function transferCrossChainAndCall(
@@ -175,10 +138,10 @@ abstract contract UniversalNFTCore is
         address destination,
         bytes memory message
     ) external payable {
-        _transferCrossChainAndCall(tokenId, receiver, destination, message);
+        _transferCrossChainCommon(tokenId, receiver, destination, message);
     }
 
-    function _transferCrossChainAndCall(
+    function _transferCrossChainCommon(
         uint256 tokenId,
         address receiver,
         address destination,
@@ -191,7 +154,7 @@ abstract contract UniversalNFTCore is
         }
 
         string memory uri = tokenURI(tokenId);
-        bytes memory m = abi.encode(
+        bytes memory payload = abi.encode(
             destination,
             receiver,
             tokenId,
@@ -200,24 +163,31 @@ abstract contract UniversalNFTCore is
             message
         );
 
+        bytes memory revertPayload = abi.encode(
+            receiver,
+            tokenId,
+            uri,
+            msg.sender
+        );
+
         _burn(tokenId);
         emit TokenTransfer(destination, receiver, tokenId, uri);
 
         if (destination == address(0)) {
             gateway.call(
                 universal,
-                m,
-                RevertOptions(address(this), false, universal, m, 0)
+                payload,
+                RevertOptions(address(this), false, universal, payload, 0)
             );
         } else {
             gateway.depositAndCall{value: msg.value}(
                 universal,
-                m,
+                payload,
                 RevertOptions(
                     address(this),
                     true,
                     universal,
-                    abi.encode(receiver, tokenId, uri, msg.sender),
+                    revertPayload,
                     gasLimitAmount
                 )
             );
