@@ -129,44 +129,7 @@ abstract contract UniversalNFTCore is
         address receiver,
         address destination
     ) internal virtual nonReentrant {
-        if (receiver == address(0)) revert InvalidAddress();
-
-        if (destination == address(0) && msg.value > 0) {
-            revert TransferToZetaChainRequiresNoGas();
-        }
-
-        string memory uri = tokenURI(tokenId);
-        bytes memory message = abi.encode(
-            destination,
-            receiver,
-            tokenId,
-            uri,
-            msg.sender,
-            ""
-        );
-
-        _burn(tokenId);
-        emit TokenTransfer(destination, receiver, tokenId, uri);
-
-        if (destination == address(0)) {
-            gateway.call(
-                universal,
-                message,
-                RevertOptions(address(this), false, universal, message, 0)
-            );
-        } else {
-            gateway.depositAndCall{value: msg.value}(
-                universal,
-                message,
-                RevertOptions(
-                    address(this),
-                    true,
-                    universal,
-                    abi.encode(receiver, tokenId, uri, msg.sender),
-                    gasLimitAmount
-                )
-            );
-        }
+        _transferCrossChainInternal(tokenId, receiver, destination, "");
     }
 
     function transferCrossChainAndCall(
@@ -184,6 +147,15 @@ abstract contract UniversalNFTCore is
         address destination,
         bytes memory message
     ) internal virtual nonReentrant {
+        _transferCrossChainInternal(tokenId, receiver, destination, message);
+    }
+
+    function _transferCrossChainInternal(
+        uint256 tokenId,
+        address receiver,
+        address destination,
+        bytes memory extraMessage
+    ) internal {
         if (receiver == address(0)) revert InvalidAddress();
 
         if (destination == address(0) && msg.value > 0) {
@@ -197,7 +169,7 @@ abstract contract UniversalNFTCore is
             tokenId,
             uri,
             msg.sender,
-            message
+            extraMessage
         );
 
         _burn(tokenId);
