@@ -78,7 +78,13 @@ yarn zetachain localnet check
 balance
 
 echo -e "\nTransferring NFT: BNB → ZetaChain..."
-npx hardhat nft:transfer-and-call --network localhost --json --token-id "$NFT_ID" --contract "$CONTRACT_BNB" --function "hello(bytes)" --payload 0x123 --receiver "$HELLO" --destination "$ZRC20_ETHEREUM" --gas-amount 1
+npx hardhat nft:transfer --network localhost --json --token-id "$NFT_ID" --contract "$CONTRACT_BNB"
+
+yarn zetachain localnet check
+balance
+
+echo -e "\nTransferring NFT and calling: ZetaChain → Ethereum..."
+npx hardhat nft:transfer-and-call --network localhost --json --token-id "$NFT_ID" --contract "$CONTRACT_ZETACHAIN" --function "hello(bytes)" --payload 0x123 --receiver "$HELLO" --destination "$ZRC20_ETHEREUM" --gas-amount 1
 
 yarn zetachain localnet check
 balance

@@ -209,33 +209,16 @@ abstract contract UniversalNFTCore is
         );
     }
 
-    /**
-     * @notice Transfers an NFT to a connected chain.
-     * @dev This function accepts native ZETA tokens as gas fees, which are swapped
-     *      for the corresponding ZRC-20 gas token of the destination chain. The NFT is then
-     *      transferred to the destination chain using the ZetaChain Gateway.
-     * @param tokenId The ID of the NFT to transfer.
-     * @param receiver Address of the recipient on the destination chain.
-     * @param destination Address of the ZRC-20 gas token for the destination chain.
-     */
-    function transferAndCall(
+    function transferCrossChainAndCall(
         uint256 tokenId,
         address receiver,
         address destination,
         bytes memory message
     ) public payable {
-        _transferAndCall(tokenId, receiver, destination, message);
+        _transferCrossChainAndCall(tokenId, receiver, destination, message);
     }
 
-    /**
-     * @notice Internal function that handles the core logic for cross-chain NFT transfer.
-     * @dev This function can be overridden by child contracts to add custom functionality.
-     *      It handles the gas fee calculation, token swaps, and cross-chain transfer logic.
-     * @param tokenId The ID of the NFT to transfer.
-     * @param receiver Address of the recipient on the destination chain.
-     * @param destination Address of the ZRC-20 gas token for the destination chain.
-     */
-    function _transferAndCall(
+    function _transferCrossChainAndCall(
         uint256 tokenId,
         address receiver,
         address destination,

@@ -1,6 +1,6 @@
+import { ethers } from "ethers";
 import { task, types } from "hardhat/config";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
-import { ethers } from "ethers";
 
 const normalizeBytes = (input?: string): string => {
   if (!input || input === "0x" || input === "") return "0x";
@@ -63,7 +63,7 @@ const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
 
   const encodedMessage = iface.encodeFunctionData(fnName, [value]);
 
-  const tx = await contract.transferAndCall(
+  const tx = await contract.transferCrossChainAndCall(
     args.tokenId,
     receiver,
     args.destination,
@@ -80,10 +80,10 @@ const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
     console.log(
       JSON.stringify({
         contractAddress: args.contract,
-        transferTransactionHash: tx.hash,
+        gasUsed: receipt.gasUsed.toString(),
         sender: signer.address,
         tokenId: args.tokenId,
-        gasUsed: receipt.gasUsed.toString(),
+        transferTransactionHash: tx.hash,
       })
     );
   } else {
