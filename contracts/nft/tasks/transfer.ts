@@ -57,10 +57,10 @@ const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
     console.log(
       JSON.stringify({
         contractAddress: args.contract,
-        transferTransactionHash: tx.hash,
+        gasUsed: receipt.gasUsed.toString(),
         sender: signer.address,
         tokenId: args.tokenId,
-        gasUsed: receipt.gasUsed.toString(),
+        transferTransactionHash: tx.hash,
       })
     );
   } else {
@@ -99,7 +99,6 @@ export const nftTransfer = task(
     7000000,
     types.int
   )
-  .addFlag("isArbitraryCall", "Whether the call is arbitrary")
   .addFlag("json", "Output the result in JSON format")
   .addOptionalParam(
     "destination",

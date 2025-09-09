@@ -34,6 +34,12 @@ SENDER=0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
 CONTRACT_ZETACHAIN=$(npx hardhat token:deploy --name ZetaChainUniversalToken --network localhost --gateway "$GATEWAY_ZETACHAIN" --uniswap-router "$UNISWAP_ROUTER" --json | jq -r '.contractAddress')
 echo -e "\n🚀 Deployed contract on ZetaChain: $CONTRACT_ZETACHAIN"
 
+HELLO=$(forge create Hello \
+  --rpc-url http://localhost:8545 \
+  --private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 \
+  --broadcast \
+  --json | jq -r .deployedTo) && echo $HELLO
+
 CONTRACT_ETHEREUM=$(npx hardhat token:deploy --name EVMUniversalToken --json --network localhost --gateway "$GATEWAY_ETHEREUM" | jq -r '.contractAddress')
 echo -e "🚀 Deployed contract on EVM chain: $CONTRACT_ETHEREUM"
 
@@ -74,5 +80,20 @@ npx hardhat token:transfer --network localhost --json --amount 10 --from "$CONTR
 
 yarn zetachain localnet check
 balance
+
+TOKEN=$(npx hardhat token:mint --network localhost --json --contract "$CONTRACT_ZETACHAIN" --to "$SENDER" --amount 10 | jq -r '.contractAddress')
+npx hardhat token:transfer-and-call --network localhost --json --amount 10 --from "$CONTRACT_ZETACHAIN" --to "$ZRC20_ETHEREUM" --gas-amount 1  --function "hello(bytes)" --payload 0x123 --receiver "$HELLO"
+
+yarn zetachain localnet check
+
+TOKEN=$(npx hardhat token:mint --network localhost --json --contract "$CONTRACT_ETHEREUM" --to "$SENDER" --amount 10 | jq -r '.contractAddress')
+npx hardhat token:transfer-and-call --network localhost --json --amount 10 --from "$CONTRACT_ETHEREUM" --to "$ZRC20_BNB" --gas-amount 1  --function "hello(bytes)" --payload 0x123 --receiver "$HELLO"
+
+yarn zetachain localnet check
+
+TOKEN=$(npx hardhat token:mint --network localhost --json --contract "$CONTRACT_BNB" --to "$SENDER" --amount 10 | jq -r '.contractAddress')
+npx hardhat token:transfer-and-call --network localhost --json --amount 10 --from "$CONTRACT_BNB" --function "hello(bytes)" --payload 0x123 --receiver "$HELLO"
+
+yarn zetachain localnet check
 
 yarn zetachain localnet stop

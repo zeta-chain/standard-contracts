@@ -2,12 +2,11 @@ import "./tasks";
 import "@zetachain/localnet/tasks";
 import "@nomicfoundation/hardhat-toolbox";
 import "@zetachain/toolkit/tasks";
-
-import { HardhatUserConfig } from "hardhat/config";
-import { getHardhatConfig } from "@zetachain/toolkit/client";
-
 import "@nomiclabs/hardhat-ethers";
 import "@openzeppelin/hardhat-upgrades";
+
+import { getHardhatConfig } from "@zetachain/toolkit/client";
+import { HardhatUserConfig } from "hardhat/config";
 
 const config: HardhatUserConfig = {
   ...getHardhatConfig({ accounts: [process.env.PRIVATE_KEY] }),

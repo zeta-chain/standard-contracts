@@ -200,6 +200,86 @@ abstract contract UniversalTokenCore is
         );
     }
 
+    function transferCrossChainAndCall(
+        address destination,
+        address receiver,
+        uint256 amount,
+        bytes memory message
+    ) public payable {
+        _transferCrossChainAndCall(destination, receiver, amount, message);
+    }
+
+    /**
+     * @notice Internal function that handles the core logic for cross-chain token transfer.
+     * @dev This function can be overridden by child contracts to add custom functionality.
+     *      It handles the gas fee calculation, token swaps, and cross-chain transfer logic.
+     * @param destination Address of the ZRC20 gas token for the destination chain.
+     * @param receiver Address of the recipient on the destination chain.
+     * @param amount Amount of tokens to transfer.
+     */
+    function _transferCrossChainAndCall(
+        address destination,
+        address receiver,
+        uint256 amount,
+        bytes memory message
+    ) internal virtual nonReentrant {
+        if (msg.value == 0) revert ZeroMsgValue();
+        if (receiver == address(0)) revert InvalidAddress();
+
+        bytes memory m = abi.encode(receiver, amount, 0, msg.sender, message);
+
+        _burn(msg.sender, amount);
+        emit TokenTransfer(destination, receiver, amount);
+
+        (address gasZRC20, uint256 gasFee) = IZRC20(destination)
+            .withdrawGasFeeWithGasLimit(gasLimitAmount);
+        if (destination != gasZRC20) revert InvalidAddress();
+
+        address WZETA = gateway.zetaToken();
+
+        IWETH9(WZETA).deposit{value: msg.value}();
+        if (!IWETH9(WZETA).approve(uniswapRouter, msg.value)) {
+            revert ApproveFailed();
+        }
+
+        uint256 out = SwapHelperLib.swapTokensForExactTokens(
+            uniswapRouter,
+            WZETA,
+            gasFee,
+            gasZRC20,
+            msg.value
+        );
+
+        uint256 remaining = msg.value - out;
+
+        if (remaining > 0) {
+            IWETH9(WZETA).withdraw(remaining);
+            (bool success, ) = msg.sender.call{value: remaining}("");
+            if (!success) revert TransferFailed();
+        }
+
+        CallOptions memory callOptions = CallOptions(gasLimitAmount, false);
+
+        RevertOptions memory revertOptions = RevertOptions(
+            address(this),
+            true,
+            address(this),
+            abi.encode(receiver, amount, msg.sender),
+            gasLimitAmount
+        );
+
+        if (!IZRC20(gasZRC20).approve(address(gateway), gasFee)) {
+            revert ApproveFailed();
+        }
+        gateway.call(
+            connected[destination],
+            destination,
+            m,
+            callOptions,
+            revertOptions
+        );
+    }
+
     /**
      * @notice Handles cross-chain token transfers.
      * @dev This function is called by the Gateway contract upon receiving a message.
@@ -225,15 +305,21 @@ abstract contract UniversalTokenCore is
             address destination,
             address receiver,
             uint256 tokenAmount,
-            address sender
-        ) = abi.decode(message, (address, address, uint256, address));
+            address sender,
+            bytes memory m
+        ) = abi.decode(message, (address, address, uint256, address, bytes));
 
         if (destination == address(0)) {
             _mint(receiver, tokenAmount);
+            if (m.length > 0) {
+                (bool success, ) = receiver.call(m);
+                if (!success) revert TransferFailed();
+            }
         } else {
             (address gasZRC20, uint256 gasFee) = IZRC20(destination)
                 .withdrawGasFeeWithGasLimit(gasLimitAmount);
             if (destination != gasZRC20) revert InvalidAddress();
+
             uint256 out = SwapHelperLib.swapExactTokensForTokens(
                 uniswapRouter,
                 zrc20,
@@ -241,6 +327,7 @@ abstract contract UniversalTokenCore is
                 destination,
                 0
             );
+
             if (!IZRC20(destination).approve(address(gateway), out)) {
                 revert ApproveFailed();
             }
@@ -248,7 +335,7 @@ abstract contract UniversalTokenCore is
                 abi.encodePacked(connected[destination]),
                 out - gasFee,
                 destination,
-                abi.encode(receiver, tokenAmount, out - gasFee, sender),
+                abi.encode(receiver, tokenAmount, out - gasFee, sender, m),
                 CallOptions(gasLimitAmount, false),
                 RevertOptions(
                     address(this),

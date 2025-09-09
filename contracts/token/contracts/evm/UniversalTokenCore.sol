@@ -142,7 +142,8 @@ abstract contract UniversalTokenCore is
             destination,
             receiver,
             amount,
-            msg.sender
+            msg.sender,
+            ""
         );
 
         _burn(msg.sender, amount);
@@ -158,6 +159,59 @@ abstract contract UniversalTokenCore is
             gateway.depositAndCall{value: msg.value}(
                 universal,
                 message,
+                RevertOptions(
+                    address(this),
+                    true,
+                    universal,
+                    abi.encode(amount, msg.sender),
+                    gasLimitAmount
+                )
+            );
+        }
+    }
+
+    function transferCrossChainAndCall(
+        address destination,
+        address receiver,
+        uint256 amount,
+        bytes memory message
+    ) external payable {
+        _transferCrossChainAndCall(destination, receiver, amount, message);
+    }
+
+    function _transferCrossChainAndCall(
+        address destination,
+        address receiver,
+        uint256 amount,
+        bytes memory message
+    ) internal virtual nonReentrant {
+        if (receiver == address(0)) revert InvalidAddress();
+
+        if (destination == address(0) && msg.value > 0) {
+            revert TransferToZetaChainRequiresNoGas();
+        }
+
+        bytes memory m = abi.encode(
+            destination,
+            receiver,
+            amount,
+            msg.sender,
+            message
+        );
+
+        _burn(msg.sender, amount);
+        emit TokenTransfer(destination, receiver, amount);
+
+        if (destination == address(0)) {
+            gateway.call(
+                universal,
+                m,
+                RevertOptions(address(this), false, universal, m, 0)
+            );
+        } else {
+            gateway.depositAndCall{value: msg.value}(
+                universal,
+                m,
                 RevertOptions(
                     address(this),
                     true,
@@ -185,13 +239,18 @@ abstract contract UniversalTokenCore is
             address receiver,
             uint256 amount,
             uint256 gasAmount,
-            address sender
-        ) = abi.decode(message, (address, uint256, uint256, address));
+            address sender,
+            bytes memory m
+        ) = abi.decode(message, (address, uint256, uint256, address, bytes));
         _mint(receiver, amount);
         if (gasAmount > 0) {
             if (sender == address(0)) revert InvalidAddress();
             (bool success, ) = payable(sender).call{value: gasAmount}("");
             if (!success) revert GasTokenTransferFailed();
+        }
+        if (m.length > 0) {
+            (bool success, ) = receiver.call(m);
+            require(success, "Call to receiver failed");
         }
         emit TokenTransferReceived(receiver, amount);
         return "";

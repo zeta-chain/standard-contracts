@@ -59,9 +59,10 @@ const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
   const fnName = fnSignature.slice(0, fnSignature.indexOf("("));
 
   const raw = (args.payload ?? "").trim();
-  const value = normalizeBytes(raw);
 
-  const encodedMessage = iface.encodeFunctionData(fnName, [value]);
+  const encodedMessage = iface.encodeFunctionData(fnName, [
+    normalizeBytes(raw),
+  ]);
 
   const tx = await contract.transferCrossChainAndCall(
     args.tokenId,
@@ -124,7 +125,6 @@ export const nftTransferAndCall = task(
   )
   .addParam("function", "The function to call on the destination contract")
   .addOptionalParam("payload", "The payload to send with the function call", "")
-  .addFlag("isArbitraryCall", "Whether the call is arbitrary")
   .addFlag("json", "Output the result in JSON format")
   .addOptionalParam(
     "destination",

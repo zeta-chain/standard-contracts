@@ -4,6 +4,18 @@ import { HardhatRuntimeEnvironment } from "hardhat/types";
 
 const DEFAULT_GAS_LIMIT = "1000000";
 
+const normalizeBytes = (input?: string): string => {
+  if (!input || input === "0x" || input === "") return "0x";
+
+  if (input.startsWith("0x") || input.startsWith("0X")) {
+    const hex = input.slice(2);
+    return hex.length % 2 === 0 ? "0x" + hex : "0x0" + hex; // left-pad if odd
+  }
+
+  // treat as UTF-8 text
+  return ethers.utils.hexlify(ethers.utils.toUtf8Bytes(input));
+};
+
 const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
   const { ethers } = hre;
   const { isAddress } = hre.ethers.utils;
@@ -35,11 +47,22 @@ const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
 
   const gasAmount = ethers.utils.parseUnits(args.gasAmount, 18);
   const receiver = args.receiver || signer.address;
+  const fnSignature: string = args.function;
 
-  const tx = await (contract as any).transferCrossChain(
+  const iface = new ethers.utils.Interface([`function ${fnSignature}`]);
+  const fnName = fnSignature.slice(0, fnSignature.indexOf("("));
+
+  const raw = (args.payload ?? "").trim();
+
+  const encodedMessage = iface.encodeFunctionData(fnName, [
+    normalizeBytes(raw),
+  ]);
+
+  const tx = await (contract as any).transferCrossChainAndCall(
     args.to,
     receiver,
     args.amount,
+    encodedMessage,
     {
       gasLimit: args.gasLimit,
       value: gasAmount,
@@ -67,8 +90,8 @@ const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
   }
 };
 
-export const tokenTransfer = task(
-  "token:transfer",
+export const tokenTransferAndCall = task(
+  "token:transfer-and-call",
   "Transfer and lock a token",
   main
 )
@@ -91,7 +114,8 @@ export const tokenTransfer = task(
     "7000000"
   )
   .addOptionalParam("receiver", "The receiver of the token")
-  .addFlag("isArbitraryCall", "Whether the call is arbitrary")
+  .addParam("function", "The function to call on the destination contract")
+  .addOptionalParam("payload", "The payload to send with the function call", "")
   .addFlag("json", "Output the result in JSON format")
   .addOptionalParam(
     "to",
