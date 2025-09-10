@@ -127,7 +127,26 @@ abstract contract UniversalTokenCore is
         address receiver,
         uint256 amount
     ) public payable {
-        _transferCrossChain(destination, receiver, amount);
+        _transferCrossChainCommon(destination, receiver, amount, "");
+    }
+
+    /**
+     * @notice Transfer tokens to a connected chain and optionally call the receiver.
+     * @dev Accepts native ZETA as gas, swaps to the destination gas token, then forwards
+     *      `message` to `receiver` on the destination chain.
+     * @param destination ZRC20 gas token of the destination chain.
+     * @param receiver Recipient on the destination chain.
+     * @param amount Amount of tokens to transfer.
+     * @param message ABI-encoded calldata executed on `receiver` after minting.
+     * Payable: requires non-zero msg.value to cover destination gas.
+     */
+    function transferCrossChainAndCall(
+        address destination,
+        address receiver,
+        uint256 amount,
+        bytes memory message
+    ) public payable {
+        _transferCrossChainAndCall(destination, receiver, amount, message);
     }
 
     /**
@@ -138,15 +157,31 @@ abstract contract UniversalTokenCore is
      * @param receiver Address of the recipient on the destination chain.
      * @param amount Amount of tokens to transfer.
      */
-    function _transferCrossChain(
+    function _transferCrossChainAndCall(
         address destination,
         address receiver,
-        uint256 amount
+        uint256 amount,
+        bytes memory message
+    ) internal virtual {
+        _transferCrossChainCommon(destination, receiver, amount, message);
+    }
+
+    function _transferCrossChainCommon(
+        address destination,
+        address receiver,
+        uint256 amount,
+        bytes memory extraMessage
     ) internal virtual nonReentrant {
         if (msg.value == 0) revert ZeroMsgValue();
         if (receiver == address(0)) revert InvalidAddress();
 
-        bytes memory message = abi.encode(receiver, amount, 0, msg.sender);
+        bytes memory payload = abi.encode(
+            receiver,
+            amount,
+            0,
+            msg.sender,
+            extraMessage
+        );
 
         _burn(msg.sender, amount);
         emit TokenTransfer(destination, receiver, amount);
@@ -194,7 +229,7 @@ abstract contract UniversalTokenCore is
         gateway.call(
             connected[destination],
             destination,
-            message,
+            payload,
             callOptions,
             revertOptions
         );
@@ -225,15 +260,21 @@ abstract contract UniversalTokenCore is
             address destination,
             address receiver,
             uint256 tokenAmount,
-            address sender
-        ) = abi.decode(message, (address, address, uint256, address));
+            address sender,
+            bytes memory m
+        ) = abi.decode(message, (address, address, uint256, address, bytes));
 
         if (destination == address(0)) {
             _mint(receiver, tokenAmount);
+            if (m.length > 0) {
+                (bool success, ) = receiver.call(m);
+                if (!success) revert TransferFailed();
+            }
         } else {
             (address gasZRC20, uint256 gasFee) = IZRC20(destination)
                 .withdrawGasFeeWithGasLimit(gasLimitAmount);
             if (destination != gasZRC20) revert InvalidAddress();
+
             uint256 out = SwapHelperLib.swapExactTokensForTokens(
                 uniswapRouter,
                 zrc20,
@@ -241,6 +282,7 @@ abstract contract UniversalTokenCore is
                 destination,
                 0
             );
+
             if (!IZRC20(destination).approve(address(gateway), out)) {
                 revert ApproveFailed();
             }
@@ -248,7 +290,7 @@ abstract contract UniversalTokenCore is
                 abi.encodePacked(connected[destination]),
                 out - gasFee,
                 destination,
-                abi.encode(receiver, tokenAmount, out - gasFee, sender),
+                abi.encode(receiver, tokenAmount, out - gasFee, sender, m),
                 CallOptions(gasLimitAmount, false),
                 RevertOptions(
                     address(this),

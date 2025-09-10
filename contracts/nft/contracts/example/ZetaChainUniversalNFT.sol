@@ -4,6 +4,8 @@ pragma solidity 0.8.26;
 import "../zetachain/UniversalNFT.sol";
 
 contract ZetaChainUniversalNFT is UniversalNFT {
+    event MessageReceived(bytes message);
+
     function initializeZetaChainUniversalNFT(
         address initialOwner,
         string memory name,
@@ -20,5 +22,9 @@ contract ZetaChainUniversalNFT is UniversalNFT {
             gasLimit,
             uniswapRouterAddress
         );
+    }
+
+    function hello(bytes memory message) external {
+        emit MessageReceived(message);
     }
 }

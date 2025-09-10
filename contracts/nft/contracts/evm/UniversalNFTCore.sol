@@ -128,6 +128,34 @@ abstract contract UniversalNFTCore is
         uint256 tokenId,
         address receiver,
         address destination
+    ) internal virtual {
+        _transferCrossChainCommon(tokenId, receiver, destination, "");
+    }
+
+    /**
+     * @notice Transfer an NFT cross-chain and optionally call the receiver.
+     * @dev Burns locally, mints on the destination, then forwards `message`
+     *      to `receiver` on the destination chain.
+     * @param tokenId NFT ID to transfer.
+     * @param receiver Recipient on the destination chain.
+     * @param destination ZRC-20 gas token of the destination chain; use address(0) for ZetaChain.
+     * @param message ABI-encoded calldata executed on `receiver`
+     * Payable: requires non-zero msg.value to cover destination gas.
+     */
+    function transferCrossChainAndCall(
+        uint256 tokenId,
+        address receiver,
+        address destination,
+        bytes memory message
+    ) external payable {
+        _transferCrossChainCommon(tokenId, receiver, destination, message);
+    }
+
+    function _transferCrossChainCommon(
+        uint256 tokenId,
+        address receiver,
+        address destination,
+        bytes memory message
     ) internal virtual nonReentrant {
         if (receiver == address(0)) revert InvalidAddress();
 
@@ -136,8 +164,16 @@ abstract contract UniversalNFTCore is
         }
 
         string memory uri = tokenURI(tokenId);
-        bytes memory message = abi.encode(
+        bytes memory payload = abi.encode(
             destination,
+            receiver,
+            tokenId,
+            uri,
+            msg.sender,
+            message
+        );
+
+        bytes memory revertPayload = abi.encode(
             receiver,
             tokenId,
             uri,
@@ -150,18 +186,18 @@ abstract contract UniversalNFTCore is
         if (destination == address(0)) {
             gateway.call(
                 universal,
-                message,
-                RevertOptions(address(this), false, universal, message, 0)
+                payload,
+                RevertOptions(address(this), false, universal, payload, 0)
             );
         } else {
             gateway.depositAndCall{value: msg.value}(
                 universal,
-                message,
+                payload,
                 RevertOptions(
                     address(this),
                     true,
                     universal,
-                    abi.encode(receiver, tokenId, uri, msg.sender),
+                    revertPayload,
                     gasLimitAmount
                 )
             );
@@ -186,8 +222,12 @@ abstract contract UniversalNFTCore is
             uint256 tokenId,
             string memory uri,
             uint256 gasAmount,
-            address sender
-        ) = abi.decode(message, (address, uint256, string, uint256, address));
+            address sender,
+            bytes memory m
+        ) = abi.decode(
+                message,
+                (address, uint256, string, uint256, address, bytes)
+            );
 
         _safeMint(receiver, tokenId);
         _setTokenURI(tokenId, uri);
@@ -195,6 +235,10 @@ abstract contract UniversalNFTCore is
             if (sender == address(0)) revert InvalidAddress();
             (bool success, ) = payable(sender).call{value: gasAmount}("");
             if (!success) revert GasTokenTransferFailed();
+        }
+        if (m.length > 0) {
+            (bool success, ) = receiver.call(m);
+            require(success, "Call to receiver failed");
         }
         emit TokenTransferReceived(receiver, tokenId, uri);
         return "";

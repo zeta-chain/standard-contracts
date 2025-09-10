@@ -1,5 +1,18 @@
+import { ethers } from "ethers";
 import { task, types } from "hardhat/config";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
+
+const normalizeBytes = (input?: string): string => {
+  if (!input || input === "0x" || input === "") return "0x";
+
+  if (input.startsWith("0x") || input.startsWith("0X")) {
+    const hex = input.slice(2);
+    return hex.length % 2 === 0 ? "0x" + hex : "0x0" + hex; // left-pad if odd
+  }
+
+  // treat as UTF-8 text
+  return ethers.utils.hexlify(ethers.utils.toUtf8Bytes(input));
+};
 
 const DEFAULT_GAS_LIMIT = "1000000";
 
@@ -41,10 +54,21 @@ const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
   const gasAmount = ethers.utils.parseUnits(args.gasAmount, 18);
   const receiver = args.receiver || signer.address;
 
-  const tx = await contract.transferCrossChain(
+  const fnSignature: string = args.function;
+  const iface = new ethers.utils.Interface([`function ${fnSignature}`]);
+  const fnName = fnSignature.slice(0, fnSignature.indexOf("("));
+
+  const raw = (args.payload ?? "").trim();
+
+  const encodedMessage = iface.encodeFunctionData(fnName, [
+    normalizeBytes(raw),
+  ]);
+
+  const tx = await contract.transferCrossChainAndCall(
     args.tokenId,
     receiver,
     args.destination,
+    encodedMessage,
     {
       gasLimit: args.gasLimit,
       value: gasAmount,
@@ -73,8 +97,8 @@ const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
   }
 };
 
-export const nftTransfer = task(
-  "nft:transfer",
+export const nftTransferAndCall = task(
+  "nft:transfer-and-call",
   "Transfer and lock an NFT",
   main
 )
@@ -99,6 +123,8 @@ export const nftTransfer = task(
     7000000,
     types.int
   )
+  .addParam("function", "The function to call on the destination contract")
+  .addOptionalParam("payload", "The payload to send with the function call", "")
   .addFlag("json", "Output the result in JSON format")
   .addOptionalParam(
     "destination",

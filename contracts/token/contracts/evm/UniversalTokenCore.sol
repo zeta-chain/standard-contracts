@@ -116,21 +116,33 @@ abstract contract UniversalTokenCore is
         address receiver,
         uint256 amount
     ) external payable {
-        _transferCrossChain(destination, receiver, amount);
+        _transferCrossChainCommon(destination, receiver, amount, "");
     }
 
     /**
-     * @notice Internal function that handles the core logic for cross-chain token transfer.
-     * @dev This function can be overridden by child contracts to add custom functionality.
-     *      It handles the token burning and cross-chain transfer logic.
-     * @param destination The ZRC-20 address of the gas token of the destination chain.
-     * @param receiver The address on the destination chain that will receive the tokens.
-     * @param amount The amount of tokens to transfer.
+     * @notice Transfer tokens cross-chain and optionally call the receiver.
+     * @dev Burns locally, mints on the destination, then forwards `message` to
+     *      `receiver` on the destination chain.
+     * @param destination ZRC-20 gas token of the destination chain; use address(0) for ZetaChain.
+     * @param receiver Recipient on the destination chain.
+     * @param amount Amount of tokens to transfer.
+     * @param message ABI-encoded calldata executed on `receiver` after minting.
+     * Payable: supply gas only when `destination != address(0)`; send 0 for ZetaChain.
      */
-    function _transferCrossChain(
+    function transferCrossChainAndCall(
         address destination,
         address receiver,
-        uint256 amount
+        uint256 amount,
+        bytes memory message
+    ) external payable {
+        _transferCrossChainCommon(destination, receiver, amount, message);
+    }
+
+    function _transferCrossChainCommon(
+        address destination,
+        address receiver,
+        uint256 amount,
+        bytes memory extraMessage
     ) internal virtual nonReentrant {
         if (receiver == address(0)) revert InvalidAddress();
 
@@ -138,11 +150,12 @@ abstract contract UniversalTokenCore is
             revert TransferToZetaChainRequiresNoGas();
         }
 
-        bytes memory message = abi.encode(
+        bytes memory payload = abi.encode(
             destination,
             receiver,
             amount,
-            msg.sender
+            msg.sender,
+            extraMessage
         );
 
         _burn(msg.sender, amount);
@@ -151,13 +164,13 @@ abstract contract UniversalTokenCore is
         if (destination == address(0)) {
             gateway.call(
                 universal,
-                message,
-                RevertOptions(address(this), false, universal, message, 0)
+                payload,
+                RevertOptions(address(this), false, universal, payload, 0)
             );
         } else {
             gateway.depositAndCall{value: msg.value}(
                 universal,
-                message,
+                payload,
                 RevertOptions(
                     address(this),
                     true,
@@ -185,13 +198,18 @@ abstract contract UniversalTokenCore is
             address receiver,
             uint256 amount,
             uint256 gasAmount,
-            address sender
-        ) = abi.decode(message, (address, uint256, uint256, address));
+            address sender,
+            bytes memory m
+        ) = abi.decode(message, (address, uint256, uint256, address, bytes));
         _mint(receiver, amount);
         if (gasAmount > 0) {
             if (sender == address(0)) revert InvalidAddress();
             (bool success, ) = payable(sender).call{value: gasAmount}("");
             if (!success) revert GasTokenTransferFailed();
+        }
+        if (m.length > 0) {
+            (bool success, ) = receiver.call(m);
+            require(success, "Call to receiver failed");
         }
         emit TokenTransferReceived(receiver, amount);
         return "";
