@@ -163,6 +163,11 @@ abstract contract UniversalNFTCore is
             revert TransferToZetaChainRequiresNoGas();
         }
 
+        address owner = _requireOwned(tokenId);
+        if (!_isAuthorized(owner, _msgSender(), tokenId)) {
+            revert Unauthorized();
+        }
+
         string memory uri = tokenURI(tokenId);
         bytes memory payload = abi.encode(
             destination,

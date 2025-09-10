@@ -176,6 +176,11 @@ abstract contract UniversalNFTCore is
         if (msg.value == 0) revert ZeroMsgValue();
         if (receiver == address(0)) revert InvalidAddress();
 
+        address owner = _requireOwned(tokenId);
+        if (!_isAuthorized(owner, _msgSender(), tokenId)) {
+            revert Unauthorized();
+        }
+
         string memory uri = tokenURI(tokenId);
         bytes memory payload = abi.encode(
             receiver,
