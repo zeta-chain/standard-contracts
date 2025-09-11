@@ -1,7 +1,7 @@
+import { ethers } from "ethers";
 import { task } from "hardhat/config";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 import isURL from "validator/lib/isURL";
-import { ethers } from "ethers";
 
 const DEFAULT_GAS_LIMIT = "300000";
 
@@ -30,8 +30,8 @@ const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
   const supportedProtocols = ["https", "ipfs"];
 
   const isValidTokenUri = isURL(args.tokenUri, {
-    require_protocol: true,
     protocols: supportedProtocols,
+    require_protocol: true,
   });
 
   if (!isValidTokenUri) {
@@ -43,7 +43,7 @@ const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
   }
 
   const contract = await hre.ethers.getContractAt(
-    args.name as "ZetaChainUniversalNFT" | "EVMUniversalNFT",
+    args.name as "EVMUniversalNFT" | "ZetaChainUniversalNFT",
     args.contract,
     signer
   );
@@ -80,11 +80,11 @@ const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
     console.log(
       JSON.stringify({
         contractAddress: args.contract,
+        gasUsed: receipt.gasUsed.toString(),
         mintTransactionHash: tx.hash,
         recipient: recipient,
-        tokenURI: args.tokenUri,
         tokenId: tokenId.toString(),
-        gasUsed: receipt.gasUsed.toString(),
+        tokenURI: args.tokenUri,
       })
     );
   } else {
