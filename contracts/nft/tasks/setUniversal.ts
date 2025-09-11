@@ -1,7 +1,8 @@
+import { ethers } from "ethers";
 import { task } from "hardhat/config";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
+
 import { EVMUniversalNFT } from "@/typechain-types";
-import { ethers } from "ethers";
 
 const DEFAULT_GAS_LIMIT = "300000";
 
@@ -42,9 +43,9 @@ const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
     console.log(
       JSON.stringify({
         contractAddress: args.contract,
-        universalContract: args.universal,
-        transactionHash: tx.hash,
         gasUsed: receipt.gasUsed.toString(),
+        transactionHash: tx.hash,
+        universalContract: args.universal,
       })
     );
   } else {
