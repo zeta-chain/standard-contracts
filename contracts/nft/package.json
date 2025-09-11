@@ -64,6 +64,6 @@
     "@solana/web3.js": "^1.95.2",
     "@zetachain/protocol-contracts": "13.0.0",
     "validator": "^13.12.0",
-    "zetachain": "^3.0.0"
+    "zetachain": "^6.3.1"
   }
 }
