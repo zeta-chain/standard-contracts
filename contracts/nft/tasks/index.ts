@@ -1,6 +1,4 @@
-export { nftSetUniversal } from "./setUniversal";
+export { nftDeploy } from "./deploy";
 export { nftMint } from "./mint";
 export { nftTransfer } from "./transfer";
-export { nftSetConnected } from "./setConnected";
-export { nftDeploy } from "./deploy";
 export { nftTransferAndCall } from "./transferAndCall";
