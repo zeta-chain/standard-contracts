@@ -58,46 +58,46 @@ cast send "$CONTRACT_BNB" "setUniversal(address)" "$CONTRACT_ZETACHAIN" --rpc-ur
 cast send "$CONTRACT_ZETACHAIN" "setConnected(address,bytes)" "$ZRC20_ETHEREUM" "$CONTRACT_ETHEREUM" --rpc-url "$RPC" --private-key "$PRIVATE_KEY" &>/dev/null
 cast send "$CONTRACT_ZETACHAIN" "setConnected(address,bytes)" "$ZRC20_BNB" "$CONTRACT_BNB" --rpc-url "$RPC" --private-key "$PRIVATE_KEY" &>/dev/null
 
-yarn zetachain localnet check
+yarn zetachain localnet check --no-analytics
 balance
 
 TOKEN=$(npx hardhat token:mint --network localhost --json --contract "$CONTRACT_ZETACHAIN" --to "$RECIPIENT" --amount 10 | jq -r '.transactionHash // .txHash // .hash // empty')
 echo -e "\nMinted 10 tokens on ZetaChain."
 
-yarn zetachain localnet check
+yarn zetachain localnet check --no-analytics
 balance
 
 echo -e "\nTransferring token: ZetaChain → Ethereum..."
 npx hardhat token:transfer --network localhost --json --amount 10 --from "$CONTRACT_ZETACHAIN" --to "$ZRC20_ETHEREUM" --gas-amount 1
 
-yarn zetachain localnet check
+yarn zetachain localnet check --no-analytics
 balance
 
 echo -e "\nTransferring token: Ethereum → BNB..."
 npx hardhat token:transfer --network localhost --json --amount 10 --from "$CONTRACT_ETHEREUM" --to "$ZRC20_BNB" --gas-amount 1
 
-yarn zetachain localnet check
+yarn zetachain localnet check --no-analytics
 balance
 
 echo -e "\nTransferring token: BNB → ZetaChain..."
 npx hardhat token:transfer --network localhost --json --amount 10 --from "$CONTRACT_BNB"
 
-yarn zetachain localnet check
+yarn zetachain localnet check --no-analytics
 balance
 
 TOKEN=$(npx hardhat token:mint --network localhost --json --contract "$CONTRACT_ZETACHAIN" --to "$RECIPIENT" --amount 10 | jq -r '.transactionHash // .txHash // .hash // empty')
 npx hardhat token:transfer-and-call --network localhost --json --amount 10 --from "$CONTRACT_ZETACHAIN" --to "$ZRC20_ETHEREUM" --gas-amount 1  --function "hello(bytes)" --payload 0x123 --receiver "$HELLO"
 
-yarn zetachain localnet check
+yarn zetachain localnet check --no-analytics
 
 TOKEN=$(npx hardhat token:mint --network localhost --json --contract "$CONTRACT_ETHEREUM" --to "$RECIPIENT" --amount 10 | jq -r '.transactionHash // .txHash // .hash // empty')
 npx hardhat token:transfer-and-call --network localhost --json --amount 10 --from "$CONTRACT_ETHEREUM" --to "$ZRC20_BNB" --gas-amount 1  --function "hello(bytes)" --payload 0x123 --receiver "$HELLO"
 
-yarn zetachain localnet check
+yarn zetachain localnet check --no-analytics
 
 TOKEN=$(npx hardhat token:mint --network localhost --json --contract "$CONTRACT_BNB" --to "$RECIPIENT" --amount 10 | jq -r '.transactionHash // .txHash // .hash // empty')
 npx hardhat token:transfer-and-call --network localhost --json --amount 10 --from "$CONTRACT_BNB" --function "hello(bytes)" --payload 0x123 --receiver "$HELLO"
 
-yarn zetachain localnet check
+yarn zetachain localnet check --no-analytics
 
-yarn zetachain localnet stop
+yarn zetachain localnet stop --no-analytics

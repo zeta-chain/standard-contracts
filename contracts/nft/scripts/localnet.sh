@@ -55,44 +55,44 @@ cast send "$CONTRACT_BNB" "setUniversal(address)" "$CONTRACT_ZETACHAIN" --rpc-ur
 cast send "$CONTRACT_ZETACHAIN" "setConnected(address,bytes)" "$ZRC20_ETHEREUM" "$CONTRACT_ETHEREUM" --rpc-url "$RPC" --private-key "$PRIVATE_KEY" &>/dev/null
 cast send "$CONTRACT_ZETACHAIN" "setConnected(address,bytes)" "$ZRC20_BNB" "$CONTRACT_BNB" --rpc-url "$RPC" --private-key "$PRIVATE_KEY" &>/dev/null
 
-yarn zetachain localnet check
+yarn zetachain localnet check --no-analytics
 balance
 
 NFT_ID=$(npx hardhat nft:mint --network localhost --json --contract "$CONTRACT_ZETACHAIN" --token-uri https://example.com/nft/metadata/1 | jq -r '.tokenId')
 echo -e "\nMinted NFT with ID: $NFT_ID on ZetaChain."
 
-yarn zetachain localnet check
+yarn zetachain localnet check --no-analytics
 balance
 
 echo -e "\nTransferring NFT: ZetaChain → Ethereum..."
 npx hardhat nft:transfer --network localhost --json --token-id "$NFT_ID" --contract "$CONTRACT_ZETACHAIN" --destination "$ZRC20_ETHEREUM" --gas-amount 1
 
-yarn zetachain localnet check
+yarn zetachain localnet check --no-analytics
 balance
 
 echo -e "\nTransferring NFT: Ethereum → BNB..."
 npx hardhat nft:transfer --network localhost --json --token-id "$NFT_ID" --contract "$CONTRACT_ETHEREUM" --destination "$ZRC20_BNB" --gas-amount 1
 
-yarn zetachain localnet check
+yarn zetachain localnet check --no-analytics
 balance
 
 echo -e "\nTransferring NFT: BNB → ZetaChain..."
 npx hardhat nft:transfer --network localhost --json --token-id "$NFT_ID" --contract "$CONTRACT_BNB"
 
-yarn zetachain localnet check
+yarn zetachain localnet check --no-analytics
 balance
 
 NFT_ID=$(npx hardhat nft:mint --network localhost --json --contract "$CONTRACT_ZETACHAIN" --token-uri https://example.com/nft/metadata/1 | jq -r '.tokenId')
 npx hardhat nft:transfer-and-call --network localhost --json --token-id "$NFT_ID" --contract "$CONTRACT_ZETACHAIN" --function "hello(bytes)" --payload 0x123 --receiver "$HELLO" --destination "$ZRC20_ETHEREUM" --gas-amount 1
 
-yarn zetachain localnet check
+yarn zetachain localnet check --no-analytics
 
 NFT_ID=$(npx hardhat nft:mint --network localhost --json --contract "$CONTRACT_ETHEREUM" --token-uri https://example.com/nft/metadata/1 | jq -r '.tokenId')
 npx hardhat nft:transfer-and-call --network localhost --json --token-id "$NFT_ID" --contract "$CONTRACT_ETHEREUM" --function "hello(bytes)" --payload 0x123 --receiver "$HELLO" --destination "$ZRC20_BNB" --gas-amount 1
 
-yarn zetachain localnet check
+yarn zetachain localnet check --no-analytics
 
 NFT_ID=$(npx hardhat nft:mint --network localhost --json --contract "$CONTRACT_BNB" --token-uri https://example.com/nft/metadata/1 | jq -r '.tokenId')
 npx hardhat nft:transfer-and-call --network localhost --json --token-id "$NFT_ID" --contract "$CONTRACT_BNB" --function "hello(bytes)" --payload 0x123 --receiver "$HELLO"
 
-yarn zetachain localnet stop
+yarn zetachain localnet stop --no-analytics
