@@ -20,9 +20,6 @@ function balance() {
   echo "---------------------------------------------"
 }
 
-echo -e "\n🚀 Compiling contracts..."
-npx hardhat compile --force --quiet
-
 forge build
 
 ZRC20_ETHEREUM=$(jq -r '.addresses[] | select(.type=="ZRC-20 ETH.ETH on 11155112") | .address' localnet.json)
