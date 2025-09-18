@@ -6,7 +6,7 @@ set -o pipefail
 
 yarn zetachain localnet start --anvil "--code-size-limit 1000000 -q" --force-kill --exit-on-error --no-analytics &
 
-while [ ! -f "localnet.json" ]; do sleep 1; done
+while [ ! -f "$HOME/.zetachain/localnet/registry.json" ]; do sleep 1; done
 
 function balance() {
   local ZETACHAIN=$(cast call "$CONTRACT_ZETACHAIN" "balanceOf(address)(uint256)" "$RECIPIENT")
@@ -55,7 +55,6 @@ CONTRACT_ETHEREUM=$(npx tsx commands deploy \
   --private-key "$PRIVATE_KEY" \
   --name EVMUniversalNFT \
   --gateway "$GATEWAY_ETHEREUM" \
-  --uniswap-router "$UNISWAP_ROUTER" \
   --gas-limit 1000000 | jq -r '.contractAddress')
 echo -e "🚀 Deployed NFT contract on Ethereum: $CONTRACT_ETHEREUM"
 
@@ -64,7 +63,6 @@ CONTRACT_BNB=$(npx tsx commands deploy \
   --private-key "$PRIVATE_KEY" \
   --name EVMUniversalNFT \
   --gateway "$GATEWAY_BNB" \
-  --uniswap-router "$UNISWAP_ROUTER" \
   --gas-limit 1000000 | jq -r '.contractAddress')
 echo -e "🚀 Deployed NFT contract on BNB chain: $CONTRACT_BNB"
 

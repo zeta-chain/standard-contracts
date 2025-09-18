@@ -1,5 +1,3 @@
-import fs from "fs";
-import path from "path";
 import { Command } from "commander";
 import { ethers } from "ethers";
 import { loadContractArtifacts } from "./common";
@@ -19,45 +17,14 @@ const main = async (opts: any) => {
     await implementation.deployed();
 
     const iface = new ethers.utils.Interface(abi);
-    const initEntry = (abi as any[]).find(
-      (e: any) => e.type === "function" && e.name === "initialize"
-    );
-    if (!initEntry) {
-      throw new Error("initialize function not found in ABI");
-    }
-
-    const initInputs = initEntry.inputs || [];
-    let initArgs: any[] = [];
-    // Support both EVM (5 args) and ZetaChain (6 args) variants
-    if (initInputs.length === 6) {
-      // (initialOwner, name, symbol, gatewayAddress, gas, uniswapRouterAddress)
-      if (!opts.uniswapRouter) {
-        throw new Error(
-          "uniswapRouter is required by this contract's initialize signature"
-        );
-      }
-      initArgs = [
-        signer.address,
-        opts.tokenName,
-        opts.tokenSymbol,
-        opts.gateway,
-        opts.gasLimit,
-        opts.uniswapRouter,
-      ];
-    } else if (initInputs.length === 5) {
-      // (initialOwner, name, symbol, gatewayAddress, gas)
-      initArgs = [
-        signer.address,
-        opts.tokenName,
-        opts.tokenSymbol,
-        opts.gateway,
-        opts.gasLimit,
-      ];
-    } else {
-      throw new Error(
-        `Unsupported initialize signature with ${initInputs.length} arguments`
-      );
-    }
+    const initArgs = [
+      signer.address,
+      opts.tokenName,
+      opts.tokenSymbol,
+      opts.gateway,
+      opts.gasLimit,
+      ...(opts.uniswapRouter ? [opts.uniswapRouter] : []),
+    ];
 
     const initData = iface.encodeFunctionData("initialize", initArgs);
 
@@ -103,8 +70,7 @@ export const deploy = new Command("deploy")
   .option("-n, --name <name>", "Contract name", "Swap")
   .option(
     "-u, --uniswap-router <address>",
-    "Uniswap V2 Router address (only for ZetaChain variant)",
-    "0x2ca7d64A7EFE2D62A725E2B35Cf7230D6677FfEe"
+    "Uniswap V2 Router address (only for ZetaChain variant)"
   )
   .option(
     "-g, --gateway <address>",
