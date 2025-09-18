@@ -99,16 +99,16 @@ yarn zetachain localnet check --no-analytics
 balance
 
 NFT_ID=$(npx tsx commands mint --rpc "$RPC" --private-key "$PRIVATE_KEY" --contract "$CONTRACT_ZETACHAIN" --token-uri https://example.com/nft/metadata/1 | jq -r '.tokenId')
-npx hardhat nft:transfer-and-call --network localhost --json --token-id "$NFT_ID" --contract "$CONTRACT_ZETACHAIN" --function "hello(bytes)" --payload 0x123 --receiver "$HELLO" --destination "$ZRC20_ETHEREUM" --gas-amount 1
+npx tsx commands transfer-and-call --rpc "$RPC" --private-key "$PRIVATE_KEY" --contract "$CONTRACT_ZETACHAIN" --token-id "$NFT_ID" --function "hello(bytes)" --payload 0x123 --receiver "$HELLO" --destination "$ZRC20_ETHEREUM" --gas-amount 1
 
 yarn zetachain localnet check --no-analytics
 
 NFT_ID=$(npx tsx commands mint --rpc "$RPC" --private-key "$PRIVATE_KEY" --contract "$CONTRACT_ETHEREUM" --token-uri https://example.com/nft/metadata/1 | jq -r '.tokenId')
-npx hardhat nft:transfer-and-call --network localhost --json --token-id "$NFT_ID" --contract "$CONTRACT_ETHEREUM" --function "hello(bytes)" --payload 0x123 --receiver "$HELLO" --destination "$ZRC20_BNB" --gas-amount 1
+npx tsx commands transfer-and-call --rpc "$RPC" --private-key "$PRIVATE_KEY" --contract "$CONTRACT_ETHEREUM" --token-id "$NFT_ID" --function "hello(bytes)" --payload 0x123 --receiver "$HELLO" --destination "$ZRC20_BNB" --gas-amount 1
 
 yarn zetachain localnet check --no-analytics
 
 NFT_ID=$(npx tsx commands mint --rpc "$RPC" --private-key "$PRIVATE_KEY" --contract "$CONTRACT_BNB" --token-uri https://example.com/nft/metadata/1 | jq -r '.tokenId')
-npx hardhat nft:transfer-and-call --network localhost --json --token-id "$NFT_ID" --contract "$CONTRACT_BNB" --function "hello(bytes)" --payload 0x123 --receiver "$HELLO"
+npx tsx commands transfer-and-call --rpc "$RPC" --private-key "$PRIVATE_KEY" --contract "$CONTRACT_BNB" --token-id "$NFT_ID" --function "hello(bytes)" --payload 0x123 --receiver "$HELLO"
 
 yarn zetachain localnet stop --no-analytics

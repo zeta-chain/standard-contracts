@@ -1,8 +1,7 @@
 import { Command } from "commander";
 import { ethers } from "ethers";
 import isURL from "validator/lib/isURL";
-
-const DEFAULT_GAS_LIMIT = 300000;
+import { loadContractArtifacts } from "./common";
 
 const main = async (opts: any) => {
   const provider = new ethers.providers.JsonRpcProvider(opts.rpc);
@@ -26,14 +25,8 @@ const main = async (opts: any) => {
     );
   }
 
-  const contract = new ethers.Contract(
-    opts.contract,
-    [
-      "function safeMint(address to, string tokenUri) external",
-      "event Transfer(address indexed from, address indexed to, uint256 indexed tokenId)",
-    ],
-    signer
-  );
+  const { abi } = loadContractArtifacts(opts.name);
+  const contract = new ethers.Contract(opts.contract, abi, signer);
 
   const recipient = opts.to || signer.address;
 
@@ -78,5 +71,6 @@ export const mint = new Command("mint")
     "-u, --token-uri <uri>",
     "Token metadata URI (https:// or ipfs://)"
   )
-  .option("-g, --gas-limit <number>", "Gas limit", String(DEFAULT_GAS_LIMIT))
+  .option("-n, --name <name>", "Contract name", "ZetaChainUniversalNFT")
+  .option("-g, --gas-limit <number>", "Gas limit", "300000")
   .action(main);
