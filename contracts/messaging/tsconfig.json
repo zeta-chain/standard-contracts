@@ -1,11 +1,17 @@
 {
   "compilerOptions": {
-    "module": "nodenext",
-    "moduleResolution": "nodenext",
+    "baseUrl": ".",
+    "declaration": true,
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
-    "strict": true,
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "noImplicitAny": true,
+    "target": "es2020",
+    "resolveJsonModule": true,
+    "outDir": "./dist",
     "skipLibCheck": true,
-    "resolveJsonModule": true
-  }
+    "sourceMap": false,
+    "strict": true
+  },
 }

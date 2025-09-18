@@ -4,9 +4,9 @@ set -e
 set -x
 set -o pipefail
 
-yarn zetachain localnet start --force-kill --exit-on-error --no-analytics &
+yarn zetachain localnet start --anvil "--code-size-limit 1000000 -q" --force-kill --exit-on-error --no-analytics &
 
-while [ ! -f "localnet.json" ]; do sleep 1; done
+while [ ! -f "$HOME/.zetachain/localnet/registry.json" ]; do sleep 1; done
 
 function balance() {
   local ZETACHAIN=$(cast call "$CONTRACT_ZETACHAIN" "balanceOf(address)(uint256)" "$RECIPIENT")
@@ -21,8 +21,6 @@ function balance() {
 }
 
 echo -e "\n🚀 Compiling contracts..."
-npx hardhat compile --force --quiet
-
 forge build
 
 ZRC20_ETHEREUM=$(jq -r '.addresses[] | select(.type=="ZRC-20 ETH.ETH on 11155112") | .address' localnet.json)
@@ -35,7 +33,13 @@ PRIVATE_KEY=$(jq -r '.private_keys[0]' ~/.zetachain/localnet/anvil.json) && echo
 RECIPIENT=$(cast wallet address $PRIVATE_KEY) && echo $RECIPIENT
 RPC=http://localhost:8545
 
-CONTRACT_ZETACHAIN=$(npx hardhat token:deploy --name ZetaChainUniversalToken --network localhost --gateway "$GATEWAY_ZETACHAIN" --uniswap-router "$UNISWAP_ROUTER" --json | jq -r '.contractAddress')
+CONTRACT_ZETACHAIN=$(npx tsx commands deploy \
+  --rpc "$RPC" \
+  --private-key "$PRIVATE_KEY" \
+  --name ZetaChainUniversalToken \
+  --uniswap-router "$UNISWAP_ROUTER" \
+  --gateway "$GATEWAY_ZETACHAIN" \
+  --gas-limit 1000000 | jq -r '.contractAddress')
 echo -e "\n🚀 Deployed token contract on ZetaChain: $CONTRACT_ZETACHAIN"
 
 HELLO=$(forge create Hello \
@@ -44,10 +48,20 @@ HELLO=$(forge create Hello \
   --broadcast \
   --json | jq -r .deployedTo) && echo $HELLO
 
-CONTRACT_ETHEREUM=$(npx hardhat token:deploy --name EVMUniversalToken --json --network localhost --gateway "$GATEWAY_ETHEREUM" | jq -r '.contractAddress')
+CONTRACT_ETHEREUM=$(npx tsx commands deploy \
+  --rpc "$RPC" \
+  --private-key "$PRIVATE_KEY" \
+  --name EVMUniversalToken \
+  --gateway "$GATEWAY_ETHEREUM" \
+  --gas-limit 1000000 | jq -r '.contractAddress')
 echo -e "🚀 Deployed token contract on Ethereum: $CONTRACT_ETHEREUM"
 
-CONTRACT_BNB=$(npx hardhat token:deploy --name EVMUniversalToken --json --network localhost --gateway "$GATEWAY_BNB" | jq -r '.contractAddress')
+CONTRACT_BNB=$(npx tsx commands deploy \
+  --rpc "$RPC" \
+  --private-key "$PRIVATE_KEY" \
+  --name EVMUniversalToken \
+  --gateway "$GATEWAY_BNB" \
+  --gas-limit 1000000 | jq -r '.contractAddress')
 echo -e "🚀 Deployed token contract on BNB chain: $CONTRACT_BNB"
 
 echo -e "\n📮 User Address: $RECIPIENT"
@@ -61,42 +75,103 @@ cast send "$CONTRACT_ZETACHAIN" "setConnected(address,bytes)" "$ZRC20_BNB" "$CON
 yarn zetachain localnet check --no-analytics
 balance
 
-TOKEN=$(npx hardhat token:mint --network localhost --json --contract "$CONTRACT_ZETACHAIN" --to "$RECIPIENT" --amount 10 | jq -r '.transactionHash // .txHash // .hash // empty')
+TOKEN=$(npx tsx commands mint \
+  --rpc "$RPC" \
+  --private-key "$PRIVATE_KEY" \
+  --contract "$CONTRACT_ZETACHAIN" \
+  --to "$RECIPIENT" \
+  --amount 10 | jq -r '.mintTransactionHash // .txHash // .hash // empty')
 echo -e "\nMinted 10 tokens on ZetaChain."
 
 yarn zetachain localnet check --no-analytics
 balance
 
 echo -e "\nTransferring token: ZetaChain → Ethereum..."
-npx hardhat token:transfer --network localhost --json --amount 10 --from "$CONTRACT_ZETACHAIN" --to "$ZRC20_ETHEREUM" --gas-amount 1
+npx tsx commands transfer \
+  --rpc "$RPC" \
+  --private-key "$PRIVATE_KEY" \
+  --from "$CONTRACT_ZETACHAIN" \
+  --to "$ZRC20_ETHEREUM" \
+  --amount 10 \
+  --gas-amount 1
 
 yarn zetachain localnet check --no-analytics
 balance
 
 echo -e "\nTransferring token: Ethereum → BNB..."
-npx hardhat token:transfer --network localhost --json --amount 10 --from "$CONTRACT_ETHEREUM" --to "$ZRC20_BNB" --gas-amount 1
+npx tsx commands transfer \
+  --rpc "$RPC" \
+  --private-key "$PRIVATE_KEY" \
+  --from "$CONTRACT_ETHEREUM" \
+  --to "$ZRC20_BNB" \
+  --amount 10 \
+  --gas-amount 1
 
 yarn zetachain localnet check --no-analytics
 balance
 
 echo -e "\nTransferring token: BNB → ZetaChain..."
-npx hardhat token:transfer --network localhost --json --amount 10 --from "$CONTRACT_BNB"
+npx tsx commands transfer \
+  --rpc "$RPC" \
+  --private-key "$PRIVATE_KEY" \
+  --from "$CONTRACT_BNB" \
+  --amount 10
 
 yarn zetachain localnet check --no-analytics
 balance
 
-TOKEN=$(npx hardhat token:mint --network localhost --json --contract "$CONTRACT_ZETACHAIN" --to "$RECIPIENT" --amount 10 | jq -r '.transactionHash // .txHash // .hash // empty')
-npx hardhat token:transfer-and-call --network localhost --json --amount 10 --from "$CONTRACT_ZETACHAIN" --to "$ZRC20_ETHEREUM" --gas-amount 1  --function "hello(bytes)" --payload 0x123 --receiver "$HELLO"
+TOKEN=$(npx tsx commands mint \
+  --rpc "$RPC" \
+  --private-key "$PRIVATE_KEY" \
+  --contract "$CONTRACT_ZETACHAIN" \
+  --to "$RECIPIENT" \
+  --amount 10 | jq -r '.mintTransactionHash // .txHash // .hash // empty')
+npx tsx commands transfer-and-call \
+  --rpc "$RPC" \
+  --private-key "$PRIVATE_KEY" \
+  --from "$CONTRACT_ZETACHAIN" \
+  --to "$ZRC20_ETHEREUM" \
+  --amount 10 \
+  --gas-amount 1 \
+  --function "hello(bytes)" \
+  --payload 0x123 \
+  --receiver "$HELLO"
 
 yarn zetachain localnet check --no-analytics
 
-TOKEN=$(npx hardhat token:mint --network localhost --json --contract "$CONTRACT_ETHEREUM" --to "$RECIPIENT" --amount 10 | jq -r '.transactionHash // .txHash // .hash // empty')
-npx hardhat token:transfer-and-call --network localhost --json --amount 10 --from "$CONTRACT_ETHEREUM" --to "$ZRC20_BNB" --gas-amount 1  --function "hello(bytes)" --payload 0x123 --receiver "$HELLO"
+TOKEN=$(npx tsx commands mint \
+  --rpc "$RPC" \
+  --private-key "$PRIVATE_KEY" \
+  --contract "$CONTRACT_ETHEREUM" \
+  --to "$RECIPIENT" \
+  --amount 10 | jq -r '.mintTransactionHash // .txHash // .hash // empty')
+npx tsx commands transfer-and-call \
+  --rpc "$RPC" \
+  --private-key "$PRIVATE_KEY" \
+  --from "$CONTRACT_ETHEREUM" \
+  --to "$ZRC20_BNB" \
+  --amount 10 \
+  --gas-amount 1 \
+  --function "hello(bytes)" \
+  --payload 0x123 \
+  --receiver "$HELLO"
 
 yarn zetachain localnet check --no-analytics
 
-TOKEN=$(npx hardhat token:mint --network localhost --json --contract "$CONTRACT_BNB" --to "$RECIPIENT" --amount 10 | jq -r '.transactionHash // .txHash // .hash // empty')
-npx hardhat token:transfer-and-call --network localhost --json --amount 10 --from "$CONTRACT_BNB" --function "hello(bytes)" --payload 0x123 --receiver "$HELLO"
+TOKEN=$(npx tsx commands mint \
+  --rpc "$RPC" \
+  --private-key "$PRIVATE_KEY" \
+  --contract "$CONTRACT_BNB" \
+  --to "$RECIPIENT" \
+  --amount 10 | jq -r '.mintTransactionHash // .txHash // .hash // empty')
+npx tsx commands transfer-and-call \
+  --rpc "$RPC" \
+  --private-key "$PRIVATE_KEY" \
+  --from "$CONTRACT_BNB" \
+  --amount 10 \
+  --function "hello(bytes)" \
+  --payload 0x123 \
+  --receiver "$HELLO"
 
 yarn zetachain localnet check --no-analytics
 
