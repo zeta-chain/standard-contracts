@@ -81,19 +81,19 @@ yarn zetachain localnet check --no-analytics
 balance
 
 echo -e "\nTransferring NFT: ZetaChain → Ethereum..."
-npx hardhat nft:transfer --network localhost --json --token-id "$NFT_ID" --contract "$CONTRACT_ZETACHAIN" --destination "$ZRC20_ETHEREUM" --gas-amount 1
+npx tsx commands transfer --rpc "$RPC" --private-key "$PRIVATE_KEY" --contract "$CONTRACT_ZETACHAIN" --token-id "$NFT_ID" --destination "$ZRC20_ETHEREUM" --gas-amount 1
 
 yarn zetachain localnet check --no-analytics
 balance
 
 echo -e "\nTransferring NFT: Ethereum → BNB..."
-npx hardhat nft:transfer --network localhost --json --token-id "$NFT_ID" --contract "$CONTRACT_ETHEREUM" --destination "$ZRC20_BNB" --gas-amount 1
+npx tsx commands transfer --rpc "$RPC" --private-key "$PRIVATE_KEY" --contract "$CONTRACT_ETHEREUM" --token-id "$NFT_ID" --destination "$ZRC20_BNB" --gas-amount 1
 
 yarn zetachain localnet check --no-analytics
 balance
 
 echo -e "\nTransferring NFT: BNB → ZetaChain..."
-npx hardhat nft:transfer --network localhost --json --token-id "$NFT_ID" --contract "$CONTRACT_BNB"
+npx tsx commands transfer --rpc "$RPC" --private-key "$PRIVATE_KEY" --contract "$CONTRACT_BNB" --token-id "$NFT_ID"
 
 yarn zetachain localnet check --no-analytics
 balance
