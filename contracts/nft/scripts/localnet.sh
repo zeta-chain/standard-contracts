@@ -4,7 +4,7 @@ set -e
 set -x
 set -o pipefail
 
-yarn zetachain localnet start --force-kill --exit-on-error --no-analytics &
+yarn zetachain localnet start --anvil "--code-size-limit 1000000 -q" --force-kill --exit-on-error --no-analytics &
 
 while [ ! -f "localnet.json" ]; do sleep 1; done
 
@@ -35,7 +35,13 @@ PRIVATE_KEY=$(jq -r '.private_keys[0]' ~/.zetachain/localnet/anvil.json) && echo
 RECIPIENT=$(cast wallet address $PRIVATE_KEY) && echo $RECIPIENT
 RPC=http://localhost:8545
 
-CONTRACT_ZETACHAIN=$(npx hardhat nft:deploy --network localhost --name ZetaChainUniversalNFT --gateway "$GATEWAY_ZETACHAIN" --uniswap-router "$UNISWAP_ROUTER" --json | jq -r '.contractAddress')
+CONTRACT_ZETACHAIN=$(npx tsx commands deploy \
+  --rpc "$RPC" \
+  --private-key "$PRIVATE_KEY" \
+  --name ZetaChainUniversalNFT \
+  --uniswap-router "$UNISWAP_ROUTER" \
+  --gateway "$GATEWAY_ZETACHAIN" \
+  --gas-limit 1000000 | jq -r '.contractAddress')
 echo -e "\n🚀 Deployed NFT contract on ZetaChain: $CONTRACT_ZETACHAIN"
 
 HELLO=$(forge create Hello \
@@ -44,10 +50,22 @@ HELLO=$(forge create Hello \
   --broadcast \
   --json | jq -r .deployedTo) && echo $HELLO
 
-CONTRACT_ETHEREUM=$(npx hardhat nft:deploy --name EVMUniversalNFT --json --network localhost --gateway "$GATEWAY_ETHEREUM" | jq -r '.contractAddress')
+CONTRACT_ETHEREUM=$(npx tsx commands deploy \
+  --rpc "$RPC" \
+  --private-key "$PRIVATE_KEY" \
+  --name EVMUniversalNFT \
+  --gateway "$GATEWAY_ETHEREUM" \
+  --uniswap-router "$UNISWAP_ROUTER" \
+  --gas-limit 1000000 | jq -r '.contractAddress')
 echo -e "🚀 Deployed NFT contract on Ethereum: $CONTRACT_ETHEREUM"
 
-CONTRACT_BNB=$(npx hardhat nft:deploy --name EVMUniversalNFT --json --network localhost --gas-limit 1000000 --gateway "$GATEWAY_BNB" | jq -r '.contractAddress')
+CONTRACT_BNB=$(npx tsx commands deploy \
+  --rpc "$RPC" \
+  --private-key "$PRIVATE_KEY" \
+  --name EVMUniversalNFT \
+  --gateway "$GATEWAY_BNB" \
+  --uniswap-router "$UNISWAP_ROUTER" \
+  --gas-limit 1000000 | jq -r '.contractAddress')
 echo -e "🚀 Deployed NFT contract on BNB chain: $CONTRACT_BNB"
 
 cast send "$CONTRACT_ETHEREUM" "setUniversal(address)" "$CONTRACT_ZETACHAIN" --rpc-url "$RPC" --private-key "$PRIVATE_KEY" &>/dev/null
