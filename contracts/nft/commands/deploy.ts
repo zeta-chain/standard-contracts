@@ -80,10 +80,4 @@ export const deploy = new Command("deploy")
   .option("--gas-limit <number>", "Gas limit for the transaction", "3000000")
   .option("-t, --token-name <name>", "Token name", "Universal NFT")
   .option("-s, --token-symbol <symbol>", "Token symbol", "UNFT")
-  .action((opts) => {
-    opts.gasLimit = Number(opts.gasLimit);
-    main(opts).catch((err) => {
-      console.error("Unhandled error:", err);
-      process.exit(1);
-    });
-  });
+  .action(main);
