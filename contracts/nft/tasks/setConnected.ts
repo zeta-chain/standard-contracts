@@ -1,7 +1,8 @@
+import { ethers } from "ethers";
 import { task } from "hardhat/config";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
+
 import { ZetaChainUniversalNFT } from "@/typechain-types";
-import { ethers } from "ethers";
 
 const DEFAULT_GAS_LIMIT = "300000";
 
@@ -41,11 +42,11 @@ const main = async (args: any, hre: HardhatRuntimeEnvironment) => {
   if (args.json) {
     console.log(
       JSON.stringify({
-        contractAddress: args.contract,
-        zrc20: args.zrc20,
         connectedContractAddress: args.connected,
-        transactionHash: tx.hash,
+        contractAddress: args.contract,
         gasUsed: receipt.gasUsed.toString(),
+        transactionHash: tx.hash,
+        zrc20: args.zrc20,
       })
     );
   } else {
