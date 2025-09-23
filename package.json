@@ -7,12 +7,12 @@
     "build": "sh scripts/build.sh"
   },
   "exports": {
-    "./commands/nft": {
+    "./nft/commands": {
       "import": "./dist/nft/commands/index.js",
       "require": "./dist/nft/commands/index.js",
       "types": "./dist/nft/commands/index.d.ts"
     },
-    "./commands/token": {
+    "./token/commands": {
       "import": "./dist/token/commands/index.js",
       "require": "./dist/token/commands/index.js",
       "types": "./dist/token/commands/index.d.ts"
