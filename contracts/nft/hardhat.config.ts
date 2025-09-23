@@ -1,9 +1,9 @@
-import "./tasks";
 import "@zetachain/localnet/tasks";
 import "@nomicfoundation/hardhat-toolbox";
 import "@zetachain/toolkit/tasks";
 
 import { HardhatUserConfig } from "hardhat/config";
+// @ts-ignore
 import { getHardhatConfig } from "@zetachain/toolkit/client";
 
 import "@nomiclabs/hardhat-ethers";

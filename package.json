@@ -7,20 +7,15 @@
     "build": "sh scripts/build.sh"
   },
   "exports": {
-    "./tasks/nft": {
-      "import": "./dist/nft/tasks/index.js",
-      "require": "./dist/nft/tasks/index.js",
-      "types": "./dist/nft/tasks/index.d.ts"
+    "./commands/nft": {
+      "import": "./dist/commands/nft/index.js",
+      "require": "./dist/commands/nft/index.js",
+      "types": "./dist/commands/nft/index.d.ts"
     },
-    "./tasks/token": {
-      "import": "./dist/token/tasks/index.js",
-      "require": "./dist/token/tasks/index.js",
-      "types": "./dist/token/tasks/index.d.ts"
-    },
-    "./tasks/messaging": {
-      "import": "./dist/messaging/tasks/index.js",
-      "require": "./dist/messaging/tasks/index.js",
-      "types": "./dist/messaging/tasks/index.d.ts"
+    "./commands/token": {
+      "import": "./dist/commands/token/index.js",
+      "require": "./dist/commands/token/index.js",
+      "types": "./dist/commands/token/index.d.ts"
     }
   },
   "files": [
@@ -38,6 +33,7 @@
   ],
   "packageManager": "yarn@1.22.21",
   "devDependencies": {
+    "@types/minimatch": "^6.0.0",
     "typescript": "^5.7.3"
   }
 }
