@@ -13,3 +13,5 @@ const program = new Command()
   .addCommand(transferAndCall);
 
 program.parse();
+
+export { deploy, mint, transfer, transferAndCall };
