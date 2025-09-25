@@ -10,10 +10,10 @@ for dir in ./contracts/*/; do
   subdir=$(echo $dir | cut -d'/' -f2)
   cd $dir
   yarn
-  # npx hardhat compile --force
+  npx hardhat compile --force
   ls
   tsc || true
-  # cp -r artifacts/contracts/* ../../abi/$subdir/
+  cp -r artifacts/contracts/* ../../abi/$subdir/
   cd ../../
 done
 
