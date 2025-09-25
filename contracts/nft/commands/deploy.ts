@@ -3,6 +3,7 @@ import { ethers } from "ethers";
 import { loadContractArtifacts } from "./common";
 
 const main = async (opts: any) => {
+  console.log("!!!!");
   const provider = new ethers.providers.JsonRpcProvider(opts.rpc);
   const signer = new ethers.Wallet(opts.privateKey, provider);
 

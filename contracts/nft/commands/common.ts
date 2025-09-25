@@ -13,7 +13,6 @@ export const loadContractArtifacts = (
     process.cwd(),
     `out/${sourcePath}/${contractName}.json`
   );
-
   try {
     const artifact = JSON.parse(fs.readFileSync(artifactPath, "utf8"));
     return {
