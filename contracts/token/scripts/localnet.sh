@@ -33,7 +33,7 @@ PRIVATE_KEY=$(jq -r '.private_keys[0]' ~/.zetachain/localnet/anvil.json) && echo
 RECIPIENT=$(cast wallet address $PRIVATE_KEY) && echo $RECIPIENT
 RPC=http://localhost:8545
 
-CONTRACT_ZETACHAIN=$(npx tsx commands/run deploy \
+CONTRACT_ZETACHAIN=$(npx tsx commands deploy \
   --rpc "$RPC" \
   --private-key "$PRIVATE_KEY" \
   --name ZetaChainUniversalToken \
@@ -48,7 +48,7 @@ HELLO=$(forge create Hello \
   --broadcast \
   --json | jq -r .deployedTo) && echo $HELLO
 
-CONTRACT_ETHEREUM=$(npx tsx commands/run deploy \
+CONTRACT_ETHEREUM=$(npx tsx commands deploy \
   --rpc "$RPC" \
   --private-key "$PRIVATE_KEY" \
   --name EVMUniversalToken \
@@ -56,7 +56,7 @@ CONTRACT_ETHEREUM=$(npx tsx commands/run deploy \
   --gas-limit 1000000 | jq -r '.contractAddress')
 echo -e "🚀 Deployed token contract on Ethereum: $CONTRACT_ETHEREUM"
 
-CONTRACT_BNB=$(npx tsx commands/run deploy \
+CONTRACT_BNB=$(npx tsx commands deploy \
   --rpc "$RPC" \
   --private-key "$PRIVATE_KEY" \
   --name EVMUniversalToken \
@@ -75,7 +75,7 @@ cast send "$CONTRACT_ZETACHAIN" "setConnected(address,bytes)" "$ZRC20_BNB" "$CON
 yarn zetachain localnet check --no-analytics
 balance
 
-TOKEN=$(npx tsx commands/run mint \
+TOKEN=$(npx tsx commands mint \
   --rpc "$RPC" \
   --private-key "$PRIVATE_KEY" \
   --contract "$CONTRACT_ZETACHAIN" \
@@ -87,7 +87,7 @@ yarn zetachain localnet check --no-analytics
 balance
 
 echo -e "\nTransferring token: ZetaChain → Ethereum..."
-npx tsx commands/run transfer \
+npx tsx commands transfer \
   --rpc "$RPC" \
   --private-key "$PRIVATE_KEY" \
   --from "$CONTRACT_ZETACHAIN" \
@@ -99,7 +99,7 @@ yarn zetachain localnet check --no-analytics
 balance
 
 echo -e "\nTransferring token: Ethereum → BNB..."
-npx tsx commands/run transfer \
+npx tsx commands transfer \
   --rpc "$RPC" \
   --private-key "$PRIVATE_KEY" \
   --from "$CONTRACT_ETHEREUM" \
@@ -111,7 +111,7 @@ yarn zetachain localnet check --no-analytics
 balance
 
 echo -e "\nTransferring token: BNB → ZetaChain..."
-npx tsx commands/run transfer \
+npx tsx commands transfer \
   --rpc "$RPC" \
   --private-key "$PRIVATE_KEY" \
   --from "$CONTRACT_BNB" \
@@ -120,13 +120,13 @@ npx tsx commands/run transfer \
 yarn zetachain localnet check --no-analytics
 balance
 
-TOKEN=$(npx tsx commands/run mint \
+TOKEN=$(npx tsx commands mint \
   --rpc "$RPC" \
   --private-key "$PRIVATE_KEY" \
   --contract "$CONTRACT_ZETACHAIN" \
   --to "$RECIPIENT" \
   --amount 10 | jq -r '.mintTransactionHash // .txHash // .hash // empty')
-npx tsx commands/run transfer-and-call \
+npx tsx commands transfer-and-call \
   --rpc "$RPC" \
   --private-key "$PRIVATE_KEY" \
   --from "$CONTRACT_ZETACHAIN" \
@@ -139,13 +139,13 @@ npx tsx commands/run transfer-and-call \
 
 yarn zetachain localnet check --no-analytics
 
-TOKEN=$(npx tsx commands/run mint \
+TOKEN=$(npx tsx commands mint \
   --rpc "$RPC" \
   --private-key "$PRIVATE_KEY" \
   --contract "$CONTRACT_ETHEREUM" \
   --to "$RECIPIENT" \
   --amount 10 | jq -r '.mintTransactionHash // .txHash // .hash // empty')
-npx tsx commands/run transfer-and-call \
+npx tsx commands transfer-and-call \
   --rpc "$RPC" \
   --private-key "$PRIVATE_KEY" \
   --from "$CONTRACT_ETHEREUM" \
@@ -158,13 +158,13 @@ npx tsx commands/run transfer-and-call \
 
 yarn zetachain localnet check --no-analytics
 
-TOKEN=$(npx tsx commands/run mint \
+TOKEN=$(npx tsx commands mint \
   --rpc "$RPC" \
   --private-key "$PRIVATE_KEY" \
   --contract "$CONTRACT_BNB" \
   --to "$RECIPIENT" \
   --amount 10 | jq -r '.mintTransactionHash // .txHash // .hash // empty')
-npx tsx commands/run transfer-and-call \
+npx tsx commands transfer-and-call \
   --rpc "$RPC" \
   --private-key "$PRIVATE_KEY" \
   --from "$CONTRACT_BNB" \

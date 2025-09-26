@@ -8,14 +8,14 @@
   },
   "exports": {
     "./nft/commands": {
-      "import": "./dist/nft/commands/index.js",
-      "require": "./dist/nft/commands/index.js",
-      "types": "./dist/nft/commands/index.d.ts"
+      "import": "./dist/nft/commands/commands.js",
+      "require": "./dist/nft/commands/commands.js",
+      "types": "./dist/nft/commands/commands.d.ts"
     },
     "./token/commands": {
-      "import": "./dist/token/commands/index.js",
-      "require": "./dist/token/commands/index.js",
-      "types": "./dist/token/commands/index.d.ts"
+      "import": "./dist/token/commands/commands.js",
+      "require": "./dist/token/commands/commands.js",
+      "types": "./dist/token/commands/commands.d.ts"
     }
   },
   "files": [

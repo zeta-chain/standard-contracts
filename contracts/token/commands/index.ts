@@ -1,4 +1,12 @@
-export { deploy } from "./deploy";
-export { mint } from "./mint";
-export { transfer } from "./transfer";
-export { transferAndCall } from "./transferAndCall";
+#!/usr/bin/env npx tsx
+
+import { Command } from "commander";
+import { deploy, mint, transfer, transferAndCall } from "./commands";
+
+const program = new Command()
+  .addCommand(deploy)
+  .addCommand(mint)
+  .addCommand(transfer)
+  .addCommand(transferAndCall);
+
+program.parse();
