@@ -1,5 +1,6 @@
 import { Command } from "commander";
 import { ethers } from "ethers";
+
 import { loadContractArtifacts } from "./common";
 
 const normalizeBytes = (input?: string): string => {
@@ -70,7 +71,10 @@ const main = async (opts: any) => {
 };
 
 export const transferAndCall = new Command("transfer-and-call")
-  .description("Transfer token cross-chain and call a function on the receiver")
+  .description(
+    "Transfer token cross-chain and call a function on the receiver\n" +
+      "Note: Requires compiled contracts. Run 'forge build' before using this command."
+  )
   .requiredOption("-r, --rpc <url>", "RPC URL")
   .requiredOption("-k, --private-key <key>", "Private key")
   .requiredOption("-f, --from <address>", "Token contract address")

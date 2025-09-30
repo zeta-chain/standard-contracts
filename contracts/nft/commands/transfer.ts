@@ -1,5 +1,6 @@
 import { Command } from "commander";
 import { ethers } from "ethers";
+
 import { loadContractArtifacts } from "./common";
 
 const main = async (opts: any) => {
@@ -52,7 +53,10 @@ const main = async (opts: any) => {
 };
 
 export const transfer = new Command("transfer")
-  .description("Transfer and lock an NFT cross-chain")
+  .description(
+    "Transfer and lock an NFT cross-chain\n" +
+      "Note: Requires compiled contracts. Run 'forge build' before using this command."
+  )
   .requiredOption("-r, --rpc <url>", "RPC URL")
   .requiredOption("-k, --private-key <key>", "Private key")
   .requiredOption("-c, --contract <address>", "NFT contract address")

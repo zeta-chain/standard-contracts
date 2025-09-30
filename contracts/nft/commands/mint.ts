@@ -1,6 +1,7 @@
 import { Command } from "commander";
 import { ethers } from "ethers";
 import isURL from "validator/lib/isURL";
+
 import { loadContractArtifacts } from "./common";
 
 const main = async (opts: any) => {
@@ -62,7 +63,10 @@ const main = async (opts: any) => {
 };
 
 export const mint = new Command("mint")
-  .description("Mint an NFT on a deployed Universal NFT contract")
+  .description(
+    "Mint an NFT on a deployed Universal NFT contract\n" +
+      "Note: Requires compiled contracts. Run 'forge build' before using this command."
+  )
   .requiredOption("-r, --rpc <url>", "RPC URL")
   .requiredOption("-k, --private-key <key>", "Private key")
   .requiredOption("-c, --contract <address>", "Deployed NFT contract address")

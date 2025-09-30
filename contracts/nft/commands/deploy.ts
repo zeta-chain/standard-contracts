@@ -1,5 +1,6 @@
 import { Command } from "commander";
 import { ethers } from "ethers";
+
 import { loadContractArtifacts } from "./common";
 
 const main = async (opts: any) => {
@@ -44,8 +45,8 @@ const main = async (opts: any) => {
     console.log(
       JSON.stringify({
         contractAddress: proxy.address,
-        implementationAddress: implementation.address,
         deployer: signer.address,
+        implementationAddress: implementation.address,
         network: networkInfo,
         transactionHash: proxy.deployTransaction?.hash,
       })
@@ -60,7 +61,10 @@ const main = async (opts: any) => {
 };
 
 export const deploy = new Command("deploy")
-  .description("Deploy the Universal NFT contract behind an ERC1967 proxy")
+  .description(
+    "Deploy the Universal NFT contract behind an ERC1967 proxy\n" +
+      "Note: Requires compiled contracts. Run 'forge build' before using this command."
+  )
   .requiredOption(
     "-r, --rpc <url>",
     "RPC URL (default: testnet)",

@@ -1,5 +1,6 @@
 import { Command } from "commander";
 import { ethers } from "ethers";
+
 import { loadContractArtifacts } from "./common";
 
 const main = async (opts: any) => {
@@ -22,16 +23,19 @@ const main = async (opts: any) => {
 
   const output = {
     contractAddress: opts.contract,
+    gasUsed: receipt.gasUsed?.toString?.() ?? String(receipt.gasUsed),
     mintTransactionHash: tx.hash,
     recipient: recipient,
-    gasUsed: receipt.gasUsed?.toString?.() ?? String(receipt.gasUsed),
   };
 
   console.log(JSON.stringify(output));
 };
 
 export const mint = new Command("mint")
-  .description("Mint tokens on a deployed Universal Token contract")
+  .description(
+    "Mint tokens on a deployed Universal Token contract\n" +
+      "Note: Requires compiled contracts. Run 'forge build' before using this command."
+  )
   .requiredOption("-r, --rpc <url>", "RPC URL")
   .requiredOption("-k, --private-key <key>", "Private key")
   .requiredOption("-c, --contract <address>", "Deployed token contract address")
