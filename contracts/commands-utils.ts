@@ -52,7 +52,7 @@ export const loadContractArtifacts = (
     if (!artifact.abi) {
       throw new Error("Artifact file is missing 'abi' field");
     }
-    if (!artifact.bytecode && artifact.bytecode !== "0x") {
+    if (!("bytecode" in artifact)) {
       throw new Error("Artifact file is missing 'bytecode' field");
     }
 
