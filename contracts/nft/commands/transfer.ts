@@ -1,6 +1,7 @@
 import { Command } from "commander";
 import { ethers } from "ethers";
-import { loadContractArtifacts } from "./common";
+
+import { loadContractArtifacts, compileNote } from "./common";
 
 const main = async (opts: any) => {
   const provider = new ethers.providers.JsonRpcProvider(opts.rpc);
@@ -51,8 +52,11 @@ const main = async (opts: any) => {
   );
 };
 
+const summary = "Transfer and lock an NFT cross-chain";
+
 export const transfer = new Command("transfer")
-  .description("Transfer and lock an NFT cross-chain")
+  .summary(summary)
+  .description(`${summary}\n${compileNote}`)
   .requiredOption("-r, --rpc <url>", "RPC URL")
   .requiredOption("-k, --private-key <key>", "Private key")
   .requiredOption("-c, --contract <address>", "NFT contract address")

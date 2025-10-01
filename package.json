@@ -7,15 +7,15 @@
     "build": "sh scripts/build.sh"
   },
   "exports": {
-    "./commands/nft": {
-      "import": "./dist/commands/nft/index.js",
-      "require": "./dist/commands/nft/index.js",
-      "types": "./dist/commands/nft/index.d.ts"
+    "./nft/commands": {
+      "import": "./dist/nft/commands/commands.js",
+      "require": "./dist/nft/commands/commands.js",
+      "types": "./dist/nft/commands/commands.d.ts"
     },
-    "./commands/token": {
-      "import": "./dist/commands/token/index.js",
-      "require": "./dist/commands/token/index.js",
-      "types": "./dist/commands/token/index.d.ts"
+    "./token/commands": {
+      "import": "./dist/token/commands/commands.js",
+      "require": "./dist/token/commands/commands.js",
+      "types": "./dist/token/commands/commands.d.ts"
     }
   },
   "files": [
@@ -35,5 +35,10 @@
   "devDependencies": {
     "@types/minimatch": "^6.0.0",
     "typescript": "^5.7.3"
+  },
+  "dependencies": {
+    "commander": "^14.0.1",
+    "ethers": "^5.4.7",
+    "validator": "^13.15.15"
   }
 }

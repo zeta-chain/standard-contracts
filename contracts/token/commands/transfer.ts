@@ -1,12 +1,13 @@
 import { Command } from "commander";
 import { ethers } from "ethers";
-import { loadContractArtifacts } from "./common";
+
+import { loadContractArtifacts, compileNote } from "./common";
 
 const main = async (opts: any) => {
   const provider = new ethers.providers.JsonRpcProvider(opts.rpc);
   const signer = new ethers.Wallet(opts.privateKey, provider);
 
-  if (!ethers.utils.isAddress(opts.to)) {
+  if (!ethers.utils.isAddress(opts.destination)) {
     throw new Error("Invalid destination ZRC-20 address.");
   }
   if (!ethers.utils.isAddress(opts.from)) {
@@ -26,7 +27,7 @@ const main = async (opts: any) => {
   const receiver = opts.receiver || signer.address;
 
   const tx = await contract.transferCrossChain(
-    opts.to,
+    opts.destination,
     receiver,
     String(opts.amount),
     {
@@ -48,14 +49,17 @@ const main = async (opts: any) => {
   );
 };
 
+const summary = "Transfer and lock a token cross-chain";
+
 export const transfer = new Command("transfer")
-  .description("Transfer and lock a token cross-chain")
+  .summary(summary)
+  .description(`${summary}\n${compileNote}`)
   .requiredOption("-r, --rpc <url>", "RPC URL")
   .requiredOption("-k, --private-key <key>", "Private key")
   .requiredOption("-f, --from <address>", "Token contract address")
   .option("--gas-limit <number>", "Gas limit", "1000000")
   .option(
-    "-t, --to <address>",
+    "-d, --destination <address>",
     "Destination ZRC-20",
     "0x0000000000000000000000000000000000000000"
   )

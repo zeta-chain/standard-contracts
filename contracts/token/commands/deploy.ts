@@ -1,6 +1,7 @@
 import { Command } from "commander";
 import { ethers } from "ethers";
-import { loadContractArtifacts } from "./common";
+
+import { loadContractArtifacts, compileNote } from "./common";
 
 const main = async (opts: any) => {
   const provider = new ethers.providers.JsonRpcProvider(opts.rpc);
@@ -44,8 +45,8 @@ const main = async (opts: any) => {
     console.log(
       JSON.stringify({
         contractAddress: proxy.address,
-        implementationAddress: implementation.address,
         deployer: signer.address,
+        implementationAddress: implementation.address,
         network: networkInfo,
         transactionHash: proxy.deployTransaction?.hash,
       })
@@ -59,8 +60,11 @@ const main = async (opts: any) => {
   }
 };
 
+const summary = "Deploy the Universal Token contract behind an ERC1967 proxy";
+
 export const deploy = new Command("deploy")
-  .description("Deploy the Universal Token contract behind an ERC1967 proxy")
+  .summary(summary)
+  .description(`${summary}\n${compileNote}`)
   .requiredOption(
     "-r, --rpc <url>",
     "RPC URL (default: testnet)",
