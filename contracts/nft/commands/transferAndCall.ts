@@ -1,7 +1,7 @@
 import { Command } from "commander";
 import { ethers } from "ethers";
 
-import { loadContractArtifacts } from "./common";
+import { compileNote, loadContractArtifacts } from "./common";
 
 const normalizeBytes = (input?: string): string => {
   if (!input || input === "0x" || input === "") return "0x";
@@ -73,11 +73,12 @@ const main = async (opts: any) => {
   );
 };
 
+const summary =
+  "Transfer an NFT cross-chain and call a function on the receiver";
+
 export const transferAndCall = new Command("transfer-and-call")
-  .description(
-    "Transfer an NFT cross-chain and call a function on the receiver\n" +
-      "Note: Requires compiled contracts. Run 'forge build' before using this command."
-  )
+  .summary(summary)
+  .description(`${summary}\n${compileNote}`)
   .requiredOption("-r, --rpc <url>", "RPC URL")
   .requiredOption("-k, --private-key <key>", "Private key")
   .requiredOption("-c, --contract <address>", "NFT contract address")

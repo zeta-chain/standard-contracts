@@ -1,6 +1,9 @@
 import path from "path";
 import fs from "fs";
 
+export const compileNote =
+  "Note: Requires compiled contracts. Run 'forge build' before using this command.";
+
 /**
  * Load contract artifacts (ABI & bytecode) from the current working directory.
  *

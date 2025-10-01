@@ -1,1 +1,1 @@
-export { loadContractArtifacts } from "../../commands-utils";
+export { loadContractArtifacts, compileNote } from "../../commands-utils";

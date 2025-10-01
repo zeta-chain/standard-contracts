@@ -1,7 +1,7 @@
 import { Command } from "commander";
 import { ethers } from "ethers";
 
-import { loadContractArtifacts } from "./common";
+import { loadContractArtifacts, compileNote } from "./common";
 
 const main = async (opts: any) => {
   const provider = new ethers.providers.JsonRpcProvider(opts.rpc);
@@ -60,11 +60,11 @@ const main = async (opts: any) => {
   }
 };
 
+const summary = "Deploy the Universal Token contract behind an ERC1967 proxy";
+
 export const deploy = new Command("deploy")
-  .description(
-    "Deploy the Universal Token contract behind an ERC1967 proxy\n" +
-      "Note: Requires compiled contracts. Run 'forge build' before using this command."
-  )
+  .summary(summary)
+  .description(`${summary}\n${compileNote}`)
   .requiredOption(
     "-r, --rpc <url>",
     "RPC URL (default: testnet)",

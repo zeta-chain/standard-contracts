@@ -1,7 +1,7 @@
 import { Command } from "commander";
 import { ethers } from "ethers";
 
-import { loadContractArtifacts } from "./common";
+import { loadContractArtifacts, compileNote } from "./common";
 
 const main = async (opts: any) => {
   const provider = new ethers.providers.JsonRpcProvider(opts.rpc);
@@ -31,11 +31,11 @@ const main = async (opts: any) => {
   console.log(JSON.stringify(output));
 };
 
+const summary = "Mint tokens on a deployed Universal Token contract";
+
 export const mint = new Command("mint")
-  .description(
-    "Mint tokens on a deployed Universal Token contract\n" +
-      "Note: Requires compiled contracts. Run 'forge build' before using this command."
-  )
+  .summary(summary)
+  .description(`${summary}\n${compileNote}`)
   .requiredOption("-r, --rpc <url>", "RPC URL")
   .requiredOption("-k, --private-key <key>", "Private key")
   .requiredOption("-c, --contract <address>", "Deployed token contract address")
