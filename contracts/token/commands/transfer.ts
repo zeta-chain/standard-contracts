@@ -7,7 +7,7 @@ const main = async (opts: any) => {
   const provider = new ethers.providers.JsonRpcProvider(opts.rpc);
   const signer = new ethers.Wallet(opts.privateKey, provider);
 
-  if (!ethers.utils.isAddress(opts.to)) {
+  if (!ethers.utils.isAddress(opts.destination)) {
     throw new Error("Invalid destination ZRC-20 address.");
   }
   if (!ethers.utils.isAddress(opts.from)) {
@@ -27,7 +27,7 @@ const main = async (opts: any) => {
   const receiver = opts.receiver || signer.address;
 
   const tx = await contract.transferCrossChain(
-    opts.to,
+    opts.destination,
     receiver,
     String(opts.amount),
     {
@@ -59,7 +59,7 @@ export const transfer = new Command("transfer")
   .requiredOption("-f, --from <address>", "Token contract address")
   .option("--gas-limit <number>", "Gas limit", "1000000")
   .option(
-    "-t, --to <address>",
+    "-d, --destination <address>",
     "Destination ZRC-20",
     "0x0000000000000000000000000000000000000000"
   )
