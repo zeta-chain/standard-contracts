@@ -79,7 +79,7 @@ TOKEN=$(npx tsx commands mint \
   --rpc "$RPC" \
   --private-key "$PRIVATE_KEY" \
   --contract "$CONTRACT_ZETACHAIN" \
-  --to "$RECIPIENT" \
+  --destination "$RECIPIENT" \
   --amount 10 | jq -r '.mintTransactionHash // .txHash // .hash // empty')
 echo -e "\nMinted 10 tokens on ZetaChain."
 
@@ -91,7 +91,7 @@ npx tsx commands transfer \
   --rpc "$RPC" \
   --private-key "$PRIVATE_KEY" \
   --from "$CONTRACT_ZETACHAIN" \
-  --to "$ZRC20_ETHEREUM" \
+  --destination "$ZRC20_ETHEREUM" \
   --amount 10 \
   --gas-amount 1
 
@@ -103,7 +103,7 @@ npx tsx commands transfer \
   --rpc "$RPC" \
   --private-key "$PRIVATE_KEY" \
   --from "$CONTRACT_ETHEREUM" \
-  --to "$ZRC20_BNB" \
+  --destination "$ZRC20_BNB" \
   --amount 10 \
   --gas-amount 1
 
@@ -124,13 +124,13 @@ TOKEN=$(npx tsx commands mint \
   --rpc "$RPC" \
   --private-key "$PRIVATE_KEY" \
   --contract "$CONTRACT_ZETACHAIN" \
-  --to "$RECIPIENT" \
+  --destination "$RECIPIENT" \
   --amount 10 | jq -r '.mintTransactionHash // .txHash // .hash // empty')
 npx tsx commands transfer-and-call \
   --rpc "$RPC" \
   --private-key "$PRIVATE_KEY" \
   --from "$CONTRACT_ZETACHAIN" \
-  --to "$ZRC20_ETHEREUM" \
+  --destination "$ZRC20_ETHEREUM" \
   --amount 10 \
   --gas-amount 1 \
   --function "hello(bytes)" \
@@ -143,13 +143,13 @@ TOKEN=$(npx tsx commands mint \
   --rpc "$RPC" \
   --private-key "$PRIVATE_KEY" \
   --contract "$CONTRACT_ETHEREUM" \
-  --to "$RECIPIENT" \
+  --destination "$RECIPIENT" \
   --amount 10 | jq -r '.mintTransactionHash // .txHash // .hash // empty')
 npx tsx commands transfer-and-call \
   --rpc "$RPC" \
   --private-key "$PRIVATE_KEY" \
   --from "$CONTRACT_ETHEREUM" \
-  --to "$ZRC20_BNB" \
+  --destination "$ZRC20_BNB" \
   --amount 10 \
   --gas-amount 1 \
   --function "hello(bytes)" \
@@ -162,7 +162,7 @@ TOKEN=$(npx tsx commands mint \
   --rpc "$RPC" \
   --private-key "$PRIVATE_KEY" \
   --contract "$CONTRACT_BNB" \
-  --to "$RECIPIENT" \
+  --destination "$RECIPIENT" \
   --amount 10 | jq -r '.mintTransactionHash // .txHash // .hash // empty')
 npx tsx commands transfer-and-call \
   --rpc "$RPC" \
