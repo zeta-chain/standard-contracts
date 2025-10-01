@@ -143,7 +143,6 @@ TOKEN=$(npx tsx commands mint \
   --rpc "$RPC" \
   --private-key "$PRIVATE_KEY" \
   --contract "$CONTRACT_ETHEREUM" \
-  --destination "$RECIPIENT" \
   --amount 10 | jq -r '.mintTransactionHash // .txHash // .hash // empty')
 npx tsx commands transfer-and-call \
   --rpc "$RPC" \
