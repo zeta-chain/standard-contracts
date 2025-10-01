@@ -79,7 +79,6 @@ TOKEN=$(npx tsx commands mint \
   --rpc "$RPC" \
   --private-key "$PRIVATE_KEY" \
   --contract "$CONTRACT_ZETACHAIN" \
-  --destination "$RECIPIENT" \
   --amount 10 | jq -r '.mintTransactionHash // .txHash // .hash // empty')
 echo -e "\nMinted 10 tokens on ZetaChain."
 
@@ -124,7 +123,6 @@ TOKEN=$(npx tsx commands mint \
   --rpc "$RPC" \
   --private-key "$PRIVATE_KEY" \
   --contract "$CONTRACT_ZETACHAIN" \
-  --destination "$RECIPIENT" \
   --amount 10 | jq -r '.mintTransactionHash // .txHash // .hash // empty')
 npx tsx commands transfer-and-call \
   --rpc "$RPC" \
@@ -161,7 +159,6 @@ TOKEN=$(npx tsx commands mint \
   --rpc "$RPC" \
   --private-key "$PRIVATE_KEY" \
   --contract "$CONTRACT_BNB" \
-  --destination "$RECIPIENT" \
   --amount 10 | jq -r '.mintTransactionHash // .txHash // .hash // empty')
 npx tsx commands transfer-and-call \
   --rpc "$RPC" \
