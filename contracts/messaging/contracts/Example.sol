@@ -13,8 +13,8 @@ contract Example is Messaging {
     event OnRevertEventEVM();
 
     constructor(
-        address _gateway,
         address owner,
+        address _gateway,
         address _router
     ) Messaging(_gateway, owner, _router) {}
 

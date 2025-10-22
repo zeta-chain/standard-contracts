@@ -1,23 +1,17 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import {RevertContext, RevertOptions} from "@zetachain/protocol-contracts/contracts/Revert.sol";
 import "@zetachain/protocol-contracts/contracts/zevm/interfaces/UniversalContract.sol";
-import "@zetachain/protocol-contracts/contracts/zevm/interfaces/IGatewayZEVM.sol";
-import "@zetachain/protocol-contracts/contracts/zevm/GatewayZEVM.sol";
 import {SwapHelperLib} from "@zetachain/toolkit/contracts/SwapHelperLib.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "./interfaces/IBaseRegistry.sol";
 
 contract UniversalRouter is UniversalContract, Ownable {
-    GatewayZEVM public immutable gateway;
     address public immutable uniswapRouter;
     bool public constant isUniversal = true;
     address public immutable contractRegistry;
 
     error TransferFailed();
     error InsufficientOutAmount(uint256 out, uint256 gasFee);
-    error Unauthorized();
     error InvalidAddress();
     error ApproveFailed();
     event OnRevertEvent(
@@ -32,11 +26,6 @@ contract UniversalRouter is UniversalContract, Ownable {
 
     event MessageRelayed();
 
-    modifier onlyGateway() {
-        if (msg.sender != address(gateway)) revert Unauthorized();
-        _;
-    }
-
     struct CallParams {
         bytes receiver;
         address targetToken;
@@ -45,20 +34,12 @@ contract UniversalRouter is UniversalContract, Ownable {
         RevertOptions revertOptions;
     }
 
-    constructor(
-        address payable gatewayAddress,
-        address owner,
-        address uniswapRouterAddress,
-        address contractRegistryAddress
-    ) Ownable(owner) {
-        if (
-            gatewayAddress == address(0) ||
-            uniswapRouterAddress == address(0) ||
-            contractRegistryAddress == address(0)
-        ) revert InvalidAddress();
-        gateway = GatewayZEVM(gatewayAddress);
-        uniswapRouter = uniswapRouterAddress;
-        contractRegistry = contractRegistryAddress;
+    constructor(address owner) Ownable(owner) {
+        if (owner == address(0)) revert InvalidAddress();
+        (bool active, bytes memory uniswapRouterBytes) = registry
+            .getContractInfo(block.chainid, "uniswapV2Router02");
+        if (!active) revert InvalidAddress();
+        uniswapRouter = address(uint160(bytes20(uniswapRouterBytes)));
     }
 
     function onCall(

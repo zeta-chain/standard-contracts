@@ -29,12 +29,7 @@ contract MessagingTest is FoundrySetup {
         vm.startPrank(owner);
 
         // Set router address for testing
-        router = new UniversalRouter(
-            payable(address(zetaSetup.wrapGatewayZEVM())),
-            owner,
-            address(zetaSetup.uniswapV2Router()),
-            contractRegistry
-        );
+        router = new UniversalRouter(owner);
 
         ethMessaging = new Example(
             payable(address(evmSetup.wrapGatewayEVM(chainIdETH))),
