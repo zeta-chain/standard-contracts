@@ -11,6 +11,6 @@ contract EVMUniversalNFT is UniversalNFT {
         address payable gatewayAddress,
         uint256 gasLimit
     ) external initializer {
-        super.initialize(initialOwner, name, symbol, gatewayAddress, gasLimit);
+        super.initialize(initialOwner, name, symbol, gasLimit, gatewayAddress);
     }
 }
