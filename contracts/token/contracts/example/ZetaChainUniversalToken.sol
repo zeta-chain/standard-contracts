@@ -8,17 +8,8 @@ contract ZetaChainUniversalToken is UniversalToken {
         address initialOwner,
         string memory name,
         string memory symbol,
-        address payable gatewayAddress,
-        uint256 gasLimit,
-        address uniswapRouterAddress
+        uint256 gasLimit
     ) external initializer {
-        super.initialize(
-            initialOwner,
-            name,
-            symbol,
-            gatewayAddress,
-            gasLimit,
-            uniswapRouterAddress
-        );
+        super.initialize(initialOwner, name, symbol, gasLimit);
     }
 }

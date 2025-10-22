@@ -22,9 +22,8 @@ const main = async (opts: any) => {
       signer.address,
       opts.tokenName,
       opts.tokenSymbol,
-      opts.gateway,
       opts.gasLimit,
-      ...(opts.uniswapRouter ? [opts.uniswapRouter] : []),
+      ...(opts.gateway ? [opts.gateway] : []),
     ];
 
     const initData = iface.encodeFunctionData("initialize", initArgs);
@@ -72,15 +71,7 @@ export const deploy = new Command("deploy")
   )
   .requiredOption("-k, --private-key <key>", "Private key")
   .option("-n, --name <name>", "Contract name", "ZetaChainUniversalToken")
-  .option(
-    "-u, --uniswap-router <address>",
-    "Uniswap V2 Router address (only for ZetaChain variant)"
-  )
-  .option(
-    "-g, --gateway <address>",
-    "Gateway address (default: testnet)",
-    "0x6c533f7fe93fae114d0954697069df33c9b74fd7"
-  )
+  .option("-g, --gateway <address>", "Gateway address (default: testnet)")
   .option("--gas-limit <number>", "Gas limit for the transaction", "3000000")
   .option("-t, --token-name <name>", "Token name", "Universal Token")
   .option("-s, --token-symbol <symbol>", "Token symbol", "UFT")
