@@ -2,7 +2,7 @@
 
 set -exo pipefail
 
-yarn zetachain localnet start --force-kill --verbosity --no-analytics --exit-on-error debug &
+yarn zetachain localnet start --force-kill --verbosity debug --no-analytics --exit-on-error &
 
 REGISTRY_FILE="$HOME/.zetachain/localnet/registry.json"
 while [ ! -f "$REGISTRY_FILE" ]; do sleep 1; done
