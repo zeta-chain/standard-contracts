@@ -2,7 +2,7 @@
 
 set -exo pipefail
 
-yarn zetachain localnet start --force-kill --exit-on-error --no-analytics &
+yarn zetachain localnet start --force-kill --no-analytics &
 
 REGISTRY_FILE="$HOME/.zetachain/localnet/registry.json"
 while [ ! -f "$REGISTRY_FILE" ]; do sleep 1; done
@@ -17,9 +17,6 @@ ZRC20_BNB=$(jq -r '."98".zrc20Tokens[] | select(.symbol=="BNB.BNB") | .address' 
 GATEWAY_ETHEREUM=$(jq -r '."11155112".contracts[] | select(.contractType=="gateway") | .address' "$REGISTRY_FILE")
 GATEWAY_ZETACHAIN=$(jq -r '."31337".contracts[] | select(.contractType=="gateway") | .address' "$REGISTRY_FILE")
 GATEWAY_BNB=$(jq -r '."98".contracts[] | select(.contractType=="gateway") | .address' "$REGISTRY_FILE")
-UNISWAP_ROUTER=$(jq -r '."31337".contracts[] | select(.contractType=="uniswapV3Router") | .address' "$REGISTRY_FILE")
-CONTRACT_REGISTRY=$(jq -r '."31337".chainInfo.registry' "$REGISTRY_FILE")
-SENDER=0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
 
 CONTRACT_ZETACHAIN=$(npx hardhat deploy --name UniversalRouter --network localhost --json | jq -r '.contractAddress')
 
@@ -50,4 +47,4 @@ npx zetachain localnet check
 
 # yarn zetachain localnet check
 
-# yarn zetachain localnet stop
+yarn zetachain localnet stop
