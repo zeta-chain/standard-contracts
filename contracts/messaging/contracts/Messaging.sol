@@ -31,12 +31,15 @@ abstract contract Messaging is Ownable {
     }
 
     constructor(
-        address gatewayAddress,
         address ownerAddress,
+        address gatewayAddress,
         address routerAddress
     ) Ownable(ownerAddress) {
-        if (gatewayAddress == address(0) || routerAddress == address(0))
-            revert InvalidAddress();
+        if (
+            ownerAddress == address(0) ||
+            gatewayAddress == address(0) ||
+            routerAddress == address(0)
+        ) revert InvalidAddress();
         gateway = GatewayEVM(gatewayAddress);
         router = routerAddress;
     }
