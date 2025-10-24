@@ -4,7 +4,7 @@ import "@zetachain/toolkit/tasks";
 
 import { HardhatUserConfig } from "hardhat/config";
 // @ts-ignore
-import { getHardhatConfig } from "@zetachain/toolkit/client";
+import { getHardhatConfig } from "@zetachain/toolkit/utils";
 
 import "@nomiclabs/hardhat-ethers";
 import "@openzeppelin/hardhat-upgrades";

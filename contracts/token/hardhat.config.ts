@@ -5,7 +5,7 @@ import "@nomiclabs/hardhat-ethers";
 import "@openzeppelin/hardhat-upgrades";
 
 // @ts-ignore
-import { getHardhatConfig } from "@zetachain/toolkit/client";
+import { getHardhatConfig } from "@zetachain/toolkit/utils";
 import { HardhatUserConfig } from "hardhat/config";
 
 const config: HardhatUserConfig = {
