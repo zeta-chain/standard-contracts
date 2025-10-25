@@ -1,9 +1,7 @@
 import "./tasks/deploy";
 import "./tasks/transfer";
 import "./tasks/connect";
-import "@zetachain/localnet/tasks";
 import "@nomicfoundation/hardhat-toolbox";
-import "@zetachain/toolkit/tasks";
 
 import { getHardhatConfigNetworks } from "@zetachain/networks";
 import { HardhatUserConfig } from "hardhat/config";
@@ -14,6 +12,7 @@ const config: HardhatUserConfig = {
   },
   solidity: {
     settings: {
+      evmVersion: "cancun",
       optimizer: {
         enabled: true,
         runs: 200,

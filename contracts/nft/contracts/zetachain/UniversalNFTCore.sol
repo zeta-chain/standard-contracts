@@ -6,9 +6,6 @@ import {ERC721Upgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC72
 import {ERC721URIStorageUpgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC721/extensions/ERC721URIStorageUpgradeable.sol";
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@zetachain/protocol-contracts/contracts/zevm/interfaces/UniversalContract.sol";
-import "@zetachain/protocol-contracts/contracts/zevm/interfaces/IGatewayZEVM.sol";
-import "@zetachain/protocol-contracts/contracts/zevm/interfaces/IWZETA.sol";
-import "@zetachain/protocol-contracts/contracts/zevm/GatewayZEVM.sol";
 import {SwapHelperLib} from "@zetachain/toolkit/contracts/SwapHelperLib.sol";
 import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 
@@ -28,9 +25,6 @@ abstract contract UniversalNFTCore is
     UniversalNFTEvents,
     ReentrancyGuardUpgradeable
 {
-    // Address of the ZetaChain Gateway contract
-    GatewayZEVM public gateway;
-
     // Address of the Uniswap Router for token swaps
     address public uniswapRouter;
 
@@ -44,47 +38,25 @@ abstract contract UniversalNFTCore is
     mapping(address => bytes) public connected;
 
     error TransferFailed();
-    error Unauthorized();
     error InvalidAddress();
     error InvalidGasLimit();
     error ApproveFailed();
     error ZeroMsgValue();
     error TokenRefundFailed();
 
-    modifier onlyGateway() {
-        if (msg.sender != address(gateway)) revert Unauthorized();
-        _;
-    }
-
-    /**
-     * @notice Sets the ZetaChain gateway contract address.
-     * @dev Can only be called by the contract owner.
-     * @param gatewayAddress The address of the gateway contract.
-     */
-    function setGateway(address gatewayAddress) external onlyOwner {
-        if (gatewayAddress == address(0)) revert InvalidAddress();
-        gateway = GatewayZEVM(payable(gatewayAddress));
-    }
-
     /**
      * @notice Initializes the contract.
      * @dev Should be called during contract deployment.
-     * @param gatewayAddress Address of the Gateway contract.
      * @param gasLimit Gas limit for cross-chain calls.
-     * @param uniswapRouterAddress Address of the Uniswap router contract.
      */
-    function __UniversalNFTCore_init(
-        address gatewayAddress,
-        uint256 gasLimit,
-        address uniswapRouterAddress
-    ) internal {
+    function __UniversalNFTCore_init(uint256 gasLimit) internal {
         __ReentrancyGuard_init();
 
-        if (gatewayAddress == address(0) || uniswapRouterAddress == address(0))
-            revert InvalidAddress();
         if (gasLimit == 0) revert InvalidGasLimit();
-        gateway = GatewayZEVM(payable(gatewayAddress));
-        uniswapRouter = uniswapRouterAddress;
+        (bool active, bytes memory uniswapRouterBytes) = registry
+            .getContractInfo(block.chainid, "uniswapV2Router02");
+        if (!active) revert InvalidAddress();
+        uniswapRouter = address(uint160(bytes20(uniswapRouterBytes)));
         gasLimitAmount = gasLimit;
     }
 
@@ -198,7 +170,12 @@ abstract contract UniversalNFTCore is
             .withdrawGasFeeWithGasLimit(gasLimitAmount);
         if (destination != gasZRC20) revert InvalidAddress();
 
-        address WZETA = gateway.zetaToken();
+        (bool active, bytes memory zetaBytes) = registry.getContractInfo(
+            block.chainid,
+            "zetaToken"
+        );
+        address WZETA = address(uint160(bytes20(zetaBytes)));
+
         IWETH9(WZETA).deposit{value: msg.value}();
         if (!IWETH9(WZETA).approve(uniswapRouter, msg.value)) {
             revert ApproveFailed();

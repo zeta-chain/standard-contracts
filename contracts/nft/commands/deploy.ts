@@ -22,9 +22,8 @@ const main = async (opts: any) => {
       signer.address,
       opts.tokenName,
       opts.tokenSymbol,
-      opts.gateway,
       opts.gasLimit,
-      ...(opts.uniswapRouter ? [opts.uniswapRouter] : []),
+      ...(opts.gateway ? [opts.gateway] : []),
     ];
 
     const initData = iface.encodeFunctionData("initialize", initArgs);
@@ -71,16 +70,8 @@ export const deploy = new Command("deploy")
     "https://zetachain-athens-evm.blockpi.network/v1/rpc/public"
   )
   .requiredOption("-k, --private-key <key>", "Private key")
-  .option("-n, --name <name>", "Contract name", "Swap")
-  .option(
-    "-u, --uniswap-router <address>",
-    "Uniswap V2 Router address (only for ZetaChain variant)"
-  )
-  .option(
-    "-g, --gateway <address>",
-    "Gateway address (default: testnet)",
-    "0x6c533f7fe93fae114d0954697069df33c9b74fd7"
-  )
+  .option("-n, --name <name>", "Contract name", "Universal NFT")
+  .option("-g, --gateway <address>", "Gateway address (default: testnet)")
   .option("--gas-limit <number>", "Gas limit for the transaction", "3000000")
   .option("-t, --token-name <name>", "Token name", "Universal NFT")
   .option("-s, --token-symbol <symbol>", "Token symbol", "UNFT")

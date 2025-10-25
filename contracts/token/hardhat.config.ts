@@ -5,7 +5,7 @@ import "@nomiclabs/hardhat-ethers";
 import "@openzeppelin/hardhat-upgrades";
 
 // @ts-ignore
-import { getHardhatConfig } from "@zetachain/toolkit/client";
+import { getHardhatConfig } from "@zetachain/toolkit/utils";
 import { HardhatUserConfig } from "hardhat/config";
 
 const config: HardhatUserConfig = {
@@ -14,10 +14,12 @@ const config: HardhatUserConfig = {
     compilers: [
       {
         settings: {
+          evmVersion: "cancun",
           optimizer: {
             enabled: true,
-            runs: 1000,
+            runs: 200,
           },
+          viaIR: true,
         },
         version: "0.8.26",
       },

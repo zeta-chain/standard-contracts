@@ -19,7 +19,6 @@ contract MessagingTest is FoundrySetup {
     address owner = makeAddr("Owner");
     address alice = makeAddr("Alice");
     address bob = makeAddr("Bob");
-    address contractRegistry = makeAddr("registry");
 
     function setUp() public override {
         super.setUp();
@@ -29,22 +28,17 @@ contract MessagingTest is FoundrySetup {
         vm.startPrank(owner);
 
         // Set router address for testing
-        router = new UniversalRouter(
-            payable(address(zetaSetup.wrapGatewayZEVM())),
-            owner,
-            address(zetaSetup.uniswapV2Router()),
-            contractRegistry
-        );
+        router = new UniversalRouter(owner);
 
         ethMessaging = new Example(
-            payable(address(evmSetup.wrapGatewayEVM(chainIdETH))),
             owner,
+            address(evmSetup.wrapGatewayEVM(chainIdETH)),
             address(router)
         );
 
         bnbMessaging = new Example(
-            payable(address(evmSetup.wrapGatewayEVM(chainIdBNB))),
             owner,
+            address(evmSetup.wrapGatewayEVM(chainIdBNB)),
             address(router)
         );
         ethMessaging.setConnected(97, abi.encodePacked(address(bnbMessaging)));
@@ -62,13 +56,10 @@ contract MessagingTest is FoundrySetup {
             revertMessage: "",
             onRevertGasLimit: 0
         });
-
         vm.expectEmit(false, false, false, true, address(router));
         emit UniversalRouter.MessageRelayed();
-
         vm.expectEmit(false, false, false, true, address(bnbMessaging));
         emit Example.OnMessageReceiveEvent(testData);
-
         vm.prank(alice);
         ethMessaging.sendMessage{value: 1 ether}(
             abi.encodePacked(address(bnbMessaging)),

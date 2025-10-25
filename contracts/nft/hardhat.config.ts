@@ -4,7 +4,7 @@ import "@zetachain/toolkit/tasks";
 
 import { HardhatUserConfig } from "hardhat/config";
 // @ts-ignore
-import { getHardhatConfig } from "@zetachain/toolkit/client";
+import { getHardhatConfig } from "@zetachain/toolkit/utils";
 
 import "@nomiclabs/hardhat-ethers";
 import "@openzeppelin/hardhat-upgrades";
@@ -15,6 +15,7 @@ const config: HardhatUserConfig = {
     compilers: [
       {
         settings: {
+          evmVersion: "cancun",
           optimizer: {
             enabled: true,
             runs: 1000,
